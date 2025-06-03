@@ -5,6 +5,9 @@ public class PlayerController : MonoBehaviour
     public float jumpForce = 400f;
     public float slideDuration = 0.5f;
     public LayerMask groundLayer;
+    public AudioClip jumpClip;
+    public AudioClip slideClip;
+    public AudioClip hitClip;
 
     private Rigidbody2D rb;
     private CapsuleCollider2D coll;
@@ -67,6 +70,10 @@ public class PlayerController : MonoBehaviour
         {
             rb.velocity = new Vector2(rb.velocity.x, 0f);
             rb.AddForce(Vector2.up * jumpForce);
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySound(jumpClip);
+            }
             if (!isGrounded)
             {
                 jumpsRemaining--;
@@ -82,6 +89,10 @@ public class PlayerController : MonoBehaviour
             slideTimer = slideDuration;
             coll.size = new Vector2(colliderSize.x, colliderSize.y / 2f);
             coll.offset = new Vector2(colliderOffset.x, colliderOffset.y - colliderSize.y / 4f);
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySound(slideClip);
+            }
         }
     }
 
@@ -96,6 +107,10 @@ public class PlayerController : MonoBehaviour
     {
         if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Hazard"))
         {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySound(hitClip);
+            }
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.GameOver();

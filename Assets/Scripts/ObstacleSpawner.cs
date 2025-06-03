@@ -13,11 +13,20 @@ public class ObstacleSpawner : MonoBehaviour
 
     void Update()
     {
+        if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
+        {
+            return;
+        }
         timer -= Time.deltaTime;
+        float difficulty = 1f;
+        if (GameManager.Instance != null)
+        {
+            difficulty += GameManager.Instance.GetDistance() / 200f;
+        }
         if (timer <= 0f)
         {
             Spawn();
-            timer = spawnInterval;
+            timer = spawnInterval / difficulty;
         }
     }
 

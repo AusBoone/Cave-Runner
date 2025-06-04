@@ -19,7 +19,15 @@ public class SpeedBoostPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
-            Destroy(gameObject);
+            PooledObject po = GetComponent<PooledObject>();
+            if (po != null && po.Pool != null)
+            {
+                po.Pool.ReturnObject(gameObject);
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

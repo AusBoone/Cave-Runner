@@ -13,8 +13,43 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
    - `ObstacleSpawner` generates stalagmites and stalactites with increasing difficulty.
    - `HazardSpawner` creates pits and bat swarms that spawn faster over time.
    - `Scroller` moves obstacles and scenery leftward.
-4. Add prefabs for your player, obstacles, and hazards, then assign them in the inspector.
-5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart.
-6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. If the player hits an obstacle or hazard, a game-over screen shows your distance and the best score, allowing you to restart.
+   - `CoinSpawner` randomly generates collectible coins.
+   - `Coin` awards coins on contact with the player.
+   - `PowerUpSpawner` spawns temporary power-up items.
+   - `MagnetPowerUp` grants a short-lived coin magnet effect when collected.
+   - `SpeedBoostPowerUp` temporarily increases the player's speed.
+   - `CoinMagnet` attaches to the player and pulls coins in while the effect is active.
+   - `CameraFollow` keeps the camera tracking the player.
+   - `ParallaxBackground` scrolls looping background sprites.
+   - `SteamManager` initializes the Steamworks API and saves high scores to the cloud.
+   - `ObjectPool` provides reusable objects for the spawners.
+4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label field of `GameManager` to a UI Text element.
+5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
+6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
 
+
+## Scene Setup Tips
+- Add a main camera and attach the **CameraFollow** script. Assign the player transform to the script's *target* field so the camera smoothly follows the character.
+- Create one or more background sprites and attach the **ParallaxBackground** script so they loop seamlessly as the player moves.
+- Attach two `AudioSource` components to a new `AudioManager` GameObject—one for music and one for sound effects—then assign them in the inspector.
+- Place `ObstacleSpawner`, `HazardSpawner`, and `CoinSpawner` objects slightly off the right side of the screen (around x = 10) so spawned prefabs scroll in from the side. The spawners automatically reuse objects with an internal pool for smoother performance.
+- Add a `PowerUpSpawner` object with magnet or speed boost prefabs so players can collect temporary power-ups. Attach a `CoinMagnet` component to the player for magnet bonuses.
 This project now includes simple menus, audio hooks, and escalating difficulty but you can further expand it with custom art, music, and polished effects.
+
+## Steam Integration
+The project optionally supports Steam achievements and cloud saves using the
+[Steamworks.NET](https://steamworks.github.io/) plugin.
+
+1. Import the Steamworks.NET package into your Unity project.
+2. Create a new GameObject called `SteamManager` and attach the provided
+   `SteamManager` script.
+3. Ensure your app ID is set up in `steam_appid.txt` when running in the editor.
+
+`SteamManager` saves the player's high score to the Steam Cloud and unlocks two
+example achievements:
+
+- **ACH_DISTANCE_1000** – travel 1000 distance.
+- **ACH_COINS_50** – collect 50 coins.
+
+You can define additional achievements in Steamworks and unlock them using
+`SteamManager.Instance.UnlockAchievement("ID")` from your scripts.

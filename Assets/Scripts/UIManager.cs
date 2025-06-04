@@ -9,6 +9,7 @@ public class UIManager : MonoBehaviour
     public GameObject pausePanel;
     public Text finalScoreLabel;
     public Text highScoreLabel;
+    public Text coinScoreLabel;
 
     void Update()
     {
@@ -57,7 +58,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    public void ShowGameOver(int score, int highScore)
+    public void ShowGameOver(int score, int highScore, int coins)
     {
         if (finalScoreLabel != null)
         {
@@ -66,6 +67,10 @@ public class UIManager : MonoBehaviour
         if (highScoreLabel != null)
         {
             highScoreLabel.text = highScore.ToString();
+        }
+        if (coinScoreLabel != null)
+        {
+            coinScoreLabel.text = coins.ToString();
         }
         if (gameOverPanel != null)
         {

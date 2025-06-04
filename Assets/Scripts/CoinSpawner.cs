@@ -1,13 +1,12 @@
 using UnityEngine;
 
-public class HazardSpawner : MonoBehaviour
+public class CoinSpawner : MonoBehaviour
 {
-    public GameObject[] pitPrefabs;
-    public GameObject[] batPrefabs;
-    public float spawnInterval = 5f;
+    public GameObject[] coinPrefabs;
+    public float spawnInterval = 1.5f;
     public float spawnX = 10f;
-    public float groundY = -3.5f;
-    public float airY = 1.5f;
+    public float minY = -3f;
+    public float maxY = 3f;
     public bool usePooling = true;
 
     private System.Collections.Generic.Dictionary<GameObject, ObjectPool> pools = new System.Collections.Generic.Dictionary<GameObject, ObjectPool>();
@@ -18,11 +17,7 @@ public class HazardSpawner : MonoBehaviour
     {
         if (usePooling)
         {
-            foreach (GameObject prefab in pitPrefabs)
-            {
-                CreatePool(prefab);
-            }
-            foreach (GameObject prefab in batPrefabs)
+            foreach (GameObject prefab in coinPrefabs)
             {
                 CreatePool(prefab);
             }
@@ -36,26 +31,18 @@ public class HazardSpawner : MonoBehaviour
             return;
         }
         timer -= Time.deltaTime;
-        float difficulty = 1f;
-        if (GameManager.Instance != null)
-        {
-            difficulty += GameManager.Instance.GetDistance() / 200f;
-        }
         if (timer <= 0f)
         {
-            SpawnHazard();
-            timer = spawnInterval / difficulty;
+            SpawnCoin();
+            timer = spawnInterval;
         }
     }
 
-    void SpawnHazard()
+    void SpawnCoin()
     {
-        bool spawnPit = Random.value > 0.5f;
-        GameObject[] prefabs = spawnPit ? pitPrefabs : batPrefabs;
-        if (prefabs.Length == 0) return;
-        GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
-        float y = spawnPit ? groundY : airY;
-        Vector3 pos = new Vector3(spawnX, y, 0f);
+        if (coinPrefabs.Length == 0) return;
+        GameObject prefab = coinPrefabs[Random.Range(0, coinPrefabs.Length)];
+        Vector3 pos = new Vector3(spawnX, Random.Range(minY, maxY), 0f);
         if (usePooling && pools.TryGetValue(prefab, out ObjectPool pool))
         {
             pool.GetObject(pos, Quaternion.identity);

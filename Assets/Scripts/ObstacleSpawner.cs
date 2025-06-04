@@ -8,8 +8,26 @@ public class ObstacleSpawner : MonoBehaviour
     public float spawnX = 10f;
     public float groundY = -3.5f;
     public float ceilingY = 3.5f;
+    public bool usePooling = true;
+
+    private System.Collections.Generic.Dictionary<GameObject, ObjectPool> pools = new System.Collections.Generic.Dictionary<GameObject, ObjectPool>();
 
     private float timer;
+
+    void Start()
+    {
+        if (usePooling)
+        {
+            foreach (GameObject prefab in groundObstacles)
+            {
+                CreatePool(prefab);
+            }
+            foreach (GameObject prefab in ceilingObstacles)
+            {
+                CreatePool(prefab);
+            }
+        }
+    }
 
     void Update()
     {
@@ -37,6 +55,23 @@ public class ObstacleSpawner : MonoBehaviour
         if (prefabs.Length == 0) return;
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
         Vector3 pos = new Vector3(spawnX, fromCeiling ? ceilingY : groundY, 0f);
-        Instantiate(prefab, pos, Quaternion.identity);
+        if (usePooling && pools.TryGetValue(prefab, out ObjectPool pool))
+        {
+            pool.GetObject(pos, Quaternion.identity);
+        }
+        else
+        {
+            Instantiate(prefab, pos, Quaternion.identity);
+        }
+    }
+
+    void CreatePool(GameObject prefab)
+    {
+        if (prefab == null || pools.ContainsKey(prefab)) return;
+        GameObject obj = new GameObject(prefab.name + "_Pool");
+        obj.transform.SetParent(transform);
+        ObjectPool pool = obj.AddComponent<ObjectPool>();
+        pool.prefab = prefab;
+        pools[prefab] = pool;
     }
 }

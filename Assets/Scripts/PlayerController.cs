@@ -29,6 +29,10 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
+        {
+            return;
+        }
         CheckGrounded();
 
         if (Input.GetButtonDown("Jump"))

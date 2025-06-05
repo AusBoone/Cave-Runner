@@ -6,6 +6,8 @@ using Steamworks;
 #endif
 using System.Collections.Generic;
 using System.Collections;
+using System.IO;
+using System.Linq;
 
 /// <summary>
 /// Manages the game's simple UI screens such as the start menu, pause menu
@@ -269,15 +271,111 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Applies the first downloaded workshop pack (placeholder logic).
+    /// Loads assets from the first downloaded workshop item and applies
+    /// them to the scene. Searches for an AssetBundle or supported files
+    /// like PNG images within the downloaded folder. The background sprite
+    /// and an optional prefab can be swapped at runtime.
     /// </summary>
     public void ApplyFirstWorkshopItem()
     {
 #if UNITY_STANDALONE
-        if (downloadedPacks.Count > 0)
+        if (downloadedPacks == null || downloadedPacks.Count == 0)
         {
-            Debug.Log("Applying workshop content from " + downloadedPacks[0]);
-            // Here you would load assets from the folder and apply them.
+            Debug.LogWarning("No downloaded workshop items available.");
+            return;
+        }
+
+        string packPath = downloadedPacks[0];
+        if (!Directory.Exists(packPath))
+        {
+            Debug.LogError("Workshop path not found: " + packPath);
+            return;
+        }
+
+        try
+        {
+            // Look for an asset bundle first
+            string bundlePath = Directory.GetFiles(packPath, "*.bundle").FirstOrDefault();
+            if (string.IsNullOrEmpty(bundlePath))
+            {
+                bundlePath = Directory.GetFiles(packPath, "*.unity3d").FirstOrDefault();
+            }
+
+            if (!string.IsNullOrEmpty(bundlePath))
+            {
+                var bundle = AssetBundle.LoadFromFile(bundlePath);
+                if (bundle == null)
+                {
+                    Debug.LogError("Failed to load AssetBundle: " + bundlePath);
+                    return;
+                }
+
+                // Example sprite replacement
+                Sprite bg = bundle.LoadAsset<Sprite>("BackgroundSprite");
+                if (bg != null)
+                {
+                    var bgObj = FindObjectOfType<ParallaxBackground>();
+                    if (bgObj != null)
+                    {
+                        var sr = bgObj.GetComponent<SpriteRenderer>();
+                        if (sr != null)
+                        {
+                            sr.sprite = bg;
+                            Debug.Log("Applied background sprite from bundle.");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("BackgroundSprite not found in bundle.");
+                }
+
+                // Example prefab instantiation
+                GameObject prefab = bundle.LoadAsset<GameObject>("CustomPrefab");
+                if (prefab != null)
+                {
+                    Instantiate(prefab, Vector3.zero, Quaternion.identity);
+                    Debug.Log("Instantiated prefab from bundle.");
+                }
+
+                bundle.Unload(false);
+            }
+            else
+            {
+                // Fallback: try a raw PNG to swap background
+                string pngPath = Directory.GetFiles(packPath, "*.png").FirstOrDefault();
+                if (!string.IsNullOrEmpty(pngPath))
+                {
+                    byte[] data = File.ReadAllBytes(pngPath);
+                    Texture2D tex = new Texture2D(2, 2);
+                    if (tex.LoadImage(data))
+                    {
+                        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        var bgObj = FindObjectOfType<ParallaxBackground>();
+                        if (bgObj != null)
+                        {
+                            var sr = bgObj.GetComponent<SpriteRenderer>();
+                            if (sr != null)
+                            {
+                                sr.sprite = sprite;
+                                Debug.Log("Applied background sprite from file: " + Path.GetFileName(pngPath));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Failed to load texture from " + pngPath);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("No asset bundle or supported files found in " + packPath);
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError("Error applying workshop item: " + ex.Message);
         }
 #endif
     }

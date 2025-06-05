@@ -9,12 +9,15 @@ public class ObstacleSpawner : MonoBehaviour
 {
     public GameObject[] groundObstacles;
     public GameObject[] ceilingObstacles;
+    public GameObject[] movingPlatforms;
+    public GameObject[] rotatingHazards;
     public float spawnInterval = 2f;
     // Curve representing how spawn rate increases with distance.
     public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 2f);
     public float spawnX = 10f;
     public float groundY = -3.5f;
     public float ceilingY = 3.5f;
+    public float middleY = 0f;
     public bool usePooling = true;
 
     private System.Collections.Generic.Dictionary<GameObject, ObjectPool> pools = new System.Collections.Generic.Dictionary<GameObject, ObjectPool>();
@@ -34,6 +37,14 @@ public class ObstacleSpawner : MonoBehaviour
                 CreatePool(prefab);
             }
             foreach (GameObject prefab in ceilingObstacles)
+            {
+                CreatePool(prefab);
+            }
+            foreach (GameObject prefab in movingPlatforms)
+            {
+                CreatePool(prefab);
+            }
+            foreach (GameObject prefab in rotatingHazards)
             {
                 CreatePool(prefab);
             }
@@ -69,11 +80,35 @@ public class ObstacleSpawner : MonoBehaviour
     /// </summary>
     void Spawn()
     {
-        bool fromCeiling = Random.value > 0.5f;
-        GameObject[] prefabs = fromCeiling ? ceilingObstacles : groundObstacles;
-        if (prefabs.Length == 0) return;
+        var prefabsList = new System.Collections.Generic.List<GameObject[]>();
+        var yList = new System.Collections.Generic.List<float>();
+        if (groundObstacles.Length > 0)
+        {
+            prefabsList.Add(groundObstacles);
+            yList.Add(groundY);
+        }
+        if (ceilingObstacles.Length > 0)
+        {
+            prefabsList.Add(ceilingObstacles);
+            yList.Add(ceilingY);
+        }
+        if (movingPlatforms.Length > 0)
+        {
+            prefabsList.Add(movingPlatforms);
+            yList.Add(middleY);
+        }
+        if (rotatingHazards.Length > 0)
+        {
+            prefabsList.Add(rotatingHazards);
+            yList.Add(middleY);
+        }
+        if (prefabsList.Count == 0) return;
+
+        int index = Random.Range(0, prefabsList.Count);
+        GameObject[] prefabs = prefabsList[index];
+        float y = yList[index];
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
-        Vector3 pos = new Vector3(spawnX, fromCeiling ? ceilingY : groundY, 0f);
+        Vector3 pos = new Vector3(spawnX, y, 0f);
         if (usePooling && pools.TryGetValue(prefab, out ObjectPool pool))
         {
             pool.GetObject(pos, Quaternion.identity);

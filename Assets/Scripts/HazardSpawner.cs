@@ -75,13 +75,18 @@ public class HazardSpawner : MonoBehaviour
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
         float y = spawnPit ? groundY : airY;
         Vector3 pos = new Vector3(spawnX, y, 0f);
+        GameObject obj = null;
         if (usePooling && pools.TryGetValue(prefab, out ObjectPool pool))
         {
-            pool.GetObject(pos, Quaternion.identity);
+            obj = pool.GetObject(pos, Quaternion.identity);
         }
         else
         {
-            Instantiate(prefab, pos, Quaternion.identity);
+            obj = Instantiate(prefab, pos, Quaternion.identity);
+        }
+        if (!spawnPit && obj != null && obj.GetComponent<EnemyBehavior>() == null)
+        {
+            obj.AddComponent<EnemyBehavior>();
         }
     }
 

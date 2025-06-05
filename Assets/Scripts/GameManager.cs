@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System;
 
 /// <summary>
 /// Central controller for the endless runner. Tracks the player's
@@ -25,6 +26,12 @@ public class GameManager : MonoBehaviour
     private UIManager uiManager;
     private float speedBoostTimer;
     private float speedMultiplier = 1f;
+    private float gravityFlipTimer;
+    private bool gravityFlipped;
+
+    public float[] stageGoals;
+    private int currentStage;
+    public event System.Action<int> OnStageUnlocked;
 
     private const string AchDistance1000 = "ACH_DISTANCE_1000";
     private const string AchDistance5000 = "ACH_DISTANCE_5000";
@@ -65,6 +72,9 @@ public class GameManager : MonoBehaviour
         }
         currentSpeed = baseSpeed;
         coins = 0;
+        gravityFlipped = false;
+        gravityFlipTimer = 0f;
+        currentStage = 0;
 
         if (SteamManager.Instance != null)
         {
@@ -97,7 +107,21 @@ public class GameManager : MonoBehaviour
                 speedMultiplier = 1f;
             }
         }
+        if (gravityFlipped)
+        {
+            gravityFlipTimer -= Time.deltaTime;
+            if (gravityFlipTimer <= 0f)
+            {
+                gravityFlipped = false;
+                Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
+            }
+        }
         distance += currentSpeed * speedMultiplier * Time.deltaTime;
+        if (stageGoals != null && currentStage < stageGoals.Length && distance >= stageGoals[currentStage])
+        {
+            currentStage++;
+            OnStageUnlocked?.Invoke(currentStage);
+        }
         if (scoreLabel != null)
         {
             scoreLabel.text = Mathf.FloorToInt(distance).ToString();
@@ -179,6 +203,9 @@ public class GameManager : MonoBehaviour
         coins = 0;
         speedMultiplier = 1f;
         speedBoostTimer = 0f;
+        gravityFlipped = false;
+        gravityFlipTimer = 0f;
+        currentStage = 0;
         UpdateCoinLabel();
     }
 
@@ -220,6 +247,19 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Inverts global gravity for a limited time.
+    /// </summary>
+    public void ActivateGravityFlip(float duration)
+    {
+        if (!gravityFlipped)
+        {
+            Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
+            gravityFlipped = true;
+        }
+        gravityFlipTimer = duration;
+    }
+
+    /// <summary>
     /// Registers the UIManager so game events can trigger menu updates.
     /// </summary>
     public void SetUIManager(UIManager manager)
@@ -242,6 +282,14 @@ public class GameManager : MonoBehaviour
     public int GetCoins()
     {
         return coins;
+    }
+
+    /// <summary>
+    /// Returns the current unlocked stage index.
+    /// </summary>
+    public int GetCurrentStage()
+    {
+        return currentStage;
     }
 
     /// <summary>

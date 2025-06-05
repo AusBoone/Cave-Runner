@@ -179,6 +179,12 @@ public class PlayerController : MonoBehaviour
     {
         if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Hazard"))
         {
+            PlayerShield shield = GetComponent<PlayerShield>();
+            if (shield != null && shield.IsActive)
+            {
+                shield.AbsorbHit();
+                return;
+            }
             anim?.SetTrigger("Hit");
             if (AudioManager.Instance != null)
             {

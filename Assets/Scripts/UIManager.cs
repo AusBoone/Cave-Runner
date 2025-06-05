@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using Steamworks;
 #endif
 using System.Collections.Generic;
+using System.Collections;
 
 /// <summary>
 /// Manages the game's simple UI screens such as the start menu, pause menu
@@ -16,6 +17,7 @@ public class UIManager : MonoBehaviour
     public GameObject startPanel;
     public GameObject gameOverPanel;
     public GameObject pausePanel;
+    public GameObject settingsPanel;
     public Text finalScoreLabel;
     public Text highScoreLabel;
     public Text coinScoreLabel;
@@ -23,6 +25,49 @@ public class UIManager : MonoBehaviour
     public Text leaderboardText;
     public GameObject workshopPanel;
     public Text workshopListText;
+
+    private const float panelHideDelay = 0.5f;
+
+    private void HidePanelImmediate(GameObject panel)
+    {
+        if (panel != null)
+        {
+            panel.SetActive(false);
+        }
+    }
+
+    private void ShowPanel(GameObject panel)
+    {
+        if (panel != null)
+        {
+            panel.SetActive(true);
+            Animator anim = panel.GetComponent<Animator>();
+            anim?.SetTrigger("Show");
+        }
+    }
+
+    private void HidePanel(GameObject panel)
+    {
+        if (panel != null)
+        {
+            Animator anim = panel.GetComponent<Animator>();
+            if (anim != null)
+            {
+                anim.SetTrigger("Hide");
+                StartCoroutine(DeactivateAfterDelay(panel));
+            }
+            else
+            {
+                panel.SetActive(false);
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator DeactivateAfterDelay(GameObject panel)
+    {
+        yield return new WaitForSeconds(panelHideDelay);
+        panel.SetActive(false);
+    }
 
 #if UNITY_STANDALONE
     private List<string> downloadedPacks = new List<string>();
@@ -53,26 +98,12 @@ public class UIManager : MonoBehaviour
     /// </summary>
     void Start()
     {
-        if (startPanel != null)
-        {
-            startPanel.SetActive(true);
-        }
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(false);
-        }
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(false);
-        }
-        if (leaderboardPanel != null)
-        {
-            leaderboardPanel.SetActive(false);
-        }
-        if (workshopPanel != null)
-        {
-            workshopPanel.SetActive(false);
-        }
+        ShowPanel(startPanel);
+        HidePanelImmediate(gameOverPanel);
+        HidePanelImmediate(pausePanel);
+        HidePanelImmediate(leaderboardPanel);
+        HidePanelImmediate(workshopPanel);
+        HidePanelImmediate(settingsPanel);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetUIManager(this);
@@ -84,10 +115,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Play()
     {
-        if (startPanel != null)
-        {
-            startPanel.SetActive(false);
-        }
+        HidePanel(startPanel);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.StartGame();
@@ -111,10 +139,7 @@ public class UIManager : MonoBehaviour
         {
             coinScoreLabel.text = coins.ToString();
         }
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(true);
-        }
+        ShowPanel(gameOverPanel);
     }
 
     /// <summary>
@@ -122,10 +147,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Pause()
     {
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(true);
-        }
+        ShowPanel(pausePanel);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.PauseGame();
@@ -138,10 +160,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Resume()
     {
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(false);
-        }
+        HidePanel(pausePanel);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.ResumeGame();
@@ -162,10 +181,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowLeaderboard()
     {
-        if (leaderboardPanel != null)
-        {
-            leaderboardPanel.SetActive(true);
-        }
+        ShowPanel(leaderboardPanel);
 #if UNITY_STANDALONE
         if (SteamManager.Instance != null)
         {
@@ -197,10 +213,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void HideLeaderboard()
     {
-        if (leaderboardPanel != null)
-        {
-            leaderboardPanel.SetActive(false);
-        }
+        HidePanel(leaderboardPanel);
     }
 
     /// <summary>
@@ -208,10 +221,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowWorkshop()
     {
-        if (workshopPanel != null)
-        {
-            workshopPanel.SetActive(true);
-        }
+        ShowPanel(workshopPanel);
 #if UNITY_STANDALONE
         if (WorkshopManager.Instance != null)
         {
@@ -237,10 +247,23 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void HideWorkshop()
     {
-        if (workshopPanel != null)
-        {
-            workshopPanel.SetActive(false);
-        }
+        HidePanel(workshopPanel);
+    }
+
+    /// <summary>
+    /// Displays the settings panel.
+    /// </summary>
+    public void ShowSettings()
+    {
+        ShowPanel(settingsPanel);
+    }
+
+    /// <summary>
+    /// Hides the settings panel.
+    /// </summary>
+    public void HideSettings()
+    {
+        HidePanel(settingsPanel);
     }
 
     /// <summary>

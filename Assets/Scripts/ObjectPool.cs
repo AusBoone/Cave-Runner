@@ -9,7 +9,9 @@ public class ObjectPool : MonoBehaviour
 
     private Queue<PooledObject> objects = new Queue<PooledObject>();
 
-    void Awake()
+    // Delay initialization until Start so prefab can be assigned by spawners
+    // before the pool creates its initial objects.
+    void Start()
     {
         if (prefab == null) return;
         for (int i = 0; i < initialSize; i++)

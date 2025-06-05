@@ -4,6 +4,8 @@ public class PowerUpSpawner : MonoBehaviour
 {
     public GameObject[] powerUpPrefabs;
     public float spawnInterval = 8f;
+    // Curve determining how power-up spawn rate scales with distance.
+    public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 1f);
     public float spawnX = 10f;
     public float minY = -3f;
     public float maxY = 3f;
@@ -31,10 +33,15 @@ public class PowerUpSpawner : MonoBehaviour
             return;
         }
         timer -= Time.deltaTime;
+        float difficulty = 1f;
+        if (GameManager.Instance != null)
+        {
+            difficulty = Mathf.Max(0.1f, spawnRateCurve.Evaluate(GameManager.Instance.GetDistance()));
+        }
         if (timer <= 0f)
         {
             SpawnPowerUp();
-            timer = spawnInterval;
+            timer = spawnInterval / difficulty;
         }
     }
 

@@ -2,7 +2,12 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    // Force applied when jumping.
     public float jumpForce = 400f;
+    // Maximum time additional upward force is applied while the jump button is held.
+    public float variableJumpTime = 0.2f;
+    // Grace period after leaving the ground where the player can still jump.
+    public float coyoteTime = 0.1f;
     public float slideDuration = 0.5f;
     public LayerMask groundLayer;
     public AudioClip jumpClip;
@@ -11,6 +16,7 @@ public class PlayerController : MonoBehaviour
 
     private Rigidbody2D rb;
     private CapsuleCollider2D coll;
+    private Animator anim;
     private bool isGrounded;
     private bool isSliding;
     private float slideTimer;
@@ -18,11 +24,15 @@ public class PlayerController : MonoBehaviour
     private Vector2 colliderOffset;
 
     private int jumpsRemaining;
+    private float coyoteTimer;
+    private float variableJumpTimer;
+    private bool isJumping;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         coll = GetComponent<CapsuleCollider2D>();
+        anim = GetComponent<Animator>();
         colliderSize = coll.size;
         colliderOffset = coll.offset;
     }
@@ -35,9 +45,22 @@ public class PlayerController : MonoBehaviour
         }
         CheckGrounded();
 
+        // Handle jump input and variable jump height.
         if (Input.GetButtonDown("Jump"))
         {
             AttemptJump();
+        }
+        if (Input.GetButton("Jump") && isJumping)
+        {
+            if (variableJumpTimer > 0f)
+            {
+                rb.AddForce(Vector2.up * jumpForce * Time.deltaTime);
+                variableJumpTimer -= Time.deltaTime;
+            }
+        }
+        if (Input.GetButtonUp("Jump"))
+        {
+            isJumping = false;
         }
 
         if (Input.GetButtonDown("Fire1"))
@@ -62,26 +85,40 @@ public class PlayerController : MonoBehaviour
         RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, distance, groundLayer);
         bool wasGrounded = isGrounded;
         isGrounded = hit.collider != null;
-        if (isGrounded && !wasGrounded)
+        if (isGrounded)
         {
-            jumpsRemaining = 1; // allow one extra jump in air
+            // Reset coyote timer and available jumps when touching the ground.
+            coyoteTimer = coyoteTime;
+            if (!wasGrounded)
+            {
+                jumpsRemaining = 1; // allow one extra jump in air
+            }
+        }
+        else
+        {
+            coyoteTimer -= Time.deltaTime;
         }
     }
 
     void AttemptJump()
     {
-        if (isGrounded || jumpsRemaining > 0)
+        // Allow jumping while grounded, during the coyote window, or if an extra jump remains.
+        if (isGrounded || coyoteTimer > 0f || jumpsRemaining > 0)
         {
             rb.velocity = new Vector2(rb.velocity.x, 0f);
             rb.AddForce(Vector2.up * jumpForce);
+            isJumping = true;
+            variableJumpTimer = variableJumpTime;
+            anim?.SetTrigger("Jump");
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySound(jumpClip);
             }
-            if (!isGrounded)
+            if (!isGrounded && jumpsRemaining > 0)
             {
                 jumpsRemaining--;
             }
+            coyoteTimer = 0f;
         }
     }
 
@@ -93,6 +130,7 @@ public class PlayerController : MonoBehaviour
             slideTimer = slideDuration;
             coll.size = new Vector2(colliderSize.x, colliderSize.y / 2f);
             coll.offset = new Vector2(colliderOffset.x, colliderOffset.y - colliderSize.y / 4f);
+            anim?.SetBool("Slide", true);
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySound(slideClip);
@@ -105,12 +143,14 @@ public class PlayerController : MonoBehaviour
         isSliding = false;
         coll.size = colliderSize;
         coll.offset = colliderOffset;
+        anim?.SetBool("Slide", false);
     }
 
     void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Hazard"))
         {
+            anim?.SetTrigger("Hit");
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySound(hitClip);

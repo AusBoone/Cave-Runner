@@ -5,6 +5,8 @@ public class ObstacleSpawner : MonoBehaviour
     public GameObject[] groundObstacles;
     public GameObject[] ceilingObstacles;
     public float spawnInterval = 2f;
+    // Curve representing how spawn rate increases with distance.
+    public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 2f);
     public float spawnX = 10f;
     public float groundY = -3.5f;
     public float ceilingY = 3.5f;
@@ -39,7 +41,7 @@ public class ObstacleSpawner : MonoBehaviour
         float difficulty = 1f;
         if (GameManager.Instance != null)
         {
-            difficulty += GameManager.Instance.GetDistance() / 200f;
+            difficulty = Mathf.Max(0.1f, spawnRateCurve.Evaluate(GameManager.Instance.GetDistance()));
         }
         if (timer <= 0f)
         {

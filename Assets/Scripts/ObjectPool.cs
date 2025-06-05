@@ -20,7 +20,9 @@ public class ObjectPool : MonoBehaviour
 
     PooledObject CreateNew()
     {
-        GameObject obj = Instantiate(prefab);
+        // Instantiate a new object and parent it under the pool so the
+        // hierarchy stays clean in the editor.
+        GameObject obj = Instantiate(prefab, transform);
         obj.SetActive(false);
         PooledObject po = obj.AddComponent<PooledObject>();
         po.Pool = this;
@@ -44,7 +46,10 @@ public class ObjectPool : MonoBehaviour
 
     public void ReturnObject(GameObject obj)
     {
+        // Disable the object and parent it back under this pool so
+        // inactive instances remain organized.
         obj.SetActive(false);
+        obj.transform.SetParent(transform);
         PooledObject po = obj.GetComponent<PooledObject>();
         if (po != null)
         {

@@ -53,3 +53,12 @@ example achievements:
 
 You can define additional achievements in Steamworks and unlock them using
 `SteamManager.Instance.UnlockAchievement("ID")` from your scripts.
+
+## Opening, Running, and Building in Unity 2022.3 LTS
+1. Launch **Unity Hub** and make sure **Unity 2022.3 LTS** is installed.
+2. In Unity Hub, click **Open** and select this repository's folder to load the project.
+3. After the editor finishes importing, open or create a scene and assign the scripts listed above.
+4. Click the **Play** button in the editor to try the game.
+5. To create a build, open **File > Build Settings...**, click **Add Open Scenes**, choose your target platform, and then click **Build** to generate the executable.
+
+This project is covered by a [proprietary license](LICENSE).

@@ -57,12 +57,12 @@ public class PlayerController : MonoBehaviour
         }
         CheckGrounded();
 
-        // Handle jump input and variable jump height.
-        if (Input.GetButtonDown("Jump"))
+        // Handle jump input and variable jump height using custom bindings.
+        if (Input.GetKeyDown(InputManager.JumpKey))
         {
             AttemptJump();
         }
-        if (Input.GetButton("Jump") && isJumping)
+        if (Input.GetKey(InputManager.JumpKey) && isJumping)
         {
             if (variableJumpTimer > 0f)
             {
@@ -70,12 +70,12 @@ public class PlayerController : MonoBehaviour
                 variableJumpTimer -= Time.deltaTime;
             }
         }
-        if (Input.GetButtonUp("Jump"))
+        if (Input.GetKeyUp(InputManager.JumpKey))
         {
             isJumping = false;
         }
 
-        if (Input.GetButtonDown("Fire1"))
+        if (Input.GetKeyDown(InputManager.SlideKey))
         {
             StartSlide();
         }

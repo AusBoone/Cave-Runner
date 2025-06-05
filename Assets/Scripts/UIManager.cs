@@ -4,6 +4,7 @@ using UnityEngine.UI;
 #if UNITY_STANDALONE
 using Steamworks;
 #endif
+using System.Collections.Generic;
 
 /// <summary>
 /// Manages the game's simple UI screens such as the start menu, pause menu
@@ -20,6 +21,12 @@ public class UIManager : MonoBehaviour
     public Text coinScoreLabel;
     public GameObject leaderboardPanel;
     public Text leaderboardText;
+    public GameObject workshopPanel;
+    public Text workshopListText;
+
+#if UNITY_STANDALONE
+    private List<string> downloadedPacks = new List<string>();
+#endif
 
     /// <summary>
     /// Listens for the Escape key to toggle the pause menu while the game
@@ -61,6 +68,10 @@ public class UIManager : MonoBehaviour
         if (leaderboardPanel != null)
         {
             leaderboardPanel.SetActive(false);
+        }
+        if (workshopPanel != null)
+        {
+            workshopPanel.SetActive(false);
         }
         if (GameManager.Instance != null)
         {
@@ -190,5 +201,59 @@ public class UIManager : MonoBehaviour
         {
             leaderboardPanel.SetActive(false);
         }
+    }
+
+    /// <summary>
+    /// Displays the workshop panel and lists subscribed items.
+    /// </summary>
+    public void ShowWorkshop()
+    {
+        if (workshopPanel != null)
+        {
+            workshopPanel.SetActive(true);
+        }
+#if UNITY_STANDALONE
+        if (WorkshopManager.Instance != null)
+        {
+            WorkshopManager.Instance.DownloadSubscribedItems(paths =>
+            {
+                downloadedPacks = paths;
+                if (workshopListText != null)
+                {
+                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < paths.Count; i++)
+                    {
+                        sb.AppendLine((i + 1) + ". " + paths[i]);
+                    }
+                    workshopListText.text = sb.ToString();
+                }
+            });
+        }
+#endif
+    }
+
+    /// <summary>
+    /// Hides the workshop panel.
+    /// </summary>
+    public void HideWorkshop()
+    {
+        if (workshopPanel != null)
+        {
+            workshopPanel.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// Applies the first downloaded workshop pack (placeholder logic).
+    /// </summary>
+    public void ApplyFirstWorkshopItem()
+    {
+#if UNITY_STANDALONE
+        if (downloadedPacks.Count > 0)
+        {
+            Debug.Log("Applying workshop content from " + downloadedPacks[0]);
+            // Here you would load assets from the folder and apply them.
+        }
+#endif
     }
 }

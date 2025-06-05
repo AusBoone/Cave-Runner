@@ -1,0 +1,10 @@
+{
+    "name": "CaveRunner.EditModeTests",
+    "references": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ]
+}

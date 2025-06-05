@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Periodically spawns ground or ceiling obstacles that the player must
+/// avoid. Spawn timing accelerates as the run progresses and objects can
+/// be pooled for efficiency.
+/// </summary>
 public class ObstacleSpawner : MonoBehaviour
 {
     public GameObject[] groundObstacles;
@@ -16,6 +21,10 @@ public class ObstacleSpawner : MonoBehaviour
 
     private float timer;
 
+    /// <summary>
+    /// Creates pools for all obstacle prefabs on startup when pooling is
+    /// enabled.
+    /// </summary>
     void Start()
     {
         if (usePooling)
@@ -31,6 +40,10 @@ public class ObstacleSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generates obstacles according to <see cref="spawnRateCurve"/> while
+    /// the game is running.
+    /// </summary>
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
@@ -50,6 +63,10 @@ public class ObstacleSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawns either a ground or ceiling obstacle at the configured
+    /// location using pooling when possible.
+    /// </summary>
     void Spawn()
     {
         bool fromCeiling = Random.value > 0.5f;
@@ -67,6 +84,10 @@ public class ObstacleSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Helper to create and register an <see cref="ObjectPool"/> for the
+    /// given prefab.
+    /// </summary>
     void CreatePool(GameObject prefab)
     {
         if (prefab == null || pools.ContainsKey(prefab)) return;

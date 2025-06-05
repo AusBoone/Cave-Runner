@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Spawns temporary power-up items such as coin magnets or speed boosts.
+/// Frequency is controlled by <see cref="spawnRateCurve"/> and objects can
+/// be pooled to reduce instantiation overhead.
+/// </summary>
 public class PowerUpSpawner : MonoBehaviour
 {
     public GameObject[] powerUpPrefabs;
@@ -15,6 +20,10 @@ public class PowerUpSpawner : MonoBehaviour
 
     private float timer;
 
+    /// <summary>
+    /// Initializes object pools for each power-up prefab if pooling is
+    /// enabled.
+    /// </summary>
     void Start()
     {
         if (usePooling)
@@ -26,6 +35,10 @@ public class PowerUpSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawns power-ups periodically while the game is running. The
+    /// interval shortens over distance using <see cref="spawnRateCurve"/>.
+    /// </summary>
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
@@ -45,6 +58,9 @@ public class PowerUpSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Instantiates or retrieves a power-up prefab at a random height.
+    /// </summary>
     void SpawnPowerUp()
     {
         if (powerUpPrefabs.Length == 0) return;
@@ -60,6 +76,10 @@ public class PowerUpSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Helper to allocate an <see cref="ObjectPool"/> for a specific
+    /// power-up prefab.
+    /// </summary>
     void CreatePool(GameObject prefab)
     {
         if (prefab == null || pools.ContainsKey(prefab)) return;

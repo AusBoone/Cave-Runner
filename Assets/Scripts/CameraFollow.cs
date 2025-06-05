@@ -1,5 +1,9 @@
 using UnityEngine;
 
+/// <summary>
+/// Smoothly follows a target transform using Vector3.SmoothDamp. The
+/// camera maintains the specified offset relative to the target.
+/// </summary>
 public class CameraFollow : MonoBehaviour
 {
     public Transform target;
@@ -8,6 +12,10 @@ public class CameraFollow : MonoBehaviour
 
     private Vector3 velocity = Vector3.zero;
 
+    /// <summary>
+    /// Called after Update so camera movement occurs after the player
+    /// has moved. Smoothly interpolates toward the target position.
+    /// </summary>
     void LateUpdate()
     {
         if (target == null)

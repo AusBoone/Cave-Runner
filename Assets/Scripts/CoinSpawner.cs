@@ -1,5 +1,11 @@
 using UnityEngine;
 
+/// <summary>
+/// Spawns collectible coins at random heights along the right side of the
+/// screen. Spawn rate increases over time according to
+/// <see cref="spawnRateCurve"/>. Can optionally reuse coins using
+/// <see cref="ObjectPool"/> instances.
+/// </summary>
 public class CoinSpawner : MonoBehaviour
 {
     public GameObject[] coinPrefabs;
@@ -15,6 +21,9 @@ public class CoinSpawner : MonoBehaviour
 
     private float timer;
 
+    /// <summary>
+    /// Creates object pools for each coin prefab if pooling is enabled.
+    /// </summary>
     void Start()
     {
         if (usePooling)
@@ -26,6 +35,11 @@ public class CoinSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawns coins over time while the game is running. The spawn
+    /// interval is modified by <see cref="spawnRateCurve"/> based on the
+    /// player's distance.
+    /// </summary>
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
@@ -45,6 +59,10 @@ public class CoinSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Instantiates or retrieves a coin from its pool at a random
+    /// vertical position.
+    /// </summary>
     void SpawnCoin()
     {
         if (coinPrefabs.Length == 0) return;
@@ -60,6 +78,10 @@ public class CoinSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Helper used during initialization to create a dedicated pool for
+    /// a particular coin prefab.
+    /// </summary>
     void CreatePool(GameObject prefab)
     {
         if (prefab == null || pools.ContainsKey(prefab)) return;

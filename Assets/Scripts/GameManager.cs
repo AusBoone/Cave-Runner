@@ -65,6 +65,10 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            if (AnalyticsManager.Instance == null)
+            {
+                new GameObject("AnalyticsManager").AddComponent<AnalyticsManager>();
+            }
         }
         else
         {
@@ -186,6 +190,10 @@ public class GameManager : MonoBehaviour
         if (uiManager != null)
         {
             uiManager.ShowGameOver(finalScore, highScore, coins);
+        }
+        if (AnalyticsManager.Instance != null)
+        {
+            AnalyticsManager.Instance.LogRun(distance, coins, true);
         }
         UpdateHighScoreLabel();
     }

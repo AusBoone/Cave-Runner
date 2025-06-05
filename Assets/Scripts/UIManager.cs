@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if UNITY_STANDALONE
+using Steamworks;
+#endif
 
 /// <summary>
 /// Manages the game's simple UI screens such as the start menu, pause menu
@@ -15,6 +18,8 @@ public class UIManager : MonoBehaviour
     public Text finalScoreLabel;
     public Text highScoreLabel;
     public Text coinScoreLabel;
+    public GameObject leaderboardPanel;
+    public Text leaderboardText;
 
     /// <summary>
     /// Listens for the Escape key to toggle the pause menu while the game
@@ -52,6 +57,10 @@ public class UIManager : MonoBehaviour
         if (pausePanel != null)
         {
             pausePanel.SetActive(false);
+        }
+        if (leaderboardPanel != null)
+        {
+            leaderboardPanel.SetActive(false);
         }
         if (GameManager.Instance != null)
         {
@@ -135,5 +144,51 @@ public class UIManager : MonoBehaviour
     public void Restart()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    /// <summary>
+    /// Displays the leaderboard panel and populates it with scores from Steam.
+    /// </summary>
+    public void ShowLeaderboard()
+    {
+        if (leaderboardPanel != null)
+        {
+            leaderboardPanel.SetActive(true);
+        }
+#if UNITY_STANDALONE
+        if (SteamManager.Instance != null)
+        {
+            SteamManager.Instance.FindOrCreateLeaderboard("HIGHSCORES", success =>
+            {
+                if (success)
+                {
+                    SteamManager.Instance.DownloadTopScores(entries =>
+                    {
+                        if (leaderboardText != null && entries != null)
+                        {
+                            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                            for (int i = 0; i < entries.Length; i++)
+                            {
+                                string name = SteamFriends.GetFriendPersonaName(entries[i].m_steamIDUser);
+                                sb.AppendLine((i + 1) + ". " + name + " - " + entries[i].m_nScore);
+                            }
+                            leaderboardText.text = sb.ToString();
+                        }
+                    });
+                }
+            });
+        }
+#endif
+    }
+
+    /// <summary>
+    /// Hides the leaderboard panel.
+    /// </summary>
+    public void HideLeaderboard()
+    {
+        if (leaderboardPanel != null)
+        {
+            leaderboardPanel.SetActive(false);
+        }
     }
 }

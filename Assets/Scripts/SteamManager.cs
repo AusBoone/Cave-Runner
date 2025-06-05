@@ -13,6 +13,9 @@ public class SteamManager : MonoBehaviour
 
 #if UNITY_STANDALONE
     private bool initialized;
+    private SteamLeaderboard_t leaderboard;
+    private CallResult<LeaderboardFindResult_t> findResult;
+    private CallResult<LeaderboardScoresDownloaded_t> downloadResult;
 #endif
 
     /// <summary>
@@ -114,4 +117,91 @@ public class SteamManager : MonoBehaviour
 #endif
         return 0;
     }
+
+#if UNITY_STANDALONE
+    /// <summary>
+    /// Finds or creates a Steam leaderboard with the given name.
+    /// </summary>
+    public void FindOrCreateLeaderboard(string name, System.Action<bool> callback)
+    {
+        if (!initialized)
+        {
+            callback?.Invoke(false);
+            return;
+        }
+
+        var handle = SteamUserStats.FindOrCreateLeaderboard(
+            name,
+            ELeaderboardSortMethod.k_ELeaderboardSortMethodDescending,
+            ELeaderboardDisplayType.k_ELeaderboardDisplayTypeNumeric);
+
+        findResult = CallResult<LeaderboardFindResult_t>.Create((result, failure) =>
+        {
+            if (!failure && result.m_bLeaderboardFound != 0)
+            {
+                leaderboard = result.m_hSteamLeaderboard;
+                callback?.Invoke(true);
+            }
+            else
+            {
+                callback?.Invoke(false);
+            }
+        });
+        findResult.Set(handle);
+    }
+
+    /// <summary>
+    /// Uploads a score to the current leaderboard if available.
+    /// </summary>
+    public void UploadScore(int score)
+    {
+        if (!initialized || leaderboard.m_SteamLeaderboard == 0) return;
+        SteamUserStats.UploadLeaderboardScore(
+            leaderboard,
+            ELeaderboardUploadScoreMethod.k_ELeaderboardUploadScoreMethodKeepBest,
+            score,
+            null,
+            0);
+    }
+
+    /// <summary>
+    /// Downloads the top 10 scores from the current leaderboard.
+    /// </summary>
+    public void DownloadTopScores(System.Action<LeaderboardEntry_t[]> callback)
+    {
+        if (!initialized || leaderboard.m_SteamLeaderboard == 0)
+        {
+            callback?.Invoke(null);
+            return;
+        }
+
+        var handle = SteamUserStats.DownloadLeaderboardEntries(
+            leaderboard,
+            ELeaderboardDataRequest.k_ELeaderboardDataRequestGlobal,
+            1,
+            10);
+
+        downloadResult = CallResult<LeaderboardScoresDownloaded_t>.Create((result, failure) =>
+        {
+            if (failure)
+            {
+                callback?.Invoke(null);
+                return;
+            }
+
+            LeaderboardEntry_t[] entries = new LeaderboardEntry_t[result.m_cEntryCount];
+            for (int i = 0; i < result.m_cEntryCount; i++)
+            {
+                SteamUserStats.GetDownloadedLeaderboardEntry(
+                    result.m_hSteamLeaderboardEntries,
+                    i,
+                    out entries[i],
+                    null,
+                    0);
+            }
+            callback?.Invoke(entries);
+        });
+        downloadResult.Set(handle);
+    }
+#endif
 }

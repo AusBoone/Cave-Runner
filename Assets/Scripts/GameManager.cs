@@ -27,7 +27,9 @@ public class GameManager : MonoBehaviour
     private float speedMultiplier = 1f;
 
     private const string AchDistance1000 = "ACH_DISTANCE_1000";
+    private const string AchDistance5000 = "ACH_DISTANCE_5000";
     private const string AchCoins50 = "ACH_COINS_50";
+    private const string AchCoins200 = "ACH_COINS_200";
 
     public static GameManager Instance { get; private set; }
 
@@ -142,10 +144,20 @@ public class GameManager : MonoBehaviour
             {
                 SteamManager.Instance.UnlockAchievement(AchDistance1000);
             }
+            if (finalScore >= 5000)
+            {
+                SteamManager.Instance.UnlockAchievement(AchDistance5000);
+            }
             if (coins >= 50)
             {
                 SteamManager.Instance.UnlockAchievement(AchCoins50);
             }
+            if (coins >= 200)
+            {
+                SteamManager.Instance.UnlockAchievement(AchCoins200);
+            }
+
+            SteamManager.Instance.UploadScore(finalScore);
         }
         if (uiManager != null)
         {

@@ -74,6 +74,14 @@ data remains on the player's machine.  A `feedbackUrl` on `UIManager` can open
 an external survey or bug‑report form to collect additional feedback from
 players.
 
+## Running Edit Mode Tests
+This repository includes a small suite of EditMode tests.
+
+1. In the Unity editor open **Window > General > Test Runner**.
+2. Select the **EditMode** tab and click **Run All** to execute the tests.
+
+The test scripts are located in `Assets/Tests/EditMode`.
+
 ## Opening, Running, and Building in Unity 2022.3 LTS
 1. Launch **Unity Hub** and make sure **Unity 2022.3 LTS** is installed.
 2. In Unity Hub, click **Open** and select this repository's folder to load the project.

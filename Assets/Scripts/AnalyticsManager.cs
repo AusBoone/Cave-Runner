@@ -40,6 +40,11 @@ public class AnalyticsManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            LoadLocal();
+            if (runs.Count > 0)
+            {
+                StartCoroutine(SendData());
+            }
         }
         else
         {
@@ -66,6 +71,22 @@ public class AnalyticsManager : MonoBehaviour
         string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
         PlayerPrefs.SetString("AnalyticsData", json);
         PlayerPrefs.Save();
+    }
+
+    /// <summary>
+    /// Restores any locally persisted run data from a previous session.
+    /// </summary>
+    private void LoadLocal()
+    {
+        if (PlayerPrefs.HasKey("AnalyticsData"))
+        {
+            string json = PlayerPrefs.GetString("AnalyticsData");
+            RunCollection col = JsonUtility.FromJson<RunCollection>(json);
+            if (col != null && col.runs != null)
+            {
+                runs = new List<RunData>(col.runs);
+            }
+        }
     }
 
     /// <summary>
@@ -105,6 +126,45 @@ public class AnalyticsManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Immediately posts the run list and blocks until the request completes.
+    /// Used when quitting so data isn't lost if the application closes quickly.
+    /// </summary>
+    private void SendDataBlocking()
+    {
+        if (runs.Count == 0)
+        {
+            return;
+        }
+
+        string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
+        if (string.IsNullOrEmpty(remoteEndpoint))
+        {
+            Debug.Log("Analytics data: " + json);
+            return;
+        }
+
+        using (UnityWebRequest req = new UnityWebRequest(remoteEndpoint, "POST"))
+        {
+            byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
+            req.uploadHandler = new UploadHandlerRaw(body);
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/json");
+            var op = req.SendWebRequest();
+            // Block until the request finishes
+            while (!op.isDone) { }
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                runs.Clear();
+                PlayerPrefs.DeleteKey("AnalyticsData");
+            }
+            else
+            {
+                Debug.LogWarning("Failed to send analytics: " + req.error);
+            }
+        }
+    }
+
     [System.Serializable]
     private class RunCollection
     {
@@ -118,7 +178,9 @@ public class AnalyticsManager : MonoBehaviour
     {
         if (runs.Count > 0)
         {
-            StartCoroutine(SendData());
+            // Persist to disk first in case the request fails
+            SaveLocal();
+            SendDataBlocking();
         }
     }
 }

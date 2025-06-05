@@ -22,8 +22,9 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
    - `CameraFollow` keeps the camera tracking the player.
    - `ParallaxBackground` scrolls looping background sprites.
    - `SteamManager` initializes the Steamworks API and saves high scores to the cloud.
-   - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
-   - `ObjectPool` provides reusable objects for the spawners.
+    - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
+    - `ObjectPool` provides reusable objects for the spawners.
+    - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label field of `GameManager` to a UI Text element.
 5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
 6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
@@ -62,7 +63,16 @@ share level or skin packs on the Steam Workshop.
 1. Attach `WorkshopManager` to a persistent GameObject.
 2. Call `WorkshopManager.UploadItem()` to publish a folder of content.
 3. Players can browse subscribed packs through the **Workshop** menu option and
-apply them in game.
+   apply them in game.
+
+## Analytics and Feedback
+`AnalyticsManager` keeps a log of each run's distance, coin count and whether
+the player died. Statistics are stored locally using Unity's `PlayerPrefs` and
+can be sent to your own server by entering a URL in the manager's
+`remoteEndpoint` field. If left blank, no network requests are made and the
+data remains on the player's machine.  A `feedbackUrl` on `UIManager` can open
+an external survey or bug‑report form to collect additional feedback from
+players.
 
 ## Opening, Running, and Building in Unity 2022.3 LTS
 1. Launch **Unity Hub** and make sure **Unity 2022.3 LTS** is installed.

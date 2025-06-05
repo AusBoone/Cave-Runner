@@ -25,6 +25,8 @@ public class UIManager : MonoBehaviour
     public Text leaderboardText;
     public GameObject workshopPanel;
     public Text workshopListText;
+    [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
+    public string feedbackUrl = "";
 
     private const float panelHideDelay = 0.5f;
 
@@ -278,5 +280,17 @@ public class UIManager : MonoBehaviour
             // Here you would load assets from the folder and apply them.
         }
 #endif
+    }
+
+    /// <summary>
+    /// Opens an external feedback form using the configured URL. The button
+    /// can be disabled by leaving <see cref="feedbackUrl"/> empty.
+    /// </summary>
+    public void OpenFeedbackForm()
+    {
+        if (!string.IsNullOrEmpty(feedbackUrl))
+        {
+            Application.OpenURL(feedbackUrl);
+        }
     }
 }

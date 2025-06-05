@@ -22,6 +22,7 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
    - `CameraFollow` keeps the camera tracking the player.
    - `ParallaxBackground` scrolls looping background sprites.
    - `SteamManager` initializes the Steamworks API and saves high scores to the cloud.
+   - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
    - `ObjectPool` provides reusable objects for the spawners.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label field of `GameManager` to a UI Text element.
 5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
@@ -53,6 +54,15 @@ example achievements:
 
 You can define additional achievements in Steamworks and unlock them using
 `SteamManager.Instance.UnlockAchievement("ID")` from your scripts.
+
+### Workshop Content
+The included `WorkshopManager` script uses Steamworks.NET's UGC API so you can
+share level or skin packs on the Steam Workshop.
+
+1. Attach `WorkshopManager` to a persistent GameObject.
+2. Call `WorkshopManager.UploadItem()` to publish a folder of content.
+3. Players can browse subscribed packs through the **Workshop** menu option and
+apply them in game.
 
 ## Opening, Running, and Building in Unity 2022.3 LTS
 1. Launch **Unity Hub** and make sure **Unity 2022.3 LTS** is installed.

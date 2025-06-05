@@ -11,6 +11,12 @@ public class ObstacleSpawner : MonoBehaviour
     public GameObject[] ceilingObstacles;
     public GameObject[] movingPlatforms;
     public GameObject[] rotatingHazards;
+
+    // Names of obstacle prefabs located under Assets/Art/Resources.
+    public string[] groundObstacleNames;
+    public string[] ceilingObstacleNames;
+    public string[] movingPlatformNames;
+    public string[] rotatingHazardNames;
     public float spawnInterval = 2f;
     // Curve representing how spawn rate increases with distance.
     public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 2f);
@@ -30,6 +36,22 @@ public class ObstacleSpawner : MonoBehaviour
     /// </summary>
     void Start()
     {
+        if (groundObstacles.Length == 0 && groundObstacleNames != null && groundObstacleNames.Length > 0)
+        {
+            groundObstacles = LoadPrefabs(groundObstacleNames);
+        }
+        if (ceilingObstacles.Length == 0 && ceilingObstacleNames != null && ceilingObstacleNames.Length > 0)
+        {
+            ceilingObstacles = LoadPrefabs(ceilingObstacleNames);
+        }
+        if (movingPlatforms.Length == 0 && movingPlatformNames != null && movingPlatformNames.Length > 0)
+        {
+            movingPlatforms = LoadPrefabs(movingPlatformNames);
+        }
+        if (rotatingHazards.Length == 0 && rotatingHazardNames != null && rotatingHazardNames.Length > 0)
+        {
+            rotatingHazards = LoadPrefabs(rotatingHazardNames);
+        }
         if (usePooling)
         {
             foreach (GameObject prefab in groundObstacles)
@@ -131,5 +153,19 @@ public class ObstacleSpawner : MonoBehaviour
         ObjectPool pool = obj.AddComponent<ObjectPool>();
         pool.prefab = prefab;
         pools[prefab] = pool;
+    }
+
+    GameObject[] LoadPrefabs(string[] names)
+    {
+        var list = new System.Collections.Generic.List<GameObject>();
+        foreach (string n in names)
+        {
+            GameObject obj = Resources.Load<GameObject>("Art/" + n);
+            if (obj != null)
+            {
+                list.Add(obj);
+            }
+        }
+        return list.ToArray();
     }
 }

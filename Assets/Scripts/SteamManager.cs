@@ -3,6 +3,10 @@ using UnityEngine;
 using Steamworks;
 #endif
 
+/// <summary>
+/// Lightweight wrapper around Steamworks.NET for initializing the Steam API,
+/// unlocking achievements and storing a single high score in the Steam Cloud.
+/// </summary>
 public class SteamManager : MonoBehaviour
 {
     public static SteamManager Instance { get; private set; }
@@ -11,6 +15,10 @@ public class SteamManager : MonoBehaviour
     private bool initialized;
 #endif
 
+    /// <summary>
+    /// Initializes the Steam API on startup and enforces the singleton
+    /// pattern so only one SteamManager exists.
+    /// </summary>
     void Awake()
     {
         if (Instance == null)
@@ -35,6 +43,10 @@ public class SteamManager : MonoBehaviour
     }
 
 #if UNITY_STANDALONE
+    /// <summary>
+    /// Processes Steam callbacks each frame if the API was successfully
+    /// initialized.
+    /// </summary>
     void Update()
     {
         if (initialized)
@@ -44,6 +56,9 @@ public class SteamManager : MonoBehaviour
     }
 #endif
 
+    /// <summary>
+    /// Shuts down the Steam API when this component is destroyed.
+    /// </summary>
     void OnDestroy()
     {
 #if UNITY_STANDALONE
@@ -54,6 +69,9 @@ public class SteamManager : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Unlocks a Steam achievement by its identifier if the API is ready.
+    /// </summary>
     public void UnlockAchievement(string id)
     {
 #if UNITY_STANDALONE
@@ -67,6 +85,9 @@ public class SteamManager : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Saves the provided high score value to the Steam Cloud.
+    /// </summary>
     public void SaveHighScore(int score)
     {
 #if UNITY_STANDALONE
@@ -76,6 +97,9 @@ public class SteamManager : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Loads the high score from the Steam Cloud if it exists.
+    /// </summary>
     public int LoadHighScore()
     {
 #if UNITY_STANDALONE

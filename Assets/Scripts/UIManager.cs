@@ -2,6 +2,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
+/// <summary>
+/// Manages the game's simple UI screens such as the start menu, pause menu
+/// and game-over display. Interfaces with the <see cref="GameManager"/> to
+/// start, pause and restart the game.
+/// </summary>
 public class UIManager : MonoBehaviour
 {
     public GameObject startPanel;
@@ -11,6 +16,10 @@ public class UIManager : MonoBehaviour
     public Text highScoreLabel;
     public Text coinScoreLabel;
 
+    /// <summary>
+    /// Listens for the Escape key to toggle the pause menu while the game
+    /// is running.
+    /// </summary>
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Escape) && GameManager.Instance != null && GameManager.Instance.IsRunning())
@@ -26,6 +35,10 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initializes the UI panels and registers this manager with the game
+    /// manager.
+    /// </summary>
     void Start()
     {
         if (startPanel != null)
@@ -46,6 +59,9 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Called by the start button to begin a run.
+    /// </summary>
     public void Play()
     {
         if (startPanel != null)
@@ -58,6 +74,9 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Displays the final results on the game-over screen.
+    /// </summary>
     public void ShowGameOver(int score, int highScore, int coins)
     {
         if (finalScoreLabel != null)
@@ -78,6 +97,9 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows the pause menu and pauses the game via <see cref="GameManager"/>.
+    /// </summary>
     public void Pause()
     {
         if (pausePanel != null)
@@ -91,6 +113,9 @@ public class UIManager : MonoBehaviour
         Time.timeScale = 0f;
     }
 
+    /// <summary>
+    /// Hides the pause menu and resumes gameplay.
+    /// </summary>
     public void Resume()
     {
         if (pausePanel != null)
@@ -104,6 +129,9 @@ public class UIManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
+    /// <summary>
+    /// Reloads the active scene to restart the game.
+    /// </summary>
     public void Restart()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);

@@ -1,6 +1,11 @@
 using NUnit.Framework;
 using UnityEngine;
 
+/// <summary>
+/// Tests for core GameManager functionality such as coin counting and
+/// speed boosts. Executed through Unity's EditMode Test Runner.
+/// </summary>
+
 // EditMode tests can be run through Unity's Test Runner window.
 // Create this file under Assets/Tests/EditMode and open Window > General > Test Runner.
 // Select EditMode and run the tests.

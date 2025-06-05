@@ -1,6 +1,11 @@
 using NUnit.Framework;
 using UnityEngine;
 
+/// <summary>
+/// Simple unit tests for the ObjectPool class to ensure instances are
+/// reused correctly. Run through Unity's EditMode testing framework.
+/// </summary>
+
 // EditMode tests can be run through Unity's Test Runner window (Window > General > Test Runner).
 public class ObjectPoolTests
 {

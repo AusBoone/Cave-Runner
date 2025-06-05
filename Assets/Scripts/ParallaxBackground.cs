@@ -1,11 +1,20 @@
 using UnityEngine;
 
+/// <summary>
+/// Loops a background sprite horizontally to create a parallax scrolling
+/// effect. The scroll speed is tied to the <see cref="GameManager"/> so it
+/// matches the game's current speed.
+/// </summary>
 public class ParallaxBackground : MonoBehaviour
 {
     public float scrollSpeed = 0.5f;
     public float resetPosition = -20f;
     public float startPosition = 20f;
 
+    /// <summary>
+    /// Moves the background left each frame and wraps it back to the
+    /// starting position once it reaches <see cref="resetPosition"/>.
+    /// </summary>
     void Update()
     {
         float speed = GameManager.Instance != null ? GameManager.Instance.GetSpeed() : scrollSpeed;

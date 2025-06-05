@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Handles all player movement including jumping, variable jump height,
+/// sliding and collision responses. Uses simple physics based controls
+/// and communicates with the <see cref="GameManager"/> for game state.
+/// </summary>
 public class PlayerController : MonoBehaviour
 {
     // Force applied when jumping.
@@ -28,6 +33,9 @@ public class PlayerController : MonoBehaviour
     private float variableJumpTimer;
     private bool isJumping;
 
+    /// <summary>
+    /// Caches component references used for controlling the character.
+    /// </summary>
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -37,6 +45,10 @@ public class PlayerController : MonoBehaviour
         colliderOffset = coll.offset;
     }
 
+    /// <summary>
+    /// Handles player input for jumping and sliding each frame. Also
+    /// updates timers controlling jump height and slide duration.
+    /// </summary>
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
@@ -78,6 +90,10 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Uses a raycast to determine if the player is touching the ground.
+    /// Also manages the coyote-time grace period and available double jump.
+    /// </summary>
     void CheckGrounded()
     {
         Vector2 origin = transform.position;
@@ -100,6 +116,10 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Executes a jump if conditions are met. Supports coyote time and
+    /// a single air jump.
+    /// </summary>
     void AttemptJump()
     {
         // Allow jumping while grounded, during the coyote window, or if an extra jump remains.
@@ -122,6 +142,9 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Begins the slide animation and adjusts the collider size.
+    /// </summary>
     void StartSlide()
     {
         if (!isSliding)
@@ -138,6 +161,9 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Restores collider dimensions when the slide finishes.
+    /// </summary>
     void EndSlide()
     {
         isSliding = false;
@@ -146,6 +172,9 @@ public class PlayerController : MonoBehaviour
         anim?.SetBool("Slide", false);
     }
 
+    /// <summary>
+    /// If the player collides with an obstacle or hazard the game ends.
+    /// </summary>
     void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Hazard"))

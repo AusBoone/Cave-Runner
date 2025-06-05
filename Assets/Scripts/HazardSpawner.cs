@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Creates pits and flying bat hazards as the game progresses. Spawning
+/// frequency increases with the player's distance. Supports object
+/// pooling for performance.
+/// </summary>
 public class HazardSpawner : MonoBehaviour
 {
     public GameObject[] pitPrefabs;
@@ -16,6 +21,10 @@ public class HazardSpawner : MonoBehaviour
 
     private float timer;
 
+    /// <summary>
+    /// Initializes object pools for all hazard prefabs when pooling is
+    /// enabled.
+    /// </summary>
     void Start()
     {
         if (usePooling)
@@ -31,6 +40,10 @@ public class HazardSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawns hazards at intervals determined by <see cref="spawnRateCurve"/>.
+    /// No hazards are generated while the game is not running.
+    /// </summary>
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
@@ -50,6 +63,10 @@ public class HazardSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Chooses either a pit or bat prefab and places it at the appropriate
+    /// height using pooling if available.
+    /// </summary>
     void SpawnHazard()
     {
         bool spawnPit = Random.value > 0.5f;
@@ -68,6 +85,9 @@ public class HazardSpawner : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Utility to create a pool for the provided hazard prefab.
+    /// </summary>
     void CreatePool(GameObject prefab)
     {
         if (prefab == null || pools.ContainsKey(prefab)) return;

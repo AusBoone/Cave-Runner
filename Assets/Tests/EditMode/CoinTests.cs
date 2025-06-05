@@ -1,6 +1,11 @@
 using NUnit.Framework;
 using UnityEngine;
 
+/// <summary>
+/// Basic edit mode tests verifying coin collection and high score logic.
+/// These run inside the Unity Test Runner.
+/// </summary>
+
 public class CoinTests
 {
     [Test]

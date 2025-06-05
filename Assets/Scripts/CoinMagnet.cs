@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Component placed on the player that can temporarily attract nearby
+/// coins. When activated, all coins inside <see cref="magnetRadius"/>
+/// will move toward the player for the given duration.
+/// </summary>
 public class CoinMagnet : MonoBehaviour
 {
     public float magnetRadius = 3f;
@@ -15,11 +20,18 @@ public class CoinMagnet : MonoBehaviour
     private float magnetTimer;
     private bool magnetActive;
 
+    /// <summary>
+    /// Allocates the collider buffer used for detecting nearby coins.
+    /// </summary>
     void Awake()
     {
         _colliderBuffer = new Collider2D[colliderBufferSize];
     }
 
+    /// <summary>
+    /// Counts down the active timer and pulls coins toward the player
+    /// each frame while the magnet is active.
+    /// </summary>
     void Update()
     {
         if (magnetActive)
@@ -36,6 +48,10 @@ public class CoinMagnet : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Finds coins within <see cref="magnetRadius"/> and moves them
+    /// toward the player's position.
+    /// </summary>
     void AttractCoins()
     {
         // Only check colliders on the specified coin layer for better performance.
@@ -50,6 +66,9 @@ public class CoinMagnet : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Enables the magnet effect for the specified duration in seconds.
+    /// </summary>
     public void ActivateMagnet(float duration)
     {
         magnetActive = true;

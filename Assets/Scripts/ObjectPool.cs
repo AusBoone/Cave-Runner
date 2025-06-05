@@ -1,7 +1,11 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// Simple object pooling component that reuses inactive objects.
+/// <summary>
+/// Simple object pooling component that reuses inactive instances of a
+/// prefab. Pools help avoid expensive Instantiate/Destroy calls during
+/// gameplay.
+/// </summary>
 public class ObjectPool : MonoBehaviour
 {
     public GameObject prefab;
@@ -11,6 +15,10 @@ public class ObjectPool : MonoBehaviour
 
     // Delay initialization until Start so prefab can be assigned by spawners
     // before the pool creates its initial objects.
+    /// <summary>
+    /// Instantiates a set number of objects at start so the pool has
+    /// instances ready for immediate use.
+    /// </summary>
     void Start()
     {
         if (prefab == null) return;
@@ -20,6 +28,10 @@ public class ObjectPool : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Creates a new pooled instance of the prefab and adds it to the
+    /// internal queue.
+    /// </summary>
     PooledObject CreateNew()
     {
         // Instantiate a new object and parent it under the pool so the
@@ -32,6 +44,10 @@ public class ObjectPool : MonoBehaviour
         return po;
     }
 
+    /// <summary>
+    /// Retrieves an instance from the pool, expanding it if necessary.
+    /// The object is positioned, activated and returned.
+    /// </summary>
     public GameObject GetObject(Vector3 position, Quaternion rotation)
     {
         if (prefab == null) return null;
@@ -46,6 +62,10 @@ public class ObjectPool : MonoBehaviour
         return obj;
     }
 
+    /// <summary>
+    /// Deactivates an object and puts it back into the pool for later
+    /// reuse.
+    /// </summary>
     public void ReturnObject(GameObject obj)
     {
         // Disable the object and parent it back under this pool so

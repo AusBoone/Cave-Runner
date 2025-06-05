@@ -2,8 +2,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
-// Handles game state and communicates with SteamManager for achievements and cloud saves.
-
+/// <summary>
+/// Central controller for the endless runner. Tracks the player's
+/// progress, handles pausing and game over logic and communicates with
+/// the optional <see cref="SteamManager"/> for achievements and cloud
+/// saves.
+/// </summary>
 public class GameManager : MonoBehaviour
 {
     public float baseSpeed = 5f;
@@ -42,6 +46,10 @@ public class GameManager : MonoBehaviour
         return isGameOver;
     }
 
+    /// <summary>
+    /// Initializes the singleton instance and loads the saved high
+    /// score from either PlayerPrefs or the Steam cloud.
+    /// </summary>
     void Awake()
     {
         if (Instance == null)
@@ -70,6 +78,10 @@ public class GameManager : MonoBehaviour
         UpdateCoinLabel();
     }
 
+    /// <summary>
+    /// Advances the game state every frame while running. Updates the
+    /// player's distance and applies speed boosts over time.
+    /// </summary>
     void Update()
     {
         if (!isRunning) return;
@@ -90,6 +102,10 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Current horizontal movement speed of the world. Returns zero if the
+    /// game is not actively running.
+    /// </summary>
     public float GetSpeed()
     {
         if (!isRunning)
@@ -99,6 +115,11 @@ public class GameManager : MonoBehaviour
         return currentSpeed * speedMultiplier;
     }
 
+    /// <summary>
+    /// Stops gameplay and displays the final results. High scores are
+    /// saved locally and to Steam if available. Achievements are also
+    /// checked here.
+    /// </summary>
     public void GameOver()
     {
         isRunning = false;
@@ -133,6 +154,9 @@ public class GameManager : MonoBehaviour
         UpdateHighScoreLabel();
     }
 
+    /// <summary>
+    /// Resets all runtime variables and begins a new run.
+    /// </summary>
     public void StartGame()
     {
         isRunning = true;
@@ -146,6 +170,9 @@ public class GameManager : MonoBehaviour
         UpdateCoinLabel();
     }
 
+    /// <summary>
+    /// Halts updates without resetting gameplay data.
+    /// </summary>
     public void PauseGame()
     {
         if (!isRunning || isPaused) return;
@@ -153,6 +180,9 @@ public class GameManager : MonoBehaviour
         isPaused = true;
     }
 
+    /// <summary>
+    /// Continues gameplay after being paused.
+    /// </summary>
     public void ResumeGame()
     {
         if (!isPaused) return;
@@ -160,33 +190,51 @@ public class GameManager : MonoBehaviour
         isPaused = false;
     }
 
+    /// <summary>
+    /// Total distance the player has traveled during this run.
+    /// </summary>
     public float GetDistance()
     {
         return distance;
     }
 
+    /// <summary>
+    /// Temporarily multiplies the game speed for a set duration.
+    /// </summary>
     public void ActivateSpeedBoost(float duration, float multiplier)
     {
         speedMultiplier = multiplier;
         speedBoostTimer = duration;
     }
 
+    /// <summary>
+    /// Registers the UIManager so game events can trigger menu updates.
+    /// </summary>
     public void SetUIManager(UIManager manager)
     {
         uiManager = manager;
     }
 
+    /// <summary>
+    /// Adds to the player's coin tally and updates the UI label.
+    /// </summary>
     public void AddCoins(int amount)
     {
         coins += amount;
         UpdateCoinLabel();
     }
 
+    /// <summary>
+    /// Returns the player's collected coin count for this run.
+    /// </summary>
     public int GetCoins()
     {
         return coins;
     }
 
+    /// <summary>
+    /// Refreshes the on-screen high score text from PlayerPrefs.
+    /// </summary>
     private void UpdateHighScoreLabel()
     {
         if (highScoreLabel != null)
@@ -195,6 +243,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Refreshes the on-screen coin total text.
+    /// </summary>
     private void UpdateCoinLabel()
     {
         if (coinLabel != null)

@@ -11,6 +11,25 @@ public class ParallaxBackground : MonoBehaviour
     public float resetPosition = -20f;
     public float startPosition = 20f;
 
+    // Optional sprite name loaded from Assets/Art/Resources at runtime.
+    public string spriteName;
+
+    void Awake()
+    {
+        if (!string.IsNullOrEmpty(spriteName))
+        {
+            SpriteRenderer sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                Sprite loaded = Resources.Load<Sprite>("Art/" + spriteName);
+                if (loaded != null)
+                {
+                    sr.sprite = loaded;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Moves the background left each frame and wraps it back to the
     /// starting position once it reaches <see cref="resetPosition"/>.

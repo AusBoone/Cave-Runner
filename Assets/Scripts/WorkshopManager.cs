@@ -55,10 +55,11 @@ public class WorkshopManager : MonoBehaviour
         foreach (var id in ids)
         {
             SteamUGC.DownloadItem(id, true);
-            var call = SteamUGC.GetItemInstallInfo(id, out ulong size, out string path, 1024, out uint time);
+            var folder = new System.Text.StringBuilder(1024);
+            bool call = SteamUGC.GetItemInstallInfo(id, out ulong size, folder, (uint)folder.Capacity, out uint time);
             if (call)
             {
-                paths.Add(path);
+                paths.Add(folder.ToString());
                 remaining--;
                 if (remaining == 0)
                 {

@@ -16,6 +16,10 @@ public class WorkshopManager : MonoBehaviour
     private bool initialized;
     private CallResult<CreateItemResult_t> createResult;
     private CallResult<SubmitItemUpdateResult_t> submitResult;
+    private List<CallResult<DownloadItemResult_t>> downloadResults;
+    private HashSet<PublishedFileId_t> pendingDownloads;
+    private List<string> downloadPaths;
+    private System.Action<List<string>> downloadsCallback;
 #endif
 
     private void Awake()
@@ -63,31 +67,42 @@ public class WorkshopManager : MonoBehaviour
 
         PublishedFileId_t[] ids = new PublishedFileId_t[count];
         SteamUGC.GetSubscribedItems(ids, count);
+        pendingDownloads = new HashSet<PublishedFileId_t>(ids);
+        downloadPaths = new List<string>();
+        downloadsCallback = callback;
+        downloadResults = new List<CallResult<DownloadItemResult_t>>();
 
-        List<string> paths = new List<string>();
-        int remaining = ids.Length;
         foreach (var id in ids)
         {
-            SteamUGC.DownloadItem(id, true);
-            var folder = new System.Text.StringBuilder(1024);
-            bool call = SteamUGC.GetItemInstallInfo(id, out ulong size, folder, (uint)folder.Capacity, out uint time);
-            if (call)
+            var handle = SteamUGC.DownloadItem(id, true);
+            var result = CallResult<DownloadItemResult_t>.Create((res, failure) =>
             {
-                paths.Add(folder.ToString());
-                remaining--;
-                if (remaining == 0)
+                if (!failure && res.m_eResult == EResult.k_EResultOK && pendingDownloads.Contains(res.m_nPublishedFileId))
                 {
-                    callback?.Invoke(paths);
+                    var folder = new System.Text.StringBuilder(1024);
+                    bool call = SteamUGC.GetItemInstallInfo(res.m_nPublishedFileId, out ulong size, folder, (uint)folder.Capacity, out uint time);
+                    if (call)
+                    {
+                        downloadPaths.Add(folder.ToString());
+                    }
                 }
-            }
-            else
-            {
-                remaining--;
-                if (remaining == 0)
+
+                if (pendingDownloads != null)
                 {
-                    callback?.Invoke(paths);
+                    pendingDownloads.Remove(res.m_nPublishedFileId);
+                    if (pendingDownloads.Count == 0)
+                    {
+                        var cb = downloadsCallback;
+                        downloadsCallback = null;
+                        cb?.Invoke(downloadPaths);
+                        downloadResults.Clear();
+                        pendingDownloads = null;
+                        downloadPaths = null;
+                    }
                 }
-            }
+            });
+            result.Set(handle);
+            downloadResults.Add(result);
         }
     }
 

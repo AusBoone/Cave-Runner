@@ -9,18 +9,27 @@ public class PanelAnimator : MonoBehaviour
     public Animator animator;
     public float hideDelay = 0.5f;
 
+    /// <summary>
+    /// Caches the Animator reference if not assigned.
+    /// </summary>
     void Awake()
     {
         if (animator == null)
             animator = GetComponent<Animator>();
     }
 
+    /// <summary>
+    /// Plays the show animation and activates the panel.
+    /// </summary>
     public void Show()
     {
         gameObject.SetActive(true);
         animator?.SetTrigger("Show");
     }
 
+    /// <summary>
+    /// Plays the hide animation and deactivates after a delay.
+    /// </summary>
     public void Hide()
     {
         if (animator != null)

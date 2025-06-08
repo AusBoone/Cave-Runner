@@ -77,6 +77,9 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Releases the global instance reference when destroyed.
+    /// </summary>
     void OnDestroy()
     {
         if (Instance == this)

@@ -16,6 +16,9 @@ public static class ColorblindManager
         Enabled = PlayerPrefs.GetInt(Pref, 0) == 1;
     }
 
+    /// <summary>
+    /// Toggles colorblind mode and persists the preference.
+    /// </summary>
     public static void SetEnabled(bool enabled)
     {
         Enabled = enabled;

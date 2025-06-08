@@ -8,6 +8,9 @@ public class GravityFlipPowerUp : MonoBehaviour
     public float duration = 5f;
     public AudioClip collectClip;
 
+    /// <summary>
+    /// Activates gravity flipping when the player collects this item.
+    /// </summary>
     void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))

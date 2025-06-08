@@ -14,6 +14,9 @@ public class ParallaxBackground : MonoBehaviour
     // Optional sprite name loaded from Assets/Art/Resources at runtime.
     public string spriteName;
 
+    /// <summary>
+    /// Optionally loads a sprite by name before the first frame.
+    /// </summary>
     void Awake()
     {
         if (!string.IsNullOrEmpty(spriteName))

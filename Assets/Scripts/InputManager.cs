@@ -28,6 +28,9 @@ public static class InputManager
         return defaultKey;
     }
 
+    /// <summary>
+    /// Saves the provided key as the new jump binding.
+    /// </summary>
     public static void SetJumpKey(KeyCode key)
     {
         JumpKey = key;
@@ -35,6 +38,9 @@ public static class InputManager
         PlayerPrefs.Save();
     }
 
+    /// <summary>
+    /// Saves the provided key as the new slide binding.
+    /// </summary>
     public static void SetSlideKey(KeyCode key)
     {
         SlideKey = key;

@@ -10,6 +10,9 @@ public class PlayerShield : MonoBehaviour
 
     public bool IsActive => shieldTimer > 0f;
 
+    /// <summary>
+    /// Counts down the remaining shield duration each frame.
+    /// </summary>
     void Update()
     {
         if (shieldTimer > 0f)

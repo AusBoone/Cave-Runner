@@ -22,6 +22,9 @@ public class WorkshopManager : MonoBehaviour
     private System.Action<List<string>> downloadsCallback;
 #endif
 
+    /// <summary>
+    /// Sets up the singleton instance and checks Steam initialization.
+    /// </summary>
     private void Awake()
     {
         if (Instance == null)
@@ -38,6 +41,9 @@ public class WorkshopManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Cleans up the singleton instance on destruction.
+    /// </summary>
     private void OnDestroy()
     {
         if (Instance == this)

@@ -8,6 +8,9 @@ public class ShieldPowerUp : MonoBehaviour
     public float duration = 5f;
     public AudioClip collectClip;
 
+    /// <summary>
+    /// Grants a temporary shield when the player touches this power-up.
+    /// </summary>
     void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))

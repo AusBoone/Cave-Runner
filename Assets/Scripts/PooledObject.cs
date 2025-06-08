@@ -8,5 +8,9 @@ using UnityEngine;
 public class PooledObject : MonoBehaviour
 {
     [HideInInspector]
+    /// <summary>
+    /// Reference back to the <see cref="ObjectPool"/> this instance
+    /// belongs to. Assigned automatically when created.
+    /// </summary>
     public ObjectPool Pool;
 }

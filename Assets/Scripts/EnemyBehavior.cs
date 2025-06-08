@@ -11,6 +11,9 @@ public class EnemyBehavior : MonoBehaviour
 
     private Transform player;
 
+    /// <summary>
+    /// Locates the player object so the enemy can chase it.
+    /// </summary>
     void Start()
     {
         GameObject obj = GameObject.FindGameObjectWithTag("Player");
@@ -20,6 +23,9 @@ public class EnemyBehavior : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Moves toward the player each frame while the game is running.
+    /// </summary>
     void Update()
     {
         if (player == null) return;

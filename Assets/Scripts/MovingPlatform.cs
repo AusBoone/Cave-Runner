@@ -10,11 +10,17 @@ public class MovingPlatform : MonoBehaviour
     public float frequency = 1f;
     private Vector3 startPos;
 
+    /// <summary>
+    /// Stores the starting position to calculate the oscillation offset.
+    /// </summary>
     void Start()
     {
         startPos = transform.position;
     }
 
+    /// <summary>
+    /// Oscillates the platform vertically using a sine wave.
+    /// </summary>
     void Update()
     {
         float y = Mathf.Sin(Time.time * frequency) * amplitude;

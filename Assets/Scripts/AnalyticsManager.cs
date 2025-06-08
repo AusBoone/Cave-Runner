@@ -37,6 +37,10 @@ public class AnalyticsManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initializes the singleton instance and loads any cached run data.
+    /// Immediately attempts to send data if it exists.
+    /// </summary>
     void Awake()
     {
         if (Instance == null)
@@ -198,6 +202,9 @@ public class AnalyticsManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Clears the global instance reference when destroyed.
+    /// </summary>
     void OnDestroy()
     {
         if (Instance == this)

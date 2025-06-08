@@ -324,6 +324,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Clears the static instance when the manager is destroyed.
+    /// </summary>
     void OnDestroy()
     {
         if (Instance == this)

@@ -17,6 +17,9 @@ public class AnalyticsManager : MonoBehaviour
     [Tooltip("Optional URL to POST aggregated run data as JSON. Leave blank to keep data local.")]
     public string remoteEndpoint;
 
+    [Tooltip("Maximum seconds to wait when sending data on quit.")]
+    public float sendTimeout = 3f;
+
     private List<RunData> runs = new List<RunData>();
 
     [System.Serializable]
@@ -130,18 +133,19 @@ public class AnalyticsManager : MonoBehaviour
     /// Immediately posts the run list and blocks until the request completes.
     /// Used when quitting so data isn't lost if the application closes quickly.
     /// </summary>
-    private void SendDataBlocking()
+
+    private IEnumerator SendDataBlocking()
     {
         if (runs.Count == 0)
         {
-            return;
+            yield break;
         }
 
         string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
         if (string.IsNullOrEmpty(remoteEndpoint))
         {
             Debug.Log("Analytics data: " + json);
-            return;
+            yield break;
         }
 
         using (UnityWebRequest req = new UnityWebRequest(remoteEndpoint, "POST"))
@@ -151,8 +155,18 @@ public class AnalyticsManager : MonoBehaviour
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             var op = req.SendWebRequest();
-            // Block until the request finishes
-            while (!op.isDone) { }
+            float timer = 0f;
+            while (!op.isDone && timer < sendTimeout)
+            {
+                timer += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (!op.isDone)
+            {
+                req.Abort();
+                Debug.LogWarning("Analytics send timed out");
+                yield break;
+            }
             if (req.result == UnityWebRequest.Result.Success)
             {
                 runs.Clear();
@@ -180,7 +194,7 @@ public class AnalyticsManager : MonoBehaviour
         {
             // Persist to disk first in case the request fails
             SaveLocal();
-            SendDataBlocking();
+            StartCoroutine(SendDataBlocking());
         }
     }
 

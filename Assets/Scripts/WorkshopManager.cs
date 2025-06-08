@@ -55,6 +55,12 @@ public class WorkshopManager : MonoBehaviour
         }
 
         uint count = SteamUGC.GetNumSubscribedItems();
+        if (count == 0)
+        {
+            callback?.Invoke(new List<string>());
+            return;
+        }
+
         PublishedFileId_t[] ids = new PublishedFileId_t[count];
         SteamUGC.GetSubscribedItems(ids, count);
 

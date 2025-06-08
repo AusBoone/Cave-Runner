@@ -18,6 +18,10 @@ public static class InputManager
         SlideKey = LoadKey(SlidePref, KeyCode.LeftControl);
     }
 
+    /// <summary>
+    /// Loads a key binding from PlayerPrefs and falls back to the provided
+    /// default when the stored value cannot be parsed.
+    /// </summary>
     private static KeyCode LoadKey(string pref, KeyCode defaultKey)
     {
         string saved = PlayerPrefs.GetString(pref, defaultKey.ToString());

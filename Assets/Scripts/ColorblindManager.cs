@@ -20,6 +20,7 @@ public static class ColorblindManager
     {
         Enabled = enabled;
         PlayerPrefs.SetInt(Pref, enabled ? 1 : 0);
+        PlayerPrefs.Save();
         OnModeChanged?.Invoke(enabled);
     }
 }

@@ -87,6 +87,7 @@ public class GameManager : MonoBehaviour
             if (cloudScore > localScore)
             {
                 PlayerPrefs.SetInt("HighScore", cloudScore);
+                PlayerPrefs.Save();
             }
         }
 
@@ -161,6 +162,7 @@ public class GameManager : MonoBehaviour
         {
             highScore = finalScore;
             PlayerPrefs.SetInt("HighScore", highScore);
+            PlayerPrefs.Save();
             if (SteamManager.Instance != null)
             {
                 SteamManager.Instance.SaveHighScore(highScore);

@@ -32,11 +32,13 @@ public static class InputManager
     {
         JumpKey = key;
         PlayerPrefs.SetString(JumpPref, key.ToString());
+        PlayerPrefs.Save();
     }
 
     public static void SetSlideKey(KeyCode key)
     {
         SlideKey = key;
         PlayerPrefs.SetString(SlidePref, key.ToString());
+        PlayerPrefs.Save();
     }
 }

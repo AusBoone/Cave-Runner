@@ -183,4 +183,12 @@ public class AnalyticsManager : MonoBehaviour
             SendDataBlocking();
         }
     }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
 }

@@ -76,4 +76,12 @@ public class AudioManager : MonoBehaviour
             effectsSource.PlayOneShot(clip);
         }
     }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
 }

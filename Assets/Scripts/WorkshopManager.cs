@@ -34,6 +34,14 @@ public class WorkshopManager : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
 #if UNITY_STANDALONE
     /// <summary>
     /// Downloads all subscribed workshop items and returns their local paths.

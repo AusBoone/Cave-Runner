@@ -70,6 +70,10 @@ public class SteamManager : MonoBehaviour
             SteamAPI.Shutdown();
         }
 #endif
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     /// <summary>

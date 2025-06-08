@@ -321,4 +321,12 @@ public class GameManager : MonoBehaviour
             coinLabel.text = coins.ToString();
         }
     }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
 }

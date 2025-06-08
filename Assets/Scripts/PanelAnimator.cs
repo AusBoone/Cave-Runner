@@ -43,6 +43,10 @@ public class PanelAnimator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Waits for <c>hideDelay</c> so the hide animation can finish before
+    /// disabling the panel.
+    /// </summary>
     private IEnumerator DisableAfterDelay()
     {
         yield return new WaitForSeconds(hideDelay);

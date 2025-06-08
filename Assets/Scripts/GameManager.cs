@@ -165,6 +165,14 @@ public class GameManager : MonoBehaviour
         isRunning = false;
         isPaused = false;
         isGameOver = true;
+        // If gravity was flipped when the run ended, flip it back so menus and
+        // future runs use the normal downward orientation.
+        if (gravityFlipped)
+        {
+            Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
+            gravityFlipped = false;
+            gravityFlipTimer = 0f;
+        }
         int finalScore = Mathf.FloorToInt(distance);
         int highScore = PlayerPrefs.GetInt("HighScore", 0);
         if (finalScore > highScore)
@@ -214,6 +222,12 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void StartGame()
     {
+        // Always restore gravity before a new run in case the previous game
+        // ended while flipped.
+        if (gravityFlipped)
+        {
+            Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
+        }
         isRunning = true;
         isPaused = false;
         isGameOver = false;

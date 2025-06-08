@@ -155,6 +155,10 @@ public class ObstacleSpawner : MonoBehaviour
         pools[prefab] = pool;
     }
 
+    /// <summary>
+    /// Retrieves obstacle prefabs by name from Resources/Art and
+    /// returns the loaded array.
+    /// </summary>
     GameObject[] LoadPrefabs(string[] names)
     {
         var list = new System.Collections.Generic.List<GameObject>();

@@ -6,8 +6,18 @@ using UnityEngine;
 /// </summary>
 public class MovingPlatform : MonoBehaviour
 {
+    /// <summary>
+    /// How far the platform moves above and below its starting position.
+    /// </summary>
     public float amplitude = 1f;
+
+    /// <summary>
+    /// Speed of the up and down oscillation in cycles per second.
+    /// </summary>
     public float frequency = 1f;
+    /// <summary>
+    /// Original local position used as the center of the sine wave motion.
+    /// </summary>
     private Vector3 startPos;
 
     /// <summary>

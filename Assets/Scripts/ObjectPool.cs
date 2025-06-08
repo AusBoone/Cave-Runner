@@ -8,7 +8,15 @@ using System.Collections.Generic;
 /// </summary>
 public class ObjectPool : MonoBehaviour
 {
+    /// <summary>
+    /// Prefab that will be instantiated when the pool needs more objects.
+    /// </summary>
     public GameObject prefab;
+
+    /// <summary>
+    /// Number of instances created on <c>Start</c> so the pool has
+    /// objects ready before gameplay begins.
+    /// </summary>
     public int initialSize = 5;
 
     private Queue<PooledObject> objects = new Queue<PooledObject>();

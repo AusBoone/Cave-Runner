@@ -29,8 +29,17 @@ public class GameManager : MonoBehaviour
     private float gravityFlipTimer;
     private bool gravityFlipped;
 
+    /// <summary>
+    /// Distance milestones that unlock stages or achievements as the
+    /// player progresses.
+    /// </summary>
     public float[] stageGoals;
+
     private int currentStage;
+
+    /// <summary>
+    /// Event triggered whenever a new stage index is reached.
+    /// </summary>
     public event System.Action<int> OnStageUnlocked;
 
     private const string AchDistance1000 = "ACH_DISTANCE_1000";

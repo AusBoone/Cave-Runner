@@ -7,11 +7,24 @@ using UnityEngine;
 /// </summary>
 public class CoinMagnet : MonoBehaviour
 {
+    /// <summary>
+    /// Radius around the player in which coins will be detected.
+    /// </summary>
     public float magnetRadius = 3f;
+
+    /// <summary>
+    /// Movement speed applied to coins as they travel toward the player.
+    /// </summary>
     public float magnetSpeed = 10f;
-    // Layer mask so only coins are searched when attracting them.
+
+    /// <summary>
+    /// Layer mask so only coin objects are considered during detection.
+    /// </summary>
     public LayerMask coinLayer;
-    // How many colliders can be detected each frame.
+
+    /// <summary>
+    /// How many colliders can be detected each frame.
+    /// </summary>
     [SerializeField]
     private int colliderBufferSize = 10;
     // Preallocated buffer to store detected colliders.

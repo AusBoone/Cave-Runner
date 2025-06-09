@@ -11,12 +11,12 @@ public class CoinTests
     [Test]
     public void CollectingCoinAddsCoinsAndReturnsToPool()
     {
-        // Set up GameManager instance
+        // Set up GameManager instance to track coins
         var gmObj = new GameObject("gm");
         var gm = gmObj.AddComponent<GameManager>();
         gm.StartGame();
 
-        // Set up pool and coin
+        // Create a pool and a coin that belongs to it
         var poolObj = new GameObject("pool");
         var pool = poolObj.AddComponent<ObjectPool>();
         pool.prefab = new GameObject("prefab");
@@ -28,7 +28,7 @@ public class CoinTests
         var coinCollider = coinObj.AddComponent<BoxCollider2D>();
         coinCollider.isTrigger = true;
 
-        // Create player collider
+        // Fake player collider used to trigger collection
         var playerObj = new GameObject("player");
         playerObj.tag = "Player";
         var playerCollider = playerObj.AddComponent<BoxCollider2D>();
@@ -53,7 +53,7 @@ public class CoinTests
         var gm = gmObj.AddComponent<GameManager>();
         gm.StartGame();
 
-        // Set internal distance via reflection
+        // Force the private distance field so GameOver records a known score
         var field = typeof(GameManager).GetField("distance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         field.SetValue(gm, 10f);
 

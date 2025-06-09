@@ -30,8 +30,9 @@ public class UIManager : MonoBehaviour
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
 
-    private const float panelHideDelay = 0.5f;
+    private const float panelHideDelay = 0.5f; // wait so hide animation can play
 
+    // Immediately disables a panel without playing an animation
     private void HidePanelImmediate(GameObject panel)
     {
         if (panel != null)
@@ -40,6 +41,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // Enables a panel and triggers its Animator if present
     private void ShowPanel(GameObject panel)
     {
         if (panel != null)
@@ -50,6 +52,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // Starts the hide animation and disables the panel afterwards
     private void HidePanel(GameObject panel)
     {
         if (panel != null)
@@ -67,6 +70,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // Waits for the hide animation to finish before disabling the panel
     private System.Collections.IEnumerator DeactivateAfterDelay(GameObject panel)
     {
         yield return new WaitForSeconds(panelHideDelay);
@@ -83,6 +87,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     void Update()
     {
+        // Toggle pause state when the Escape key is pressed during a run
         if (Input.GetKeyDown(KeyCode.Escape) && GameManager.Instance != null && GameManager.Instance.IsRunning())
         {
             if (GameManager.Instance.IsPaused())
@@ -276,6 +281,7 @@ public class UIManager : MonoBehaviour
     /// like PNG images within the downloaded folder. The background sprite
     /// and an optional prefab can be swapped at runtime.
     /// </summary>
+    // Loads content from the first downloaded workshop item and applies it
     public void ApplyFirstWorkshopItem()
     {
 #if UNITY_STANDALONE
@@ -294,7 +300,8 @@ public class UIManager : MonoBehaviour
 
         try
         {
-            // Look for an asset bundle first
+            // Look for an asset bundle first. Unity packages can have either
+            // the .bundle or legacy .unity3d extension.
             string bundlePath = Directory.GetFiles(packPath, "*.bundle").FirstOrDefault();
             if (string.IsNullOrEmpty(bundlePath))
             {

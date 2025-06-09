@@ -54,22 +54,26 @@ public class ObstacleSpawner : MonoBehaviour
         }
         if (usePooling)
         {
-            foreach (GameObject prefab in groundObstacles)
-            {
-                CreatePool(prefab);
-            }
-            foreach (GameObject prefab in ceilingObstacles)
-            {
-                CreatePool(prefab);
-            }
-            foreach (GameObject prefab in movingPlatforms)
-            {
-                CreatePool(prefab);
-            }
-            foreach (GameObject prefab in rotatingHazards)
-            {
-                CreatePool(prefab);
-            }
+            if (groundObstacles != null)
+                foreach (GameObject prefab in groundObstacles)
+                {
+                    CreatePool(prefab);
+                }
+            if (ceilingObstacles != null)
+                foreach (GameObject prefab in ceilingObstacles)
+                {
+                    CreatePool(prefab);
+                }
+            if (movingPlatforms != null)
+                foreach (GameObject prefab in movingPlatforms)
+                {
+                    CreatePool(prefab);
+                }
+            if (rotatingHazards != null)
+                foreach (GameObject prefab in rotatingHazards)
+                {
+                    CreatePool(prefab);
+                }
         }
     }
 

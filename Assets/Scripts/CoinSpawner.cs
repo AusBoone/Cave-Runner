@@ -28,10 +28,11 @@ public class CoinSpawner : MonoBehaviour
     {
         if (usePooling)
         {
-            foreach (GameObject prefab in coinPrefabs)
-            {
-                CreatePool(prefab);
-            }
+            if (coinPrefabs != null)
+                foreach (GameObject prefab in coinPrefabs)
+                {
+                    CreatePool(prefab);
+                }
         }
     }
 

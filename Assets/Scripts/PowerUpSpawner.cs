@@ -28,10 +28,11 @@ public class PowerUpSpawner : MonoBehaviour
     {
         if (usePooling)
         {
-            foreach (GameObject prefab in powerUpPrefabs)
-            {
-                CreatePool(prefab);
-            }
+            if (powerUpPrefabs != null)
+                foreach (GameObject prefab in powerUpPrefabs)
+                {
+                    CreatePool(prefab);
+                }
         }
     }
 

@@ -29,14 +29,16 @@ public class HazardSpawner : MonoBehaviour
     {
         if (usePooling)
         {
-            foreach (GameObject prefab in pitPrefabs)
-            {
-                CreatePool(prefab);
-            }
-            foreach (GameObject prefab in batPrefabs)
-            {
-                CreatePool(prefab);
-            }
+            if (pitPrefabs != null)
+                foreach (GameObject prefab in pitPrefabs)
+                {
+                    CreatePool(prefab);
+                }
+            if (batPrefabs != null)
+                foreach (GameObject prefab in batPrefabs)
+                {
+                    CreatePool(prefab);
+                }
         }
     }
 

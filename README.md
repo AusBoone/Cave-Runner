@@ -29,6 +29,19 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
 5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
 6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
 
+## Additional Setup Steps
+This repository only provides the C# scripts. No assets or `ProjectSettings`
+are included, so you must configure a new Unity project yourself before the
+game will run.
+
+1. Create a new Unity **2022.3 LTS** project and import the scripts from
+   `Assets/Scripts` into the new project's `Assets` folder.
+2. Provide or create your own scenes, prefabs, sprites and audio clips for the
+   player, obstacles and UI elements.
+3. [Install Steamworks.NET](https://steamworks.github.io/) if you plan to use
+   the `SteamManager` or `WorkshopManager` features.
+4. Add your own `ProjectSettings` since none are included in this repository.
+
 
 ## Scene Setup Tips
 - Add a main camera and attach the **CameraFollow** script. Assign the player transform to the script's *target* field so the camera smoothly follows the character.

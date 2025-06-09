@@ -55,15 +55,17 @@ public class PlayerController : MonoBehaviour
         {
             return;
         }
+        // Update grounded state before processing input
         CheckGrounded();
 
-        // Handle jump input and variable jump height using custom bindings.
+        // Handle jump input and variable jump height using custom bindings
         if (Input.GetKeyDown(InputManager.JumpKey))
         {
             AttemptJump();
         }
         if (Input.GetKey(InputManager.JumpKey) && isJumping)
         {
+            // Apply extra upward force while the jump button is held
             if (variableJumpTimer > 0f)
             {
                 rb.AddForce(Vector2.up * jumpForce * Time.deltaTime);
@@ -82,6 +84,7 @@ public class PlayerController : MonoBehaviour
 
         if (isSliding)
         {
+            // Countdown slide duration and revert when it expires
             slideTimer -= Time.deltaTime;
             if (slideTimer <= 0f)
             {
@@ -97,13 +100,13 @@ public class PlayerController : MonoBehaviour
     void CheckGrounded()
     {
         Vector2 origin = transform.position;
-        float distance = 0.1f;
+        float distance = 0.1f; // short ray just beneath the player
         RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, distance, groundLayer);
         bool wasGrounded = isGrounded;
         isGrounded = hit.collider != null;
         if (isGrounded)
         {
-            // Reset coyote timer and available jumps when touching the ground.
+            // Reset coyote timer and available jumps when touching the ground
             coyoteTimer = coyoteTime;
             if (!wasGrounded)
             {
@@ -112,6 +115,7 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
+            // Count down the grace period once airborne
             coyoteTimer -= Time.deltaTime;
         }
     }

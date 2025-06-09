@@ -11,23 +11,24 @@ using System;
 /// </summary>
 public class GameManager : MonoBehaviour
 {
-    public float baseSpeed = 5f;
-    public float speedIncrease = 0.1f;
-    public Text scoreLabel;
-    public Text highScoreLabel;
-    public Text coinLabel;
+    public float baseSpeed = 5f;              // initial world scroll speed
+    public float speedIncrease = 0.1f;        // speed gain per second
+    public Text scoreLabel;                   // UI label showing current distance
+    public Text highScoreLabel;               // UI label showing best distance
+    public Text coinLabel;                    // UI label showing collected coins
 
-    private float distance;
-    private float currentSpeed;
-    private int coins;
-    private bool isRunning;
-    private bool isPaused;
-    private bool isGameOver;
-    private UIManager uiManager;
-    private float speedBoostTimer;
-    private float speedMultiplier = 1f;
-    private float gravityFlipTimer;
-    private bool gravityFlipped;
+    // Runtime values tracked during a single run
+    private float distance;                   // total distance traveled
+    private float currentSpeed;               // current scroll speed before multipliers
+    private int coins;                        // coins collected this run
+    private bool isRunning;                   // true while gameplay is active
+    private bool isPaused;                    // true when pause menu is shown
+    private bool isGameOver;                  // set after the player dies
+    private UIManager uiManager;              // reference to the UI controller
+    private float speedBoostTimer;            // remaining time on active speed boost
+    private float speedMultiplier = 1f;       // multiplier applied by speed boosts
+    private float gravityFlipTimer;           // remaining time gravity is inverted
+    private bool gravityFlipped;              // true while gravity is inverted
 
     /// <summary>
     /// Distance milestones that unlock stages or achievements as the
@@ -110,9 +111,12 @@ public class GameManager : MonoBehaviour
     /// </summary>
     void Update()
     {
-        if (!isRunning) return;
+        if (!isRunning) return; // skip updates when the game is not active
 
+        // Increase the base scroll speed over time so difficulty ramps up
         currentSpeed += speedIncrease * Time.deltaTime;
+
+        // Reduce any active speed boost timer and reset the multiplier when finished
         if (speedBoostTimer > 0f)
         {
             speedBoostTimer -= Time.deltaTime;
@@ -121,6 +125,8 @@ public class GameManager : MonoBehaviour
                 speedMultiplier = 1f;
             }
         }
+
+        // Revert gravity when the flip duration expires
         if (gravityFlipped)
         {
             gravityFlipTimer -= Time.deltaTime;
@@ -130,12 +136,18 @@ public class GameManager : MonoBehaviour
                 Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
             }
         }
+
+        // Update distance traveled applying any speed multipliers
         distance += currentSpeed * speedMultiplier * Time.deltaTime;
+
+        // Notify listeners when distance milestones are crossed
         if (stageGoals != null && currentStage < stageGoals.Length && distance >= stageGoals[currentStage])
         {
             currentStage++;
             OnStageUnlocked?.Invoke(currentStage);
         }
+
+        // Refresh the on-screen score text
         if (scoreLabel != null)
         {
             scoreLabel.text = Mathf.FloorToInt(distance).ToString();
@@ -162,9 +174,11 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void GameOver()
     {
+        // Stop all update logic and mark the run as finished
         isRunning = false;
         isPaused = false;
         isGameOver = true;
+
         // If gravity was flipped when the run ended, flip it back so menus and
         // future runs use the normal downward orientation.
         if (gravityFlipped)
@@ -175,6 +189,8 @@ public class GameManager : MonoBehaviour
         }
         int finalScore = Mathf.FloorToInt(distance);
         int highScore = PlayerPrefs.GetInt("HighScore", 0);
+
+        // Persist a new high score locally and to Steam if available
         if (finalScore > highScore)
         {
             highScore = finalScore;
@@ -187,6 +203,7 @@ public class GameManager : MonoBehaviour
         }
         if (SteamManager.Instance != null)
         {
+            // Grant distance and coin achievements if thresholds were reached
             if (finalScore >= 1000)
             {
                 SteamManager.Instance.UnlockAchievement(AchDistance1000);
@@ -204,12 +221,15 @@ public class GameManager : MonoBehaviour
                 SteamManager.Instance.UnlockAchievement(AchCoins200);
             }
 
+            // Submit the score to the Steam leaderboard
             SteamManager.Instance.UploadScore(finalScore);
         }
+        // Update the UI with the final results
         if (uiManager != null)
         {
             uiManager.ShowGameOver(finalScore, highScore, coins);
         }
+        // Record analytics data for this run
         if (AnalyticsManager.Instance != null)
         {
             AnalyticsManager.Instance.LogRun(distance, coins, true);
@@ -228,6 +248,7 @@ public class GameManager : MonoBehaviour
         {
             Physics2D.gravity = new Vector2(Physics2D.gravity.x, -Physics2D.gravity.y);
         }
+        // Reset all state so the run begins fresh
         isRunning = true;
         isPaused = false;
         isGameOver = false;
@@ -239,6 +260,7 @@ public class GameManager : MonoBehaviour
         gravityFlipped = false;
         gravityFlipTimer = 0f;
         currentStage = 0;
+
         UpdateCoinLabel();
     }
 

@@ -15,12 +15,14 @@ public class GameManagerTests
     [Test]
     public void AddCoins_IncreasesTotal()
     {
+        // Create a temporary GameManager instance
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
 
         gm.AddCoins(2);
         gm.AddCoins(3);
 
+        // Total coins should equal the sum added
         Assert.AreEqual(5, gm.GetCoins());
         Object.DestroyImmediate(go);
     }
@@ -28,12 +30,14 @@ public class GameManagerTests
     [Test]
     public void ActivateSpeedBoost_MultipliesSpeed()
     {
+        // GameManager must be running for speed boosts to apply
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
         gm.StartGame();
 
         var baseSpeed = gm.GetSpeed();
-        gm.ActivateSpeedBoost(1f, 2f);
+        gm.ActivateSpeedBoost(1f, 2f); // double the speed for one second
+        // Verify the multiplier applied immediately
         Assert.AreEqual(baseSpeed * 2f, gm.GetSpeed());
         Object.DestroyImmediate(go);
     }

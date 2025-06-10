@@ -94,14 +94,16 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// Uses a raycast to determine if the player is touching the ground.
-    /// Also manages the coyote-time grace period and available double jump.
+    /// Uses a raycast to determine if the player is touching a surface in the
+    /// current gravity direction. Also manages the coyote-time grace period and
+    /// available double jump.
     /// </summary>
     void CheckGrounded()
     {
         Vector2 origin = transform.position;
-        float distance = 0.1f; // short ray just beneath the player
-        RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, distance, groundLayer);
+        float distance = 0.1f; // short ray in the direction of gravity
+        Vector2 rayDir = Physics2D.gravity.y > 0f ? Vector2.up : Vector2.down;
+        RaycastHit2D hit = Physics2D.Raycast(origin, rayDir, distance, groundLayer);
         bool wasGrounded = isGrounded;
         isGrounded = hit.collider != null;
         if (isGrounded)

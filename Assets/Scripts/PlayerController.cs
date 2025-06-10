@@ -196,7 +196,7 @@ public class PlayerController : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(hitClip);
             }
-            if (GameManager.Instance != null)
+            if (GameManager.Instance != null && !GameManager.Instance.IsGameOver())
             {
                 GameManager.Instance.GameOver();
             }

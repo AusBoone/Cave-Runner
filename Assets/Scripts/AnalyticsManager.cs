@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 
 /// <summary>
 /// Collects basic run statistics and optionally sends them to a remote
@@ -158,19 +160,22 @@ public class AnalyticsManager : MonoBehaviour
             req.uploadHandler = new UploadHandlerRaw(body);
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
+
             var op = req.SendWebRequest();
-            float timer = 0f;
-            while (!op.isDone && timer < sendTimeout)
+            Stopwatch sw = Stopwatch.StartNew();
+            while (!op.isDone && sw.Elapsed.TotalSeconds < sendTimeout)
             {
-                timer += Time.unscaledDeltaTime;
+                Thread.Sleep(10);
                 yield return null;
             }
+
             if (!op.isDone)
             {
                 req.Abort();
                 Debug.LogWarning("Analytics send timed out");
                 yield break;
             }
+
             if (req.result == UnityWebRequest.Result.Success)
             {
                 runs.Clear();
@@ -198,7 +203,8 @@ public class AnalyticsManager : MonoBehaviour
         {
             // Persist to disk first in case the request fails
             SaveLocal();
-            StartCoroutine(SendDataBlocking());
+            var routine = SendDataBlocking();
+            while (routine.MoveNext()) { }
         }
     }
 

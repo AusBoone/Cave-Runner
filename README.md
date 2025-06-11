@@ -42,6 +42,23 @@ game will run.
    the `SteamManager` or `WorkshopManager` features.
 4. Add your own `ProjectSettings` since none are included in this repository.
 
+## Essential Prefabs and Tags
+You will need prefabs for your player character, obstacle or hazard objects, and
+collectible coins. Tag them so the scripts can detect collisions:
+**Player** on the player, **Obstacle** or **Hazard** on anything that ends the
+run, and **Coin** on coins.
+
+Organize custom art and audio clips under the following folders so the included
+scripts can load them easily:
+
+```
+Assets/
+  Art/Resources/   // sprites and animations
+  Audio/Resources/ // music and sound effects
+```
+
+If you use the Steam features, create a `steam_appid.txt` in the project root
+with your app's ID so Steamworks initializes correctly.
 
 ## Scene Setup Tips
 - Add a main camera and attach the **CameraFollow** script. Assign the player transform to the script's *target* field so the camera smoothly follows the character.

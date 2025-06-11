@@ -21,6 +21,13 @@ public class MovingPlatform : MonoBehaviour
     private Vector3 startPos;
 
     /// <summary>
+    /// Internal timer used to drive the sine wave motion. Incremented
+    /// using <see cref="Time.deltaTime"/> so it halts when
+    /// <c>Time.timeScale</c> is zero.
+    /// </summary>
+    private float timer;
+
+    /// <summary>
     /// Stores the starting position to calculate the oscillation offset.
     /// </summary>
     void Start()
@@ -29,11 +36,23 @@ public class MovingPlatform : MonoBehaviour
     }
 
     /// <summary>
+    /// Called whenever the object becomes enabled. Resets the starting
+    /// position and timer so pooled instances start from their new
+    /// location without continuing the previous animation cycle.
+    /// </summary>
+    void OnEnable()
+    {
+        startPos = transform.position;
+        timer = 0f;
+    }
+
+    /// <summary>
     /// Oscillates the platform vertically using a sine wave.
     /// </summary>
     void Update()
     {
-        float y = Mathf.Sin(Time.time * frequency) * amplitude;
+        timer += Time.deltaTime;
+        float y = Mathf.Sin(timer * frequency) * amplitude;
         transform.position = new Vector3(transform.position.x, startPos.y + y, transform.position.z);
     }
 }

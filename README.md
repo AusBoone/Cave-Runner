@@ -94,6 +94,9 @@ This repository includes a small suite of EditMode tests.
 2. Select the **EditMode** tab and click **Run All** to execute the tests.
 
 The test scripts are located in `Assets/Tests/EditMode`.
+New tests exercise behaviour for components like **MovingPlatform**,
+**PowerUpSpawner**, and **CoinMagnet** to ensure pausing and pooled
+objects work correctly.
 
 ## Opening, Running, and Building in Unity 2022.3 LTS
 1. Launch **Unity Hub** and make sure **Unity 2022.3 LTS** is installed.

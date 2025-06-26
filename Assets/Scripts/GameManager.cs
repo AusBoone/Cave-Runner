@@ -7,7 +7,8 @@ using System;
 /// Central controller for the endless runner. Tracks the player's
 /// progress, handles pausing and game over logic and communicates with
 /// the optional <see cref="SteamManager"/> for achievements and cloud
-/// saves.
+/// saves. This file also introduces a simple coin combo mechanic which
+/// multiplies coin value when pickups occur rapidly.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -29,6 +30,12 @@ public class GameManager : MonoBehaviour
     private float speedMultiplier = 1f;       // multiplier applied by speed boosts
     private float gravityFlipTimer;           // remaining time gravity is inverted
     private bool gravityFlipped;              // true while gravity is inverted
+    private float coinComboTimer;             // countdown for maintaining a coin combo
+    private int coinComboMultiplier = 1;      // current coin multiplier from the combo
+
+    [Tooltip("Time allowed between coin pickups to continue the combo.")]
+    public float comboDuration = 1.5f;        // seconds before the combo resets
+    public Text comboLabel;                   // UI label showing current combo multiplier
 
     /// <summary>
     /// Distance milestones that unlock stages or achievements as the
@@ -89,6 +96,8 @@ public class GameManager : MonoBehaviour
         gravityFlipped = false;
         gravityFlipTimer = 0f;
         currentStage = 0;
+        coinComboTimer = 0f;
+        coinComboMultiplier = 1;
 
         if (SteamManager.Instance != null)
         {
@@ -103,6 +112,7 @@ public class GameManager : MonoBehaviour
 
         UpdateHighScoreLabel();
         UpdateCoinLabel();
+        UpdateMultiplierLabel();
     }
 
     /// <summary>
@@ -123,6 +133,17 @@ public class GameManager : MonoBehaviour
             if (speedBoostTimer <= 0f)
             {
                 speedMultiplier = 1f;
+            }
+        }
+
+        // Count down the combo timer so the multiplier resets if time runs out
+        if (coinComboTimer > 0f)
+        {
+            coinComboTimer -= Time.deltaTime;
+            if (coinComboTimer <= 0f)
+            {
+                coinComboMultiplier = 1;
+                UpdateMultiplierLabel();
             }
         }
 
@@ -260,8 +281,11 @@ public class GameManager : MonoBehaviour
         gravityFlipped = false;
         gravityFlipTimer = 0f;
         currentStage = 0;
+        coinComboTimer = 0f;
+        coinComboMultiplier = 1;
 
         UpdateCoinLabel();
+        UpdateMultiplierLabel();
     }
 
     /// <summary>
@@ -327,8 +351,27 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void AddCoins(int amount)
     {
-        coins += amount;
+        // Ensure callers provide a positive coin value
+        if (amount <= 0)
+        {
+            throw new ArgumentException("Coin amount must be positive", nameof(amount));
+        }
+
+        // Determine whether this pickup continues an existing combo
+        if (coinComboTimer > 0f)
+        {
+            coinComboMultiplier++;
+        }
+        else
+        {
+            coinComboMultiplier = 1;
+        }
+
+        coinComboTimer = comboDuration; // reset the combo window
+
+        coins += amount * coinComboMultiplier;
         UpdateCoinLabel();
+        UpdateMultiplierLabel();
     }
 
     /// <summary>
@@ -366,6 +409,17 @@ public class GameManager : MonoBehaviour
         if (coinLabel != null)
         {
             coinLabel.text = coins.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the on-screen combo multiplier text.
+    /// </summary>
+    private void UpdateMultiplierLabel()
+    {
+        if (comboLabel != null)
+        {
+            comboLabel.text = "x" + coinComboMultiplier;
         }
     }
 

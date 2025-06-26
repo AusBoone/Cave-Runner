@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
+using System.Reflection;
 
 /// <summary>
 /// Tests for core GameManager functionality such as coin counting and
@@ -39,6 +40,27 @@ public class GameManagerTests
         gm.ActivateSpeedBoost(1f, 2f); // double the speed for one second
         // Verify the multiplier applied immediately
         Assert.AreEqual(baseSpeed * 2f, gm.GetSpeed());
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void CoinCombo_IncrementsAndResets()
+    {
+        // Validate that coins picked up quickly increase the combo multiplier
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+
+        gm.AddCoins(1);            // first coin, multiplier = 1
+        gm.AddCoins(1);            // within combo window, multiplier now 2
+
+        // Force the combo timer to expire
+        var timerField = typeof(GameManager).GetField("coinComboTimer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        timerField.SetValue(gm, 0f);
+
+        gm.AddCoins(1);            // new combo after timer reset
+
+        // Calculation: 1 + 2 + 1 = 4 total coins
+        Assert.AreEqual(4, gm.GetCoins());
         Object.DestroyImmediate(go);
     }
 }

@@ -10,9 +10,11 @@ using System.IO;
 using System.Linq;
 
 /// <summary>
-/// Manages the game's simple UI screens such as the start menu, pause menu
-/// and game-over display. Interfaces with the <see cref="GameManager"/> to
-/// start, pause and restart the game.
+/// Manages the game's simple UI screens such as the start menu, pause menu and
+/// game-over display. Input listening for the pause command now routes through
+/// <see cref="InputManager"/> so players can rebind the action with the new
+/// Input System. Interfaces with the <see cref="GameManager"/> to start, pause
+/// and restart the game.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -88,8 +90,8 @@ public class UIManager : MonoBehaviour
     /// </summary>
     void Update()
     {
-        // Toggle pause state when the Escape key is pressed during a run
-        if (Input.GetKeyDown(KeyCode.Escape) && GameManager.Instance != null && GameManager.Instance.IsRunning())
+        // Toggle pause state when the configured pause input is pressed during a run
+        if (InputManager.GetPauseDown() && GameManager.Instance != null && GameManager.Instance.IsRunning())
         {
             if (GameManager.Instance.IsPaused())
             {

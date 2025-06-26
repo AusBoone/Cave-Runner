@@ -9,6 +9,10 @@ public class HazardSpawner : MonoBehaviour
 {
     public GameObject[] pitPrefabs;
     public GameObject[] batPrefabs;
+    // New enemy variations
+    public GameObject[] zigZagPrefabs;
+    public GameObject[] swoopPrefabs;
+    public GameObject[] shooterPrefabs;
     public float spawnInterval = 5f;
     // Controls how the spawn interval scales with player distance.
     public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 2f);
@@ -39,6 +43,21 @@ public class HazardSpawner : MonoBehaviour
                 {
                     CreatePool(prefab);
                 }
+            if (zigZagPrefabs != null)
+                foreach (GameObject prefab in zigZagPrefabs)
+                {
+                    CreatePool(prefab);
+                }
+            if (swoopPrefabs != null)
+                foreach (GameObject prefab in swoopPrefabs)
+                {
+                    CreatePool(prefab);
+                }
+            if (shooterPrefabs != null)
+                foreach (GameObject prefab in shooterPrefabs)
+                {
+                    CreatePool(prefab);
+                }
         }
     }
 
@@ -66,16 +85,46 @@ public class HazardSpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// Chooses either a pit or bat prefab and places it at the appropriate
-    /// height using pooling if available.
+    /// Chooses a hazard prefab from any configured list and places it at the
+    /// appropriate height using pooling when available.
     /// </summary>
     void SpawnHazard()
     {
-        bool spawnPit = Random.value > 0.5f;
-        GameObject[] prefabs = spawnPit ? pitPrefabs : batPrefabs;
-        if (prefabs.Length == 0) return;
+        var lists = new System.Collections.Generic.List<GameObject[]>();
+        var heights = new System.Collections.Generic.List<float>();
+
+        if (pitPrefabs != null && pitPrefabs.Length > 0)
+        {
+            lists.Add(pitPrefabs);
+            heights.Add(groundY);
+        }
+        if (batPrefabs != null && batPrefabs.Length > 0)
+        {
+            lists.Add(batPrefabs);
+            heights.Add(airY);
+        }
+        if (zigZagPrefabs != null && zigZagPrefabs.Length > 0)
+        {
+            lists.Add(zigZagPrefabs);
+            heights.Add(airY);
+        }
+        if (swoopPrefabs != null && swoopPrefabs.Length > 0)
+        {
+            lists.Add(swoopPrefabs);
+            heights.Add(airY);
+        }
+        if (shooterPrefabs != null && shooterPrefabs.Length > 0)
+        {
+            lists.Add(shooterPrefabs);
+            heights.Add(airY);
+        }
+
+        if (lists.Count == 0) return;
+
+        int groupIndex = Random.Range(0, lists.Count);
+        GameObject[] prefabs = lists[groupIndex];
+        float y = heights[groupIndex];
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
-        float y = spawnPit ? groundY : airY;
         Vector3 pos = new Vector3(spawnX, y, 0f);
         GameObject obj = null;
         if (usePooling && pools.TryGetValue(prefab, out ObjectPool pool))
@@ -86,7 +135,11 @@ public class HazardSpawner : MonoBehaviour
         {
             obj = Instantiate(prefab, pos, Quaternion.identity);
         }
-        if (!spawnPit && obj != null && obj.GetComponent<EnemyBehavior>() == null)
+        if (obj != null &&
+            obj.GetComponent<EnemyBehavior>() == null &&
+            obj.GetComponent<ZigZagEnemy>() == null &&
+            obj.GetComponent<SwoopingEnemy>() == null &&
+            obj.GetComponent<ShooterEnemy>() == null)
         {
             obj.AddComponent<EnemyBehavior>();
         }

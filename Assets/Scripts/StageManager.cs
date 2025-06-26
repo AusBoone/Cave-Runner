@@ -33,6 +33,15 @@ public class StageManager : MonoBehaviour
         public GameObject[] pits;
         [Tooltip("Flying hazards such as bats for the HazardSpawner.")]
         public GameObject[] bats;
+
+        [Tooltip("Zig-zagging enemies available in this stage.")]
+        public GameObject[] zigZagEnemies;
+
+        [Tooltip("Swooping enemies available in this stage.")]
+        public GameObject[] swoopingEnemies;
+
+        [Tooltip("Shooter enemies available in this stage.")]
+        public GameObject[] shooterEnemies;
     }
 
     [Tooltip("Background component whose spriteName will change per stage.")]
@@ -108,11 +117,14 @@ public class StageManager : MonoBehaviour
             obstacleSpawner.rotatingHazards = data.rotatingHazards;
         }
 
-        // Update hazard prefabs for pits and flying enemies.
+        // Update hazard prefabs so newly spawned hazards match the stage.
         if (hazardSpawner != null)
         {
             hazardSpawner.pitPrefabs = data.pits;
             hazardSpawner.batPrefabs = data.bats;
+            hazardSpawner.zigZagPrefabs = data.zigZagEnemies;
+            hazardSpawner.swoopPrefabs = data.swoopingEnemies;
+            hazardSpawner.shooterPrefabs = data.shooterEnemies;
         }
     }
 }

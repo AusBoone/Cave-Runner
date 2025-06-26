@@ -26,6 +26,7 @@ public class UIManager : MonoBehaviour
     public GameObject leaderboardPanel;
     public Text leaderboardText;
     public GameObject workshopPanel;
+    public GameObject shopPanel;
     public Text workshopListText;
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
@@ -112,6 +113,7 @@ public class UIManager : MonoBehaviour
         HidePanelImmediate(pausePanel);
         HidePanelImmediate(leaderboardPanel);
         HidePanelImmediate(workshopPanel);
+        HidePanelImmediate(shopPanel);
         HidePanelImmediate(settingsPanel);
         if (GameManager.Instance != null)
         {
@@ -257,6 +259,22 @@ public class UIManager : MonoBehaviour
     public void HideWorkshop()
     {
         HidePanel(workshopPanel);
+    }
+
+    /// <summary>
+    /// Displays the shop panel where upgrades can be purchased.
+    /// </summary>
+    public void ShowShop()
+    {
+        ShowPanel(shopPanel);
+    }
+
+    /// <summary>
+    /// Hides the shop panel.
+    /// </summary>
+    public void HideShop()
+    {
+        HidePanel(shopPanel);
     }
 
     /// <summary>

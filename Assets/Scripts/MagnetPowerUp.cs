@@ -20,7 +20,13 @@ public class MagnetPowerUp : MonoBehaviour
             CoinMagnet magnet = other.GetComponent<CoinMagnet>();
             if (magnet != null)
             {
-                magnet.ActivateMagnet(duration);
+                // Include any purchased upgrade so the magnet lasts longer
+                float totalDuration = duration;
+                if (ShopManager.Instance != null)
+                {
+                    totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.MagnetDuration);
+                }
+                magnet.ActivateMagnet(totalDuration);
             }
             if (AudioManager.Instance != null)
             {

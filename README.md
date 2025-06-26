@@ -66,7 +66,16 @@ with your app's ID so Steamworks initializes correctly.
 - Attach two `AudioSource` components to a new `AudioManager` GameObject—one for music and one for sound effects—then assign them in the inspector.
 - Place `ObstacleSpawner`, `HazardSpawner`, and `CoinSpawner` objects slightly off the right side of the screen (around x = 10) so spawned prefabs scroll in from the side. The spawners automatically reuse objects with an internal pool for smoother performance.
 - Add a `PowerUpSpawner` object with magnet or speed boost prefabs so players can collect temporary power-ups. Attach a `CoinMagnet` component to the player for magnet bonuses.
+- Add a `StageManager` object and assign background sprite names and obstacle
+  prefabs for each stage. The manager listens to `GameManager.OnStageUnlocked`
+  and swaps the active background plus spawner lists when new stages begin.
 This project now includes simple menus, audio hooks, and escalating difficulty but you can further expand it with custom art, music, and polished effects.
+## Stage Configuration
+`GameManager` uses the `stageGoals` array to determine when stages unlock.
+Each element maps to an entry on `StageManager`. Provide the background sprite
+name along with obstacle and hazard prefabs for that stage so tougher hazards
+appear as players progress.
+
 
 ## Steam Integration
 The project optionally supports Steam achievements and cloud saves using the

@@ -15,6 +15,7 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
    - `Scroller` moves obstacles and scenery leftward.
    - `CoinSpawner` randomly generates collectible coins.
    - `Coin` awards coins on contact with the player.
+   - **Coin Combo** increases coin value when you grab coins quickly.
    - `PowerUpSpawner` spawns temporary power-up items.
    - `MagnetPowerUp` grants a short-lived coin magnet effect when collected.
    - `SpeedBoostPowerUp` temporarily increases the player's speed.
@@ -25,9 +26,9 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
-4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label field of `GameManager` to a UI Text element.
+4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
 5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
-6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
+6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points—grabbing several in quick succession will build a combo that multiplies their value. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
 
 ## Additional Setup Steps
 This repository only provides the C# scripts. No assets or `ProjectSettings`

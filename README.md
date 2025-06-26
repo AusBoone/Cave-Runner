@@ -116,6 +116,15 @@ data remains on the player's machine.  A `feedbackUrl` on `UIManager` can open
 an external survey or bug‑report form to collect additional feedback from
 players.
 
+## Input System Setup
+This project now supports Unity's **Input System** package. Install the package
+through the Package Manager and enable the *Input System Package* when prompted.
+The `InputManager` script exposes actions for **jump**, **slide**, and **pause**
+which automatically map to both keyboard and gamepad controls. If the package is
+not installed the scripts fall back to the legacy `KeyCode` input checks.
+Rebinding can be triggered from the in-game settings menu when the new system is
+available.
+
 ## Running Edit Mode Tests
 This repository includes a small suite of EditMode tests.
 

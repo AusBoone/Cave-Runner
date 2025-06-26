@@ -1,9 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Handles all player movement including jumping, variable jump height,
-/// sliding and collision responses. Uses simple physics based controls
-/// and communicates with the <see cref="GameManager"/> for game state.
+/// Handles all player movement including jumping, variable jump height, sliding
+/// and collision responses. The controller now queries input through
+/// <see cref="InputManager"/> so it works with both the new Input System and the
+/// legacy input manager. Uses simple physics based controls and communicates
+/// with the <see cref="GameManager"/> for game state.
 /// </summary>
 public class PlayerController : MonoBehaviour
 {
@@ -59,11 +61,11 @@ public class PlayerController : MonoBehaviour
         CheckGrounded();
 
         // Handle jump input and variable jump height using custom bindings
-        if (Input.GetKeyDown(InputManager.JumpKey))
+        if (InputManager.GetJumpDown())
         {
             AttemptJump();
         }
-        if (Input.GetKey(InputManager.JumpKey) && isJumping)
+        if (InputManager.GetJump() && isJumping)
         {
             // Apply extra upward force while the jump button is held
             if (variableJumpTimer > 0f)
@@ -72,12 +74,12 @@ public class PlayerController : MonoBehaviour
                 variableJumpTimer -= Time.deltaTime;
             }
         }
-        if (Input.GetKeyUp(InputManager.JumpKey))
+        if (InputManager.GetJumpUp())
         {
             isJumping = false;
         }
 
-        if (Input.GetKeyDown(InputManager.SlideKey))
+        if (InputManager.GetSlideDown())
         {
             StartSlide();
         }

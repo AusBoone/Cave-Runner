@@ -245,6 +245,12 @@ public class GameManager : MonoBehaviour
             // Submit the score to the Steam leaderboard
             SteamManager.Instance.UploadScore(finalScore);
         }
+
+        // Persist run coins so they can be spent in the shop
+        if (ShopManager.Instance != null)
+        {
+            ShopManager.Instance.AddCoins(coins);
+        }
         // Update the UI with the final results
         if (uiManager != null)
         {

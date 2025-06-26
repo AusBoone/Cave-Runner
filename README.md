@@ -26,10 +26,11 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
+   - `ShopManager` persists coins and upgrades so players can buy bonuses between runs.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
-5. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
-6. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points—grabbing several in quick succession will build a combo that multiplies their value. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
-
+5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. Add a shop panel and assign it to `UIManager.shopPanel`.
+6. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
+7. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points—grabbing several in quick succession will build a combo that multiplies their value. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
 ## Additional Setup Steps
 This repository only provides the C# scripts. No assets or `ProjectSettings`
 are included, so you must configure a new Unity project yourself before the
@@ -70,6 +71,7 @@ with your app's ID so Steamworks initializes correctly.
 - Add a `StageManager` object and assign background sprite names and obstacle
   prefabs for each stage. The manager listens to `GameManager.OnStageUnlocked`
   and swaps the active background plus spawner lists when new stages begin.
+- Include a shop panel in the canvas and wire its buttons to `UIManager.ShowShop` and `UIManager.HideShop`.
 This project now includes simple menus, audio hooks, and escalating difficulty but you can further expand it with custom art, music, and polished effects.
 ## Stage Configuration
 `GameManager` uses the `stageGoals` array to determine when stages unlock.

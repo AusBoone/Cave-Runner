@@ -3,7 +3,8 @@
 // Handles stage progression events triggered by the GameManager. When a stage
 // is unlocked it swaps the active background sprite, adjusts obstacle and
 // hazard prefab lists and now applies stage-specific spawn probabilities and
-// difficulty multipliers to spawners.
+// difficulty multipliers to spawners. This revision also supports stage
+// modifiers such as custom gravity and speed multipliers for added variety.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -71,6 +72,12 @@ public class StageManager : MonoBehaviour
         public float swoopChance = 1f;
         [Tooltip("Relative chance to spawn shooter enemies.")]
         public float shooterChance = 1f;
+
+        [Header("Stage Modifiers")]
+        [Tooltip("Multiplier applied to the base game speed during this stage.")]
+        public float speedMultiplier = 1f;
+        [Tooltip("Gravity scale applied while this stage is active.")]
+        public float gravityScale = 1f;
     }
 
     [Tooltip("Background component whose spriteName will change per stage.")]
@@ -171,5 +178,12 @@ public class StageManager : MonoBehaviour
             hazardSpawner.swoopChance = data.swoopChance;
             hazardSpawner.shooterChance = data.shooterChance;
         }
+
+        // Apply stage-specific speed multiplier and gravity settings.
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetStageSpeedMultiplier(data.speedMultiplier);
+        }
+        Physics2D.gravity = new Vector2(0f, -9.81f * data.gravityScale);
     }
 }

@@ -113,4 +113,24 @@ public class GameManagerTests
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(shopObj);
     }
+
+    [Test]
+    public void ActivateSlowMotion_ChangesTimeScale()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.StartGame();
+
+        gm.ActivateSlowMotion(0.5f, 0.5f);
+        Assert.AreEqual(0.5f, Time.timeScale);
+
+        // Fast-forward timer via reflection
+        var timerField = typeof(GameManager).GetField("slowMotionTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        timerField.SetValue(gm, 0f);
+        var update = typeof(GameManager).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance);
+        update.Invoke(gm, null);
+
+        Assert.AreEqual(1f, Time.timeScale);
+        Object.DestroyImmediate(go);
+    }
 }

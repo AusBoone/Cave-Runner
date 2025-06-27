@@ -44,7 +44,9 @@ public class StageManagerTests
             pits = new GameObject[0],
             bats = new GameObject[0],
             obstacleSpawnMultiplier = 2f,
-            hazardSpawnMultiplier = 0.5f
+            hazardSpawnMultiplier = 0.5f,
+            speedMultiplier = 1.5f,
+            gravityScale = 0.5f
         };
         sm.stages = new[] { stageAsset };
 
@@ -54,6 +56,10 @@ public class StageManagerTests
         Assert.AreSame(dummy, obstacleSpawner.groundObstacles[0]);
         Assert.AreEqual(2f, obstacleSpawner.spawnMultiplier);
         Assert.AreEqual(0.5f, hazardSpawner.spawnMultiplier);
+        var multField = typeof(GameManager).GetField("stageSpeedMultiplier", BindingFlags.NonPublic | BindingFlags.Instance);
+        float mult = (float)multField.GetValue(gm);
+        Assert.AreEqual(1.5f, mult);
+        Assert.AreEqual(-9.81f * 0.5f, Physics2D.gravity.y, 0.001f);
 
         Object.DestroyImmediate(dummy);
         Object.DestroyImmediate(stageAsset);

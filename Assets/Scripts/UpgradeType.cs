@@ -18,5 +18,11 @@ public enum UpgradeType
     ShieldDuration = 2,
 
     /// <summary>Extra coins awarded for each pickup.</summary>
-    CoinMultiplier = 3
+    CoinMultiplier = 3,
+
+    /// <summary>Additional base scroll speed applied at the start of each run.</summary>
+    BaseSpeedBonus = 4,
+
+    /// <summary>Number of random power-ups granted when starting a new run.</summary>
+    StartingPowerUp = 5
 }

@@ -6,8 +6,8 @@ using System.Collections.Generic;
 /// Central shop system that persists the player's coin total and purchased
 /// upgrades between sessions using PlayerPrefs. Each upgrade increases a
 /// gameplay value such as power-up duration. Supported upgrades include
-/// extending magnet, speed boost, and shield times along with adding a coin
-/// value bonus.
+/// extending magnet, speed boost, and shield times, modifying the base
+/// scroll speed, granting starting power-ups and adding a coin value bonus.
 /// </summary>
 public class ShopManager : MonoBehaviour
 {

@@ -1,8 +1,9 @@
 // StageManager.cs
 // -----------------------------------------------------------------------------
 // Handles stage progression events triggered by the GameManager. When a stage
-// is unlocked it swaps the active background sprite and adjusts obstacle and
-// hazard prefab lists to increase difficulty.
+// is unlocked it swaps the active background sprite, adjusts obstacle and
+// hazard prefab lists and now applies stage-specific spawn probabilities and
+// difficulty multipliers to spawners.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -42,6 +43,34 @@ public class StageManager : MonoBehaviour
 
         [Tooltip("Shooter enemies available in this stage.")]
         public GameObject[] shooterEnemies;
+
+        [Header("Spawn Rate Multipliers")]
+        [Tooltip("Multiplier applied to obstacle spawn rate during this stage.")]
+        public float obstacleSpawnMultiplier = 1f;
+        [Tooltip("Multiplier applied to hazard spawn rate during this stage.")]
+        public float hazardSpawnMultiplier = 1f;
+
+        [Header("Obstacle Spawn Probabilities")]
+        [Tooltip("Relative chance to spawn ground obstacles.")]
+        public float groundObstacleChance = 1f;
+        [Tooltip("Relative chance to spawn ceiling obstacles.")]
+        public float ceilingObstacleChance = 1f;
+        [Tooltip("Relative chance to spawn moving platforms.")]
+        public float movingPlatformChance = 1f;
+        [Tooltip("Relative chance to spawn rotating hazards.")]
+        public float rotatingHazardChance = 1f;
+
+        [Header("Hazard Spawn Probabilities")]
+        [Tooltip("Relative chance to spawn pits.")]
+        public float pitChance = 1f;
+        [Tooltip("Relative chance to spawn bats.")]
+        public float batChance = 1f;
+        [Tooltip("Relative chance to spawn zig-zag enemies.")]
+        public float zigZagChance = 1f;
+        [Tooltip("Relative chance to spawn swooping enemies.")]
+        public float swoopChance = 1f;
+        [Tooltip("Relative chance to spawn shooter enemies.")]
+        public float shooterChance = 1f;
     }
 
     [Tooltip("Background component whose spriteName will change per stage.")]
@@ -52,7 +81,7 @@ public class StageManager : MonoBehaviour
     public HazardSpawner hazardSpawner;
 
     [Tooltip("Ordered list of data for each stage.")]
-    public StageData[] stages;
+    public StageDataSO[] stages;
 
     void Awake()
     {
@@ -91,7 +120,12 @@ public class StageManager : MonoBehaviour
             return; // invalid index or no data
         }
 
-        StageData data = stages[stageIndex];
+        StageDataSO asset = stages[stageIndex];
+        if (asset == null)
+        {
+            return; // asset missing
+        }
+        StageData data = asset.stage;
 
         // Swap the scrolling background sprite if a name was provided.
         if (parallaxBackground != null && !string.IsNullOrEmpty(data.backgroundSprite))
@@ -108,16 +142,21 @@ public class StageManager : MonoBehaviour
             }
         }
 
-        // Update obstacle prefabs so newly spawned objects reflect the stage.
+        // Update obstacle prefabs and apply spawn settings for this stage.
         if (obstacleSpawner != null)
         {
             obstacleSpawner.groundObstacles = data.groundObstacles;
             obstacleSpawner.ceilingObstacles = data.ceilingObstacles;
             obstacleSpawner.movingPlatforms = data.movingPlatforms;
             obstacleSpawner.rotatingHazards = data.rotatingHazards;
+            obstacleSpawner.spawnMultiplier = data.obstacleSpawnMultiplier;
+            obstacleSpawner.groundChance = data.groundObstacleChance;
+            obstacleSpawner.ceilingChance = data.ceilingObstacleChance;
+            obstacleSpawner.platformChance = data.movingPlatformChance;
+            obstacleSpawner.rotatingChance = data.rotatingHazardChance;
         }
 
-        // Update hazard prefabs so newly spawned hazards match the stage.
+        // Update hazard prefabs and spawn parameters for this stage.
         if (hazardSpawner != null)
         {
             hazardSpawner.pitPrefabs = data.pits;
@@ -125,6 +164,12 @@ public class StageManager : MonoBehaviour
             hazardSpawner.zigZagPrefabs = data.zigZagEnemies;
             hazardSpawner.swoopPrefabs = data.swoopingEnemies;
             hazardSpawner.shooterPrefabs = data.shooterEnemies;
+            hazardSpawner.spawnMultiplier = data.hazardSpawnMultiplier;
+            hazardSpawner.pitChance = data.pitChance;
+            hazardSpawner.batChance = data.batChance;
+            hazardSpawner.zigZagChance = data.zigZagChance;
+            hazardSpawner.swoopChance = data.swoopChance;
+            hazardSpawner.shooterChance = data.shooterChance;
         }
     }
 }

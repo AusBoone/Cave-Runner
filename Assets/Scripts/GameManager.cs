@@ -2,13 +2,16 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System;
+using System.Collections;
 
 /// <summary>
 /// Central controller for the endless runner. Tracks the player's
 /// progress, handles pausing and game over logic and communicates with
 /// the optional <see cref="SteamManager"/> for achievements and cloud
 /// saves. This file also introduces a simple coin combo mechanic which
-/// multiplies coin value when pickups occur rapidly.
+/// multiplies coin value when pickups occur rapidly. When the combo
+/// increases, optional feedback such as camera shake, particles and a
+/// pitched sound effect is played.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -36,6 +39,14 @@ public class GameManager : MonoBehaviour
     [Tooltip("Time allowed between coin pickups to continue the combo.")]
     public float comboDuration = 1.5f;        // seconds before the combo resets
     public Text comboLabel;                   // UI label showing current combo multiplier
+
+    [Header("Combo Feedback")]
+    [Tooltip("Particle effect played when the combo multiplier increases.")]
+    public ParticleSystem comboParticles;
+    [Tooltip("Audio clip played when the combo multiplier increases.")]
+    public AudioClip comboSound;
+    [Tooltip("Camera shake component used for combo effects.")]
+    public CameraShake cameraShake;
 
     /// <summary>
     /// Distance milestones that unlock stages or achievements as the
@@ -345,6 +356,35 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Invoked whenever the coin combo multiplier increases. Plays
+    /// optional feedback such as screen shake, particle effects and
+    /// a sound that scales with the multiplier.
+    /// </summary>
+    protected virtual void OnComboIncreased()
+    {
+        // Trigger particle burst if assigned
+        if (comboParticles != null)
+        {
+            comboParticles.Play();
+        }
+
+        // Shake the camera with intensity proportional to the multiplier
+        if (cameraShake != null)
+        {
+            float magnitude = 0.1f * coinComboMultiplier;
+            cameraShake.Shake(0.15f, magnitude);
+        }
+
+        // Play the combo sound with pitch based on the multiplier
+        if (AudioManager.Instance != null && comboSound != null)
+        {
+            float pitch = 1f + 0.1f * (coinComboMultiplier - 1);
+            AudioManager.Instance.PlaySound(comboSound, pitch);
+        }
+
+    }
+
+    /// <summary>
     /// Registers the UIManager so game events can trigger menu updates.
     /// </summary>
     public void SetUIManager(UIManager manager)
@@ -368,6 +408,7 @@ public class GameManager : MonoBehaviour
         if (coinComboTimer > 0f)
         {
             coinComboMultiplier++;
+            OnComboIncreased();
         }
         else
         {
@@ -436,6 +477,8 @@ public class GameManager : MonoBehaviour
         if (comboLabel != null)
         {
             comboLabel.text = "x" + coinComboMultiplier;
+            // Inform the UI manager so it can animate the label
+            uiManager?.AnimateComboLabel(comboLabel);
         }
     }
 

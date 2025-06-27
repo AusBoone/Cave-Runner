@@ -14,7 +14,8 @@ using System.Linq;
 /// game-over display. Input listening for the pause command now routes through
 /// <see cref="InputManager"/> so players can rebind the action with the new
 /// Input System. Interfaces with the <see cref="GameManager"/> to start, pause
-/// and restart the game.
+/// and restart the game. Also exposes <see cref="AnimateComboLabel"/> which is
+/// used to draw attention to the coin combo multiplier when it changes.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -293,6 +294,35 @@ public class UIManager : MonoBehaviour
     public void HideSettings()
     {
         HidePanel(settingsPanel);
+    }
+
+    /// <summary>
+    /// Performs a brief scaling animation on the provided combo multiplier
+    /// label to draw the player's attention when the value changes.
+    /// </summary>
+    public void AnimateComboLabel(Text label)
+    {
+        if (label != null)
+        {
+            StartCoroutine(ScaleLabel(label));
+        }
+    }
+
+    // Coroutine that smoothly scales the label up and back down.
+    private IEnumerator ScaleLabel(Text label)
+    {
+        const float duration = 0.2f;
+        Vector3 baseScale = label.transform.localScale;
+        float timer = 0f;
+        while (timer < duration)
+        {
+            float t = timer / duration;
+            float scale = 1f + 0.5f * Mathf.Sin(t * Mathf.PI);
+            label.transform.localScale = baseScale * scale;
+            timer += Time.unscaledDeltaTime;
+            yield return null;
+        }
+        label.transform.localScale = baseScale;
     }
 
     /// <summary>

@@ -64,6 +64,29 @@ public class GameManagerTests
         Object.DestroyImmediate(go);
     }
 
+    private class TestGameManager : GameManager
+    {
+        public int comboCalls;
+        protected override void OnComboIncreased()
+        {
+            comboCalls++;
+        }
+    }
+
+    [Test]
+    public void AddCoins_TriggersComboFeedback()
+    {
+        // Ensure OnComboIncreased is invoked when combo multiplier rises
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<TestGameManager>();
+
+        gm.AddCoins(1);    // multiplier = 1
+        gm.AddCoins(1);    // multiplier increments -> should trigger feedback
+
+        Assert.AreEqual(1, gm.comboCalls);
+        Object.DestroyImmediate(go);
+    }
+
     [Test]
     public void AddCoins_AppliesUpgradeMultiplier()
     {

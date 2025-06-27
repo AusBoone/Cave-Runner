@@ -20,7 +20,14 @@ public class SpeedBoostPowerUp : MonoBehaviour
         {
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.ActivateSpeedBoost(duration, speedMultiplier);
+                // Add any purchased upgrade effect to the base duration so
+                // higher levels extend the boost time.
+                float totalDuration = duration;
+                if (ShopManager.Instance != null)
+                {
+                    totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.SpeedBoostDuration);
+                }
+                GameManager.Instance.ActivateSpeedBoost(totalDuration, speedMultiplier);
             }
             if (AudioManager.Instance != null)
             {

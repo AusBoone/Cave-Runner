@@ -63,4 +63,31 @@ public class GameManagerTests
         Assert.AreEqual(4, gm.GetCoins());
         Object.DestroyImmediate(go);
     }
+
+    [Test]
+    public void AddCoins_AppliesUpgradeMultiplier()
+    {
+        PlayerPrefs.DeleteAll();
+        var data = new ShopManager.UpgradeData { type = UpgradeType.CoinMultiplier, cost = 1, effect = 1f };
+
+        var shopObj = new GameObject("shop");
+        var sm = shopObj.AddComponent<ShopManager>();
+        sm.availableUpgrades = new[] { data };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sm, null);
+
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (Dictionary<UpgradeType, int>)dictField.GetValue(sm);
+        levels[UpgradeType.CoinMultiplier] = 1;
+        dictField.SetValue(sm, levels);
+
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+
+        gm.AddCoins(1);
+
+        Assert.AreEqual(2, gm.GetCoins());
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(shopObj);
+    }
 }

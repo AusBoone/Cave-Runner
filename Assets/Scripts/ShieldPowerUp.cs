@@ -18,7 +18,13 @@ public class ShieldPowerUp : MonoBehaviour
             PlayerShield shield = other.GetComponent<PlayerShield>();
             if (shield != null)
             {
-                shield.ActivateShield(duration);
+                // Extend the shield duration by any purchased upgrade.
+                float totalDuration = duration;
+                if (ShopManager.Instance != null)
+                {
+                    totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.ShieldDuration);
+                }
+                shield.ActivateShield(totalDuration);
             }
             if (AudioManager.Instance != null)
             {

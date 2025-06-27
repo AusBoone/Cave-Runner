@@ -26,9 +26,9 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
-   - `ShopManager` persists coins and upgrades so players can buy bonuses between runs. Upgrades currently extend power-up durations (magnet, speed boost, shield) and award extra coins per pickup.
+   - `ShopManager` persists coins and upgrades via `SaveGameManager` so players can buy bonuses between runs. Upgrades currently extend power-up durations (magnet, speed boost, shield) and award extra coins per pickup.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
-5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. Add a shop panel and assign it to `UIManager.shopPanel`.
+5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. `SaveGameManager` is automatically created by `GameManager`, so no setup is required for the save file. Add a shop panel and assign it to `UIManager.shopPanel`.
 6. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.
 7. Press Play to run the game. Use the start menu's **Play** button to begin. Press **Esc** during play to pause and resume. The score counts how far you travel and the speed increases over time. Collect coins for bonus points—grabbing several in quick succession will build a combo that multiplies their value. If the player hits an obstacle or hazard, a game-over screen shows your distance, coin total, and the best score so far, allowing you to restart.
 ## Additional Setup Steps
@@ -106,6 +106,13 @@ share level or skin packs on the Steam Workshop.
 2. Call `WorkshopManager.UploadItem()` to publish a folder of content.
 3. Players can browse subscribed packs through the **Workshop** menu option and
    apply them in game.
+
+## Save Files and Migration
+`SaveGameManager` replaces the previous `PlayerPrefs` based save system. On
+startup it loads `savegame.json` from `Application.persistentDataPath` and
+migrates any existing `PlayerPrefs` values the first time it runs. Coins,
+upgrade levels and the high score are serialized to this file so progress
+persists across sessions.
 
 ## Analytics and Feedback
 `AnalyticsManager` keeps a log of each run's distance, coin count and whether

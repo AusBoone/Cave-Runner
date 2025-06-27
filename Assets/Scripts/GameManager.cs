@@ -93,7 +93,7 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Initializes the singleton instance and loads the saved high
-    /// score from either PlayerPrefs or the Steam cloud.
+    /// score from either <see cref="SaveGameManager"/> or the Steam cloud.
     /// </summary>
     void Awake()
     {
@@ -104,6 +104,10 @@ public class GameManager : MonoBehaviour
             if (AnalyticsManager.Instance == null)
             {
                 new GameObject("AnalyticsManager").AddComponent<AnalyticsManager>();
+            }
+            if (SaveGameManager.Instance == null)
+            {
+                new GameObject("SaveGameManager").AddComponent<SaveGameManager>();
             }
         }
         else
@@ -121,11 +125,10 @@ public class GameManager : MonoBehaviour
         if (SteamManager.Instance != null)
         {
             int cloudScore = SteamManager.Instance.LoadHighScore();
-            int localScore = PlayerPrefs.GetInt("HighScore", 0);
+            int localScore = SaveGameManager.Instance.HighScore;
             if (cloudScore > localScore)
             {
-                PlayerPrefs.SetInt("HighScore", cloudScore);
-                PlayerPrefs.Save();
+                SaveGameManager.Instance.HighScore = cloudScore;
             }
         }
 
@@ -241,14 +244,13 @@ public class GameManager : MonoBehaviour
             gravityFlipTimer = 0f;
         }
         int finalScore = Mathf.FloorToInt(distance);
-        int highScore = PlayerPrefs.GetInt("HighScore", 0);
+        int highScore = SaveGameManager.Instance.HighScore;
 
         // Persist a new high score locally and to Steam if available
         if (finalScore > highScore)
         {
             highScore = finalScore;
-            PlayerPrefs.SetInt("HighScore", highScore);
-            PlayerPrefs.Save();
+            SaveGameManager.Instance.HighScore = highScore;
             if (SteamManager.Instance != null)
             {
                 SteamManager.Instance.SaveHighScore(highScore);
@@ -518,13 +520,13 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Refreshes the on-screen high score text from PlayerPrefs.
+    /// Refreshes the on-screen high score text from <see cref="SaveGameManager"/>.
     /// </summary>
     private void UpdateHighScoreLabel()
     {
         if (highScoreLabel != null)
         {
-            highScoreLabel.text = PlayerPrefs.GetInt("HighScore", 0).ToString();
+            highScoreLabel.text = SaveGameManager.Instance.HighScore.ToString();
         }
     }
 

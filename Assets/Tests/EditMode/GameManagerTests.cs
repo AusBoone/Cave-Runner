@@ -90,7 +90,10 @@ public class GameManagerTests
     [Test]
     public void AddCoins_AppliesUpgradeMultiplier()
     {
-        PlayerPrefs.DeleteAll();
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
         var data = new ShopManager.UpgradeData { type = UpgradeType.CoinMultiplier, cost = 1, effect = 1f };
 
         var shopObj = new GameObject("shop");
@@ -112,6 +115,7 @@ public class GameManagerTests
 
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
     }
 
     [Test]

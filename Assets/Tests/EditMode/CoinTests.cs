@@ -48,7 +48,11 @@ public class CoinTests
     [Test]
     public void GameOverUpdatesHighScore()
     {
-        PlayerPrefs.SetInt("HighScore", 5);
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+        SaveGameManager.Instance.HighScore = 5;
         var gmObj = new GameObject("gm");
         var gm = gmObj.AddComponent<GameManager>();
         gm.StartGame();
@@ -59,7 +63,8 @@ public class CoinTests
 
         gm.GameOver();
 
-        Assert.AreEqual(10, PlayerPrefs.GetInt("HighScore"));
+        Assert.AreEqual(10, SaveGameManager.Instance.HighScore);
         Object.DestroyImmediate(gmObj);
+        Object.DestroyImmediate(saveObj);
     }
 }

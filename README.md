@@ -116,6 +116,24 @@ data remains on the player's machine.  A `feedbackUrl` on `UIManager` can open
 an external survey or bug‑report form to collect additional feedback from
 players.
 
+## Daily Challenges & Accessibility
+`DailyChallengeManager` automatically loads or creates a daily objective at
+startup. Goals are randomly chosen to track distance traveled, coins collected
+or the number of times a power-up is used. Progress is stored in `PlayerPrefs`
+so a challenge persists even after closing the game. When the target is reached
+the manager saves the completion state, awards bonus coins and triggers the
+`ACH_DAILY_COMPLETE` achievement if Steam is present.
+
+Players can enable colorblind mode from the **Settings** menu. The toggle in
+`SettingsMenu` calls `ColorblindManager.SetEnabled` which writes the option to
+`PlayerPrefs` and notifies any `ColorblindMode` components to update their
+colors. The state is restored on startup so the preference remains across
+sessions.
+
+To display progress in your UI add a `DailyChallengeUI` component to a panel and
+link a text field (and optional progress bar). Open the settings screen during
+play to toggle colorblind mode at any time.
+
 ## Input System Setup
 This project now supports Unity's **Input System** package. Install the package
 through the Package Manager and enable the *Input System Package* when prompted.

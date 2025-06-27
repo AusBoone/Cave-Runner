@@ -11,7 +11,9 @@ using System.Collections;
 /// saves. This file also introduces a simple coin combo mechanic which
 /// multiplies coin value when pickups occur rapidly. When the combo
 /// increases, optional feedback such as camera shake, particles and a
-/// pitched sound effect is played.
+/// pitched sound effect is played. Recent revisions add slow motion
+/// support, stage-specific speed modifiers and the ability to start a run
+/// with random power-ups.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -20,6 +22,8 @@ public class GameManager : MonoBehaviour
     public Text scoreLabel;                   // UI label showing current distance
     public Text highScoreLabel;               // UI label showing best distance
     public Text coinLabel;                    // UI label showing collected coins
+    [Tooltip("Power-up prefabs that may spawn when a run begins if the player has the corresponding upgrade.")]
+    public GameObject[] startingPowerUps;
 
     // Runtime values tracked during a single run
     private float distance;                   // total distance traveled
@@ -35,6 +39,10 @@ public class GameManager : MonoBehaviour
     private bool gravityFlipped;              // true while gravity is inverted
     private float coinComboTimer;             // countdown for maintaining a coin combo
     private int coinComboMultiplier = 1;      // current coin multiplier from the combo
+
+    private float slowMotionTimer;            // time remaining on slow motion
+    private float slowMotionScale = 1f;       // scale value applied during slow motion
+    private float stageSpeedMultiplier = 1f;  // modifier set by StageManager
 
     [Tooltip("Time allowed between coin pickups to continue the combo.")]
     public float comboDuration = 1.5f;        // seconds before the combo resets
@@ -137,6 +145,18 @@ public class GameManager : MonoBehaviour
         // Increase the base scroll speed over time so difficulty ramps up
         currentSpeed += speedIncrease * Time.deltaTime;
 
+        // Count down slow motion timer using unscaled time so it expires
+        // regardless of the current time scale.
+        if (slowMotionTimer > 0f)
+        {
+            slowMotionTimer -= Time.unscaledDeltaTime;
+            if (slowMotionTimer <= 0f)
+            {
+                Time.timeScale = 1f;
+                slowMotionScale = 1f;
+            }
+        }
+
         // Reduce any active speed boost timer and reset the multiplier when finished
         if (speedBoostTimer > 0f)
         {
@@ -169,8 +189,8 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Update distance traveled applying any speed multipliers
-        distance += currentSpeed * speedMultiplier * Time.deltaTime;
+        // Update distance traveled applying all active multipliers
+        distance += currentSpeed * speedMultiplier * stageSpeedMultiplier * Time.deltaTime;
 
         // Notify listeners when distance milestones are crossed
         if (stageGoals != null && currentStage < stageGoals.Length && distance >= stageGoals[currentStage])
@@ -196,7 +216,7 @@ public class GameManager : MonoBehaviour
         {
             return 0f;
         }
-        return currentSpeed * speedMultiplier;
+        return currentSpeed * speedMultiplier * stageSpeedMultiplier;
     }
 
     /// <summary>
@@ -210,6 +230,7 @@ public class GameManager : MonoBehaviour
         isRunning = false;
         isPaused = false;
         isGameOver = true;
+        Time.timeScale = 1f; // ensure normal time for menus
 
         // If gravity was flipped when the run ended, flip it back so menus and
         // future runs use the normal downward orientation.
@@ -291,7 +312,12 @@ public class GameManager : MonoBehaviour
         isPaused = false;
         isGameOver = false;
         distance = 0f;
-        currentSpeed = baseSpeed;
+        float bonus = 0f;
+        if (ShopManager.Instance != null)
+        {
+            bonus = ShopManager.Instance.GetUpgradeEffect(UpgradeType.BaseSpeedBonus);
+        }
+        currentSpeed = baseSpeed + bonus;
         coins = 0;
         speedMultiplier = 1f;
         speedBoostTimer = 0f;
@@ -300,6 +326,27 @@ public class GameManager : MonoBehaviour
         currentStage = 0;
         coinComboTimer = 0f;
         coinComboMultiplier = 1;
+
+        stageSpeedMultiplier = 1f;
+        slowMotionTimer = 0f;
+        Time.timeScale = 1f;
+
+        // Spawn starting power-ups if the player purchased the upgrade.
+        int startingCount = 0;
+        if (ShopManager.Instance != null)
+        {
+            startingCount = Mathf.RoundToInt(ShopManager.Instance.GetUpgradeEffect(UpgradeType.StartingPowerUp));
+        }
+        if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            Vector3 pos = player != null ? player.transform.position : Vector3.zero;
+            for (int i = 0; i < startingCount; i++)
+            {
+                GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
+                Instantiate(prefab, pos + Vector3.right * (i + 1), Quaternion.identity);
+            }
+        }
 
         UpdateCoinLabel();
         UpdateMultiplierLabel();
@@ -353,6 +400,29 @@ public class GameManager : MonoBehaviour
             gravityFlipped = true;
         }
         gravityFlipTimer = duration;
+    }
+
+    /// <summary>
+    /// Slows down time for a limited duration. Scale must be between 0 and 1.
+    /// </summary>
+    public void ActivateSlowMotion(float duration, float scale)
+    {
+        if (duration <= 0f)
+            throw new ArgumentException("duration must be positive", nameof(duration));
+        if (scale <= 0f || scale > 1f)
+            throw new ArgumentOutOfRangeException(nameof(scale), "scale must be between 0 and 1");
+
+        Time.timeScale = scale;
+        slowMotionScale = scale;
+        slowMotionTimer = duration;
+    }
+
+    /// <summary>
+    /// Sets a stage-specific speed multiplier applied on top of all other multipliers.
+    /// </summary>
+    public void SetStageSpeedMultiplier(float multiplier)
+    {
+        stageSpeedMultiplier = Mathf.Max(0.01f, multiplier);
     }
 
     /// <summary>

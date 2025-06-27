@@ -353,7 +353,8 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds to the player's coin tally and updates the UI label.
+    /// Adds to the player's coin tally and updates the UI label. Coin value may
+    /// increase through both the combo system and any purchased upgrades.
     /// </summary>
     public void AddCoins(int amount)
     {
@@ -375,7 +376,16 @@ public class GameManager : MonoBehaviour
 
         coinComboTimer = comboDuration; // reset the combo window
 
-        coins += amount * coinComboMultiplier;
+        // Incorporate any purchased coin multiplier upgrade. Each upgrade level
+        // adds a fixed bonus value to every coin pickup.
+        float bonus = 0f;
+        if (ShopManager.Instance != null)
+        {
+            bonus = ShopManager.Instance.GetUpgradeEffect(UpgradeType.CoinMultiplier);
+        }
+
+        // Final value after combo and upgrade bonuses are applied.
+        coins += Mathf.RoundToInt((amount + bonus) * coinComboMultiplier);
         UpdateCoinLabel();
         UpdateMultiplierLabel();
     }

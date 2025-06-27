@@ -13,7 +13,8 @@ public class Coin : MonoBehaviour
     /// <summary>
     /// Triggered when another collider enters the coin's trigger. If the
     /// collider belongs to the player, coins are added and the object is
-    /// either returned to its pool or destroyed.
+    /// either returned to its pool or destroyed. The final value includes
+    /// any combo or upgrade bonuses handled by <see cref="GameManager.AddCoins"/>.
     /// </summary>
     void OnTriggerEnter2D(Collider2D other)
     {

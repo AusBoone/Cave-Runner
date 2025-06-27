@@ -26,7 +26,7 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
-   - `ShopManager` persists coins and upgrades so players can buy bonuses between runs.
+   - `ShopManager` persists coins and upgrades so players can buy bonuses between runs. Upgrades currently extend power-up durations (magnet, speed boost, shield) and award extra coins per pickup.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
 5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. Add a shop panel and assign it to `UIManager.shopPanel`.
 6. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.

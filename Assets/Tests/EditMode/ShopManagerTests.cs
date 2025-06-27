@@ -98,4 +98,85 @@ public class ShopManagerTests
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(shopObj);
     }
+
+    [Test]
+    public void SpeedBoostPowerUp_UsesUpgradeEffect()
+    {
+        PlayerPrefs.DeleteAll();
+        var data = new ShopManager.UpgradeData { type = UpgradeType.SpeedBoostDuration, cost = 1, effect = 1f };
+
+        var shopObj = new GameObject("shop");
+        var sm = shopObj.AddComponent<ShopManager>();
+        sm.availableUpgrades = new[] { data };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sm, null);
+
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (Dictionary<UpgradeType, int>)dictField.GetValue(sm);
+        levels[UpgradeType.SpeedBoostDuration] = 1;
+        dictField.SetValue(sm, levels);
+
+        var gmObj = new GameObject("gm");
+        var gm = gmObj.AddComponent<GameManager>();
+
+        var player = new GameObject("player");
+        player.tag = "Player";
+        var playerCol = player.AddComponent<BoxCollider2D>();
+
+        var powerObj = new GameObject("power");
+        var sb = powerObj.AddComponent<SpeedBoostPowerUp>();
+        var powerCol = powerObj.AddComponent<BoxCollider2D>();
+        powerCol.isTrigger = true;
+        sb.duration = 2f;
+
+        sb.OnTriggerEnter2D(playerCol);
+
+        var timerField = typeof(GameManager).GetField("speedBoostTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        float timer = (float)timerField.GetValue(gm);
+
+        Assert.AreEqual(3f, timer);
+
+        Object.DestroyImmediate(powerObj);
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(gmObj);
+        Object.DestroyImmediate(shopObj);
+    }
+
+    [Test]
+    public void ShieldPowerUp_UsesUpgradeEffect()
+    {
+        PlayerPrefs.DeleteAll();
+        var data = new ShopManager.UpgradeData { type = UpgradeType.ShieldDuration, cost = 1, effect = 1f };
+
+        var shopObj = new GameObject("shop");
+        var sm = shopObj.AddComponent<ShopManager>();
+        sm.availableUpgrades = new[] { data };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sm, null);
+
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (Dictionary<UpgradeType, int>)dictField.GetValue(sm);
+        levels[UpgradeType.ShieldDuration] = 1;
+        dictField.SetValue(sm, levels);
+
+        var player = new GameObject("player");
+        player.tag = "Player";
+        var shield = player.AddComponent<PlayerShield>();
+        var playerCol = player.AddComponent<BoxCollider2D>();
+
+        var powerObj = new GameObject("power");
+        var sp = powerObj.AddComponent<ShieldPowerUp>();
+        var powerCol = powerObj.AddComponent<BoxCollider2D>();
+        powerCol.isTrigger = true;
+        sp.duration = 2f;
+
+        sp.OnTriggerEnter2D(playerCol);
+
+        var timerField = typeof(PlayerShield).GetField("shieldTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        float timer = (float)timerField.GetValue(shield);
+
+        Assert.AreEqual(3f, timer);
+
+        Object.DestroyImmediate(powerObj);
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(shopObj);
+    }
 }

@@ -5,7 +5,9 @@ using System.Collections.Generic;
 /// <summary>
 /// Central shop system that persists the player's coin total and purchased
 /// upgrades between sessions using PlayerPrefs. Each upgrade increases a
-/// gameplay value such as power-up duration.
+/// gameplay value such as power-up duration. Supported upgrades include
+/// extending magnet, speed boost, and shield times along with adding a coin
+/// value bonus.
 /// </summary>
 public class ShopManager : MonoBehaviour
 {
@@ -19,7 +21,9 @@ public class ShopManager : MonoBehaviour
     {
         public UpgradeType type;  // unique identifier for the upgrade
         public int cost;          // cost in coins per purchase
-        public float effect;      // effect added per upgrade level
+        // For duration upgrades this is the number of seconds added per level.
+        // For coin upgrades this is the extra value granted per pickup.
+        public float effect;
     }
 
     [Tooltip("Upgrades players can buy in the shop.")]

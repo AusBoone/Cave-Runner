@@ -1,9 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Creates pits and flying bat hazards as the game progresses. Spawning
+/// Creates pits and flying hazards as the game progresses. Spawning
 /// frequency increases with the player's distance. Supports object
-/// pooling for performance.
+/// pooling for performance. Stage-specific spawn weights and a
+/// difficulty multiplier are applied by <see cref="StageManager"/>.
 /// </summary>
 public class HazardSpawner : MonoBehaviour
 {
@@ -13,6 +14,19 @@ public class HazardSpawner : MonoBehaviour
     public GameObject[] zigZagPrefabs;
     public GameObject[] swoopPrefabs;
     public GameObject[] shooterPrefabs;
+    [Header("Stage Parameters")]
+    [Tooltip("Multiplier applied to spawn rate from the current stage.")]
+    public float spawnMultiplier = 1f;
+    [Tooltip("Relative chance to spawn pits.")]
+    public float pitChance = 1f;
+    [Tooltip("Relative chance to spawn bats.")]
+    public float batChance = 1f;
+    [Tooltip("Relative chance to spawn zig-zag enemies.")]
+    public float zigZagChance = 1f;
+    [Tooltip("Relative chance to spawn swooping enemies.")]
+    public float swoopChance = 1f;
+    [Tooltip("Relative chance to spawn shooter enemies.")]
+    public float shooterChance = 1f;
     public float spawnInterval = 5f;
     // Controls how the spawn interval scales with player distance.
     public AnimationCurve spawnRateCurve = AnimationCurve.Linear(0f, 1f, 100f, 2f);
@@ -80,7 +94,8 @@ public class HazardSpawner : MonoBehaviour
         if (timer <= 0f)
         {
             SpawnHazard();
-            timer = spawnInterval / difficulty;
+            float mult = Mathf.Max(0.01f, spawnMultiplier);
+            timer = spawnInterval / (difficulty * mult);
         }
     }
 
@@ -92,36 +107,55 @@ public class HazardSpawner : MonoBehaviour
     {
         var lists = new System.Collections.Generic.List<GameObject[]>();
         var heights = new System.Collections.Generic.List<float>();
+        var chance = new System.Collections.Generic.List<float>();
 
-        if (pitPrefabs != null && pitPrefabs.Length > 0)
+        if (pitPrefabs != null && pitPrefabs.Length > 0 && pitChance > 0f)
         {
             lists.Add(pitPrefabs);
             heights.Add(groundY);
+            chance.Add(pitChance);
         }
-        if (batPrefabs != null && batPrefabs.Length > 0)
+        if (batPrefabs != null && batPrefabs.Length > 0 && batChance > 0f)
         {
             lists.Add(batPrefabs);
             heights.Add(airY);
+            chance.Add(batChance);
         }
-        if (zigZagPrefabs != null && zigZagPrefabs.Length > 0)
+        if (zigZagPrefabs != null && zigZagPrefabs.Length > 0 && zigZagChance > 0f)
         {
             lists.Add(zigZagPrefabs);
             heights.Add(airY);
+            chance.Add(zigZagChance);
         }
-        if (swoopPrefabs != null && swoopPrefabs.Length > 0)
+        if (swoopPrefabs != null && swoopPrefabs.Length > 0 && swoopChance > 0f)
         {
             lists.Add(swoopPrefabs);
             heights.Add(airY);
+            chance.Add(swoopChance);
         }
-        if (shooterPrefabs != null && shooterPrefabs.Length > 0)
+        if (shooterPrefabs != null && shooterPrefabs.Length > 0 && shooterChance > 0f)
         {
             lists.Add(shooterPrefabs);
             heights.Add(airY);
+            chance.Add(shooterChance);
         }
 
         if (lists.Count == 0) return;
 
-        int groupIndex = Random.Range(0, lists.Count);
+        float total = 0f;
+        foreach (float c in chance) total += c;
+        float roll = Random.Range(0f, total);
+        int groupIndex = 0;
+        float accum = 0f;
+        for (int i = 0; i < chance.Count; i++)
+        {
+            accum += chance[i];
+            if (roll <= accum)
+            {
+                groupIndex = i;
+                break;
+            }
+        }
         GameObject[] prefabs = lists[groupIndex];
         float y = heights[groupIndex];
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];

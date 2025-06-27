@@ -33,7 +33,8 @@ public class StageManagerTests
 
         // Provide simple prefabs for stage data
         var dummy = new GameObject("prefab");
-        var stage = new StageManager.StageData
+        var stageAsset = ScriptableObject.CreateInstance<StageDataSO>();
+        stageAsset.stage = new StageManager.StageData
         {
             backgroundSprite = "stageA",
             groundObstacles = new[] { dummy },
@@ -41,16 +42,21 @@ public class StageManagerTests
             movingPlatforms = new GameObject[0],
             rotatingHazards = new GameObject[0],
             pits = new GameObject[0],
-            bats = new GameObject[0]
+            bats = new GameObject[0],
+            obstacleSpawnMultiplier = 2f,
+            hazardSpawnMultiplier = 0.5f
         };
-        sm.stages = new[] { stage };
+        sm.stages = new[] { stageAsset };
 
         sm.ApplyStage(0);
 
         Assert.AreEqual("stageA", bg.spriteName);
         Assert.AreSame(dummy, obstacleSpawner.groundObstacles[0]);
+        Assert.AreEqual(2f, obstacleSpawner.spawnMultiplier);
+        Assert.AreEqual(0.5f, hazardSpawner.spawnMultiplier);
 
         Object.DestroyImmediate(dummy);
+        Object.DestroyImmediate(stageAsset);
         Object.DestroyImmediate(gmObj);
         Object.DestroyImmediate(bgObj);
         Object.DestroyImmediate(obsObj);
@@ -80,10 +86,11 @@ public class StageManagerTests
         sm.parallaxBackground = bg;
         sm.obstacleSpawner = obstacleSpawner;
         sm.hazardSpawner = hazardSpawner;
-        sm.stages = new[] {
-            new StageManager.StageData { backgroundSprite = "start" },
-            new StageManager.StageData { backgroundSprite = "next" }
-        };
+        var start = ScriptableObject.CreateInstance<StageDataSO>();
+        start.stage = new StageManager.StageData { backgroundSprite = "start" };
+        var next = ScriptableObject.CreateInstance<StageDataSO>();
+        next.stage = new StageManager.StageData { backgroundSprite = "next" };
+        sm.stages = new[] { start, next };
 
         gm.StartGame();
         // Initial stage should apply index 0

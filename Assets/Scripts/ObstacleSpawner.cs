@@ -3,7 +3,9 @@ using UnityEngine;
 /// <summary>
 /// Periodically spawns ground or ceiling obstacles that the player must
 /// avoid. Spawn timing accelerates as the run progresses and objects can
-/// be pooled for efficiency.
+/// be pooled for efficiency. This class now supports stage-specific
+/// probability weights and a spawn rate multiplier supplied by
+/// <see cref="StageManager"/>.
 /// </summary>
 public class ObstacleSpawner : MonoBehaviour
 {
@@ -11,6 +13,18 @@ public class ObstacleSpawner : MonoBehaviour
     public GameObject[] ceilingObstacles;
     public GameObject[] movingPlatforms;
     public GameObject[] rotatingHazards;
+
+    [Header("Stage Parameters")]
+    [Tooltip("Multiplier applied to spawn rate from the current stage.")]
+    public float spawnMultiplier = 1f;
+    [Tooltip("Relative chance to pick ground obstacles.")]
+    public float groundChance = 1f;
+    [Tooltip("Relative chance to pick ceiling obstacles.")]
+    public float ceilingChance = 1f;
+    [Tooltip("Relative chance to pick moving platforms.")]
+    public float platformChance = 1f;
+    [Tooltip("Relative chance to pick rotating hazards.")]
+    public float rotatingChance = 1f;
 
     // Names of obstacle prefabs located under Assets/Art/Resources.
     public string[] groundObstacleNames;
@@ -96,7 +110,8 @@ public class ObstacleSpawner : MonoBehaviour
         if (timer <= 0f)
         {
             Spawn();
-            timer = spawnInterval / difficulty;
+            float mult = Mathf.Max(0.01f, spawnMultiplier);
+            timer = spawnInterval / (difficulty * mult);
         }
     }
 
@@ -108,29 +123,47 @@ public class ObstacleSpawner : MonoBehaviour
     {
         var prefabsList = new System.Collections.Generic.List<GameObject[]>();
         var yList = new System.Collections.Generic.List<float>();
-        if (groundObstacles.Length > 0)
+        var chanceList = new System.Collections.Generic.List<float>();
+        if (groundObstacles.Length > 0 && groundChance > 0f)
         {
             prefabsList.Add(groundObstacles);
             yList.Add(groundY);
+            chanceList.Add(groundChance);
         }
-        if (ceilingObstacles.Length > 0)
+        if (ceilingObstacles.Length > 0 && ceilingChance > 0f)
         {
             prefabsList.Add(ceilingObstacles);
             yList.Add(ceilingY);
+            chanceList.Add(ceilingChance);
         }
-        if (movingPlatforms.Length > 0)
+        if (movingPlatforms.Length > 0 && platformChance > 0f)
         {
             prefabsList.Add(movingPlatforms);
             yList.Add(middleY);
+            chanceList.Add(platformChance);
         }
-        if (rotatingHazards.Length > 0)
+        if (rotatingHazards.Length > 0 && rotatingChance > 0f)
         {
             prefabsList.Add(rotatingHazards);
             yList.Add(middleY);
+            chanceList.Add(rotatingChance);
         }
         if (prefabsList.Count == 0) return;
 
-        int index = Random.Range(0, prefabsList.Count);
+        float total = 0f;
+        foreach (float c in chanceList) total += c;
+        float roll = Random.Range(0f, total);
+        int index = 0;
+        float accum = 0f;
+        for (int i = 0; i < chanceList.Count; i++)
+        {
+            accum += chanceList[i];
+            if (roll <= accum)
+            {
+                index = i;
+                break;
+            }
+        }
         GameObject[] prefabs = prefabsList[index];
         float y = yList[index];
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];

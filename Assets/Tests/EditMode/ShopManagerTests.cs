@@ -11,7 +11,13 @@ public class ShopManagerTests
     [Test]
     public void AddCoins_PersistsTotal()
     {
-        PlayerPrefs.DeleteAll();
+        // Remove any existing save file before starting the test
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+
         var go = new GameObject("shop");
         var sm = go.AddComponent<ShopManager>();
         sm.availableUpgrades = new ShopManager.UpgradeData[0];
@@ -21,20 +27,27 @@ public class ShopManagerTests
 
         sm.AddCoins(5);
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(saveObj);
 
         var go2 = new GameObject("shop2");
+        var saveObj2 = new GameObject("save2");
+        saveObj2.AddComponent<SaveGameManager>();
         var sm2 = go2.AddComponent<ShopManager>();
         sm2.availableUpgrades = new ShopManager.UpgradeData[0];
         typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sm2, null);
 
         Assert.AreEqual(5, sm2.Coins);
         Object.DestroyImmediate(go2);
+        Object.DestroyImmediate(saveObj2);
     }
 
     [Test]
     public void PurchaseUpgrade_DeductsCoinsAndSavesLevel()
     {
-        PlayerPrefs.DeleteAll();
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
         var data = new ShopManager.UpgradeData { type = UpgradeType.MagnetDuration, cost = 3, effect = 1f };
 
         var go = new GameObject("shop");
@@ -49,20 +62,27 @@ public class ShopManagerTests
         Assert.AreEqual(2, sm.Coins);
         Assert.AreEqual(1f, sm.GetUpgradeEffect(UpgradeType.MagnetDuration));
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(saveObj);
 
         var go2 = new GameObject("shop2");
+        var saveObj2 = new GameObject("save2");
+        saveObj2.AddComponent<SaveGameManager>();
         var sm2 = go2.AddComponent<ShopManager>();
         sm2.availableUpgrades = new[] { data };
         typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sm2, null);
 
         Assert.AreEqual(1f, sm2.GetUpgradeEffect(UpgradeType.MagnetDuration));
         Object.DestroyImmediate(go2);
+        Object.DestroyImmediate(saveObj2);
     }
 
     [Test]
     public void MagnetPowerUp_UsesUpgradeEffect()
     {
-        PlayerPrefs.DeleteAll();
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
         var data = new ShopManager.UpgradeData { type = UpgradeType.MagnetDuration, cost = 1, effect = 1f };
 
         var shopObj = new GameObject("shop");
@@ -97,12 +117,16 @@ public class ShopManagerTests
         Object.DestroyImmediate(powerObj);
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
     }
 
     [Test]
     public void SpeedBoostPowerUp_UsesUpgradeEffect()
     {
-        PlayerPrefs.DeleteAll();
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
         var data = new ShopManager.UpgradeData { type = UpgradeType.SpeedBoostDuration, cost = 1, effect = 1f };
 
         var shopObj = new GameObject("shop");
@@ -139,12 +163,16 @@ public class ShopManagerTests
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(gmObj);
         Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
     }
 
     [Test]
     public void ShieldPowerUp_UsesUpgradeEffect()
     {
-        PlayerPrefs.DeleteAll();
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
         var data = new ShopManager.UpgradeData { type = UpgradeType.ShieldDuration, cost = 1, effect = 1f };
 
         var shopObj = new GameObject("shop");
@@ -178,5 +206,6 @@ public class ShopManagerTests
         Object.DestroyImmediate(powerObj);
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
     }
 }

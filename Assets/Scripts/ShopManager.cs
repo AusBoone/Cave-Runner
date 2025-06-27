@@ -4,9 +4,9 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Central shop system that persists the player's coin total and purchased
-/// upgrades between sessions using PlayerPrefs. Each upgrade increases a
-/// gameplay value such as power-up duration. Supported upgrades include
-/// extending magnet, speed boost, and shield times, modifying the base
+/// upgrades between sessions using <see cref="SaveGameManager"/>. Each upgrade
+/// increases a gameplay value such as power-up duration. Supported upgrades
+/// include extending magnet, speed boost, and shield times, modifying the base
 /// scroll speed, granting starting power-ups and adding a coin value bonus.
 /// </summary>
 public class ShopManager : MonoBehaviour
@@ -32,8 +32,8 @@ public class ShopManager : MonoBehaviour
     // Tracks how many times each upgrade has been purchased.
     private readonly Dictionary<UpgradeType, int> upgradeLevels = new Dictionary<UpgradeType, int>();
 
-    private const string CoinsKey = "ShopCoins";
-    private const string UpgradePrefix = "UpgradeLevel_";
+    // Persistence is now handled by SaveGameManager so the previous PlayerPrefs
+    // keys are only kept for migration in SaveGameManager.
 
     /// <summary>Current coin balance saved across sessions.</summary>
     public int Coins { get; private set; }
@@ -117,25 +117,30 @@ public class ShopManager : MonoBehaviour
         return new UpgradeData { type = type, cost = 0, effect = 0f };
     }
 
-    // Restores coin and upgrade values from PlayerPrefs.
+    // Restores coin and upgrade values from SaveGameManager.
     private void LoadState()
     {
-        Coins = PlayerPrefs.GetInt(CoinsKey, 0);
+        var save = SaveGameManager.Instance;
+        if (save == null) return;
+
+        Coins = save.Coins;
         foreach (var up in availableUpgrades)
         {
-            int level = PlayerPrefs.GetInt(UpgradePrefix + up.type, 0);
+            int level = save.GetUpgradeLevel(up.type);
             upgradeLevels[up.type] = level;
         }
     }
 
-    // Writes the current coin amount and upgrade levels to PlayerPrefs.
+    // Writes the current coin amount and upgrade levels to SaveGameManager.
     private void SaveState()
     {
-        PlayerPrefs.SetInt(CoinsKey, Coins);
+        var save = SaveGameManager.Instance;
+        if (save == null) return;
+
+        save.Coins = Coins;
         foreach (var kvp in upgradeLevels)
         {
-            PlayerPrefs.SetInt(UpgradePrefix + kvp.Key, kvp.Value);
+            save.SetUpgradeLevel(kvp.Key, kvp.Value);
         }
-        PlayerPrefs.Save();
     }
 }

@@ -28,6 +28,11 @@ public class SpeedBoostPowerUp : MonoBehaviour
                     totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.SpeedBoostDuration);
                 }
                 GameManager.Instance.ActivateSpeedBoost(totalDuration, speedMultiplier);
+                // Inform the DailyChallengeManager of the power-up usage
+                if (DailyChallengeManager.Instance != null)
+                {
+                    DailyChallengeManager.Instance.RecordPowerUpUse(DailyChallengeManager.PowerUpType.SpeedBoost);
+                }
             }
             if (AudioManager.Instance != null)
             {

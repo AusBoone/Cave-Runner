@@ -25,6 +25,11 @@ public class ShieldPowerUp : MonoBehaviour
                     totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.ShieldDuration);
                 }
                 shield.ActivateShield(totalDuration);
+                // Report shield activation to the daily challenge system
+                if (DailyChallengeManager.Instance != null)
+                {
+                    DailyChallengeManager.Instance.RecordPowerUpUse(DailyChallengeManager.PowerUpType.Shield);
+                }
             }
             if (AudioManager.Instance != null)
             {

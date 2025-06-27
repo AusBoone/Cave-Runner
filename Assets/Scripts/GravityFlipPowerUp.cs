@@ -18,6 +18,11 @@ public class GravityFlipPowerUp : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.ActivateGravityFlip(duration);
+                // Log the usage for daily challenges
+                if (DailyChallengeManager.Instance != null)
+                {
+                    DailyChallengeManager.Instance.RecordPowerUpUse(DailyChallengeManager.PowerUpType.GravityFlip);
+                }
             }
             if (AudioManager.Instance != null)
             {

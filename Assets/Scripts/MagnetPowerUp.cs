@@ -27,6 +27,11 @@ public class MagnetPowerUp : MonoBehaviour
                     totalDuration += ShopManager.Instance.GetUpgradeEffect(UpgradeType.MagnetDuration);
                 }
                 magnet.ActivateMagnet(totalDuration);
+                // Notify the DailyChallengeManager so magnet use can count toward challenges
+                if (DailyChallengeManager.Instance != null)
+                {
+                    DailyChallengeManager.Instance.RecordPowerUpUse(DailyChallengeManager.PowerUpType.Magnet);
+                }
             }
             if (AudioManager.Instance != null)
             {

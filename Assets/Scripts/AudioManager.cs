@@ -56,24 +56,27 @@ public class AudioManager : MonoBehaviour
     /// <summary>
     /// Plays a one-shot sound effect through the effects AudioSource.
     /// </summary>
-    public void PlaySound(AudioClip clip)
+    public void PlaySound(AudioClip clip, float pitch = 1f)
     {
         if (clip != null && effectsSource != null)
         {
+            float originalPitch = effectsSource.pitch;
+            effectsSource.pitch = pitch;
             effectsSource.PlayOneShot(clip);
+            effectsSource.pitch = originalPitch;
         }
     }
 
     /// <summary>
     /// Convenience overload that loads a clip from Resources/Audio by name.
     /// </summary>
-    public void PlaySound(string clipName)
+    public void PlaySound(string clipName, float pitch = 1f)
     {
         if (string.IsNullOrEmpty(clipName) || effectsSource == null) return;
         AudioClip clip = Resources.Load<AudioClip>("Audio/" + clipName);
         if (clip != null)
         {
-            effectsSource.PlayOneShot(clip);
+            PlaySound(clip, pitch);
         }
     }
 

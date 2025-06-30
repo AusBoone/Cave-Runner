@@ -26,6 +26,33 @@ public class DailyChallengeManagerTests
         Object.DestroyImmediate(go);
     }
 
+    /// <summary>
+    /// Verifies a new challenge is generated when the stored one has expired.
+    /// </summary>
+    [Test]
+    public void LoadOrGenerate_ExpiredChallenge_Regenerates()
+    {
+        var old = new PrivateChallengeState
+        {
+            type = DailyChallengeManager.ChallengeType.Distance,
+            target = 1,
+            progress = 0,
+            powerUp = DailyChallengeManager.PowerUpType.Magnet,
+            expires = System.DateTime.UtcNow.AddDays(-1).Ticks,
+            completed = false
+        };
+        PlayerPrefs.SetString("DailyChallengeData", JsonUtility.ToJson(old));
+
+        var obj = new GameObject("dc");
+        var dc = obj.AddComponent<DailyChallengeManager>();
+
+        var json = PlayerPrefs.GetString("DailyChallengeData");
+        var refreshed = JsonUtility.FromJson<PrivateChallengeState>(json);
+        Assert.Greater(refreshed.expires, System.DateTime.UtcNow.Ticks);
+
+        Object.DestroyImmediate(obj);
+    }
+
     [Test]
     public void CompleteChallenge_RewardsCoins()
     {
@@ -67,6 +94,54 @@ public class DailyChallengeManagerTests
         Object.DestroyImmediate(dcObj);
         Object.DestroyImmediate(gmObj);
         Object.DestroyImmediate(shopObj);
+    }
+
+    /// <summary>
+    /// Completing a challenge should unlock the daily achievement via
+    /// SteamManager. A dummy implementation captures the unlock call.
+    /// </summary>
+    [Test]
+    public void CompleteChallenge_UnlocksAchievement()
+    {
+        var state = new PrivateChallengeState
+        {
+            type = DailyChallengeManager.ChallengeType.Coins,
+            target = 1,
+            progress = 0,
+            powerUp = DailyChallengeManager.PowerUpType.Magnet,
+            expires = System.DateTime.UtcNow.AddDays(1).Ticks,
+            completed = false
+        };
+        PlayerPrefs.SetString("DailyChallengeData", JsonUtility.ToJson(state));
+
+        var steamObj = new GameObject("steam");
+        var steam = steamObj.AddComponent<DummySteamManager>();
+
+        var gmObj = new GameObject("gm");
+        var gm = gmObj.AddComponent<GameManager>();
+        gm.StartGame();
+
+        var dcObj = new GameObject("dc");
+        var dc = dcObj.AddComponent<DailyChallengeManager>();
+
+        typeof(GameManager).GetField("coins", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(gm, 1);
+        dc.Update();
+
+        Assert.AreEqual("ACH_DAILY_COMPLETE", steam.unlockedId);
+
+        Object.DestroyImmediate(dcObj);
+        Object.DestroyImmediate(gmObj);
+        Object.DestroyImmediate(steamObj);
+    }
+
+    private class DummySteamManager : SteamManager
+    {
+        public string unlockedId;
+
+        public override void UnlockAchievement(string id)
+        {
+            unlockedId = id;
+        }
     }
 
     // Small helper struct to craft challenge JSON for tests

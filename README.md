@@ -98,6 +98,10 @@ example achievements:
 You can define additional achievements in Steamworks and unlock them using
 `SteamManager.Instance.UnlockAchievement("ID")` from your scripts.
 
+The `SteamManager` component also exposes a **leaderboardId** field. Set this to
+the Steam leaderboard identifier you wish to use for global high scores. The
+UI's leaderboard panel queries this ID when downloading and uploading scores.
+
 ### Workshop Content
 The included `WorkshopManager` script uses Steamworks.NET's UGC API so you can
 share level or skin packs on the Steam Workshop.
@@ -155,6 +159,16 @@ This repository includes a small suite of EditMode tests.
 
 1. In the Unity editor open **Window > General > Test Runner**.
 2. Select the **EditMode** tab and click **Run All** to execute the tests.
+
+To automate testing in CI you can call the Unity executable in batch mode:
+
+```bash
+Unity -batchmode -projectPath <path> -runTests -testPlatform editmode \
+  -testResults Results.xml -logFile test.log -quit
+```
+
+The command writes an XML report (`Results.xml`) and a detailed log file. Both
+can be archived as build artifacts to review pass/fail status.
 
 The test scripts are located in `Assets/Tests/EditMode`.
 New tests exercise behaviour for components like **MovingPlatform**,

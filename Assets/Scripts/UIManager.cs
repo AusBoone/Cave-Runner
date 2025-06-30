@@ -195,11 +195,14 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowLeaderboard()
     {
-        ShowPanel(leaderboardPanel);
 #if UNITY_STANDALONE
+        ShowPanel(leaderboardPanel);
         if (SteamManager.Instance != null)
         {
-            SteamManager.Instance.FindOrCreateLeaderboard("HIGHSCORES", success =>
+            // Use the configured leaderboard ID from SteamManager so multiple
+            // boards can be supported across deployments.
+            string id = SteamManager.Instance.leaderboardId;
+            SteamManager.Instance.FindOrCreateLeaderboard(id, success =>
             {
                 if (success)
                 {
@@ -207,7 +210,7 @@ public class UIManager : MonoBehaviour
                     {
                         if (leaderboardText != null && entries != null)
                         {
-                            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                            var sb = new System.Text.StringBuilder();
                             for (int i = 0; i < entries.Length; i++)
                             {
                                 string name = SteamFriends.GetFriendPersonaName(entries[i].m_steamIDUser);
@@ -219,6 +222,8 @@ public class UIManager : MonoBehaviour
                 }
             });
         }
+#else
+        ShowPanel(leaderboardPanel);
 #endif
     }
 

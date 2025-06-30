@@ -4,8 +4,10 @@ using Steamworks;
 #endif
 
 /// <summary>
-/// Lightweight wrapper around Steamworks.NET for initializing the Steam API,
-/// unlocking achievements and storing a single high score in the Steam Cloud.
+/// Handles initialization of the Steamworks API, achievement unlocking,
+/// cloud saves and leaderboard submission. The leaderboard identifier can
+/// be configured in the inspector so different boards may be used in
+/// various builds.
 /// </summary>
 public class SteamManager : MonoBehaviour
 {
@@ -17,6 +19,9 @@ public class SteamManager : MonoBehaviour
     private CallResult<LeaderboardFindResult_t> findResult;
     private CallResult<LeaderboardScoresDownloaded_t> downloadResult;
 #endif
+
+    [Tooltip("Steam leaderboard identifier used for global scores.")]
+    public string leaderboardId = "HIGHSCORES";
 
     /// <summary>
     /// Initializes the Steam API on startup and enforces the singleton
@@ -37,6 +42,8 @@ public class SteamManager : MonoBehaviour
             {
                 Debug.LogError("Steamworks DLL not found: " + e);
             }
+            // Pre-load the leaderboard so score submissions succeed
+            FindOrCreateLeaderboard(leaderboardId, null);
 #endif
         }
         else
@@ -79,7 +86,11 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Unlocks a Steam achievement by its identifier if the API is ready.
     /// </summary>
-    public void UnlockAchievement(string id)
+    /// <summary>
+    /// Unlocks a Steam achievement by its identifier if the API is ready.
+    /// Virtual so tests can override without calling the real API.
+    /// </summary>
+    public virtual void UnlockAchievement(string id)
     {
 #if UNITY_STANDALONE
         if (!initialized) return;
@@ -95,7 +106,7 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Saves the provided high score value to the Steam Cloud.
     /// </summary>
-    public void SaveHighScore(int score)
+    public virtual void SaveHighScore(int score)
     {
 #if UNITY_STANDALONE
         if (!initialized) return;
@@ -107,7 +118,7 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Loads the high score from the Steam Cloud if it exists.
     /// </summary>
-    public int LoadHighScore()
+    public virtual int LoadHighScore()
     {
 #if UNITY_STANDALONE
         if (!initialized) return 0;
@@ -126,7 +137,7 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Finds or creates a Steam leaderboard with the given name.
     /// </summary>
-    public void FindOrCreateLeaderboard(string name, System.Action<bool> callback)
+    public virtual void FindOrCreateLeaderboard(string name, System.Action<bool> callback)
     {
         if (!initialized)
         {
@@ -157,7 +168,7 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Uploads a score to the current leaderboard if available.
     /// </summary>
-    public void UploadScore(int score)
+    public virtual void UploadScore(int score)
     {
         if (!initialized || leaderboard.m_SteamLeaderboard == 0) return;
         SteamUserStats.UploadLeaderboardScore(
@@ -171,7 +182,7 @@ public class SteamManager : MonoBehaviour
     /// <summary>
     /// Downloads the top 10 scores from the current leaderboard.
     /// </summary>
-    public void DownloadTopScores(System.Action<LeaderboardEntry_t[]> callback)
+    public virtual void DownloadTopScores(System.Action<LeaderboardEntry_t[]> callback)
     {
         if (!initialized || leaderboard.m_SteamLeaderboard == 0)
         {

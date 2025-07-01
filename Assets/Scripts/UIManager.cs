@@ -29,6 +29,7 @@ public class UIManager : MonoBehaviour
     public GameObject leaderboardPanel;
     public Text leaderboardText;
     public GameObject workshopPanel;
+    public GameObject achievementsPanel;
     public GameObject shopPanel;
     public Text workshopListText;
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
@@ -116,6 +117,7 @@ public class UIManager : MonoBehaviour
         HidePanelImmediate(pausePanel);
         HidePanelImmediate(leaderboardPanel);
         HidePanelImmediate(workshopPanel);
+        HidePanelImmediate(achievementsPanel);
         HidePanelImmediate(shopPanel);
         HidePanelImmediate(settingsPanel);
         if (GameManager.Instance != null)
@@ -267,6 +269,22 @@ public class UIManager : MonoBehaviour
     public void HideWorkshop()
     {
         HidePanel(workshopPanel);
+    }
+
+    /// <summary>
+    /// Displays the achievements panel populated by <see cref="AchievementsMenu"/>.
+    /// </summary>
+    public void ShowAchievements()
+    {
+        ShowPanel(achievementsPanel);
+    }
+
+    /// <summary>
+    /// Hides the achievements panel.
+    /// </summary>
+    public void HideAchievements()
+    {
+        HidePanel(achievementsPanel);
     }
 
     /// <summary>

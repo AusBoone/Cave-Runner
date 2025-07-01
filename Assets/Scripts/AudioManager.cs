@@ -38,6 +38,14 @@ public class AudioManager : MonoBehaviour
     /// </summary>
     void Start()
     {
+        // Apply saved volume levels before starting playback so the user
+        // hears audio at the expected levels from the first frame.
+        if (SaveGameManager.Instance != null)
+        {
+            SetMusicVolume(SaveGameManager.Instance.MusicVolume);
+            SetEffectsVolume(SaveGameManager.Instance.EffectsVolume);
+        }
+
         if (musicSource != null && !musicSource.isPlaying)
         {
             if (backgroundMusic == null && !string.IsNullOrEmpty(backgroundMusicName))
@@ -50,6 +58,29 @@ public class AudioManager : MonoBehaviour
                 musicSource.loop = true;
                 musicSource.Play();
             }
+        }
+    }
+
+    /// <summary>
+    /// Adjusts the music source volume. The provided value is clamped to the
+    /// [0,1] range to match Unity's expected AudioSource volume.
+    /// </summary>
+    public void SetMusicVolume(float volume)
+    {
+        if (musicSource != null)
+        {
+            musicSource.volume = Mathf.Clamp01(volume);
+        }
+    }
+
+    /// <summary>
+    /// Adjusts the effects source volume. Values are clamped between 0 and 1.
+    /// </summary>
+    public void SetEffectsVolume(float volume)
+    {
+        if (effectsSource != null)
+        {
+            effectsSource.volume = Mathf.Clamp01(volume);
         }
     }
 

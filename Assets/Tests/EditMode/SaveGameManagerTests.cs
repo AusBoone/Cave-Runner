@@ -69,4 +69,47 @@ public class SaveGameManagerTests
         Assert.IsFalse(File.Exists(temp));
         Object.DestroyImmediate(go);
     }
+
+    [Test]
+    public void VolumeValues_ArePersisted()
+    {
+        var obj = new GameObject("save");
+        var save = obj.AddComponent<SaveGameManager>();
+        save.MusicVolume = 0.4f;
+        save.EffectsVolume = 0.7f;
+        Object.DestroyImmediate(obj);
+
+        var obj2 = new GameObject("save2");
+        var save2 = obj2.AddComponent<SaveGameManager>();
+        Assert.AreEqual(0.4f, save2.MusicVolume, 0.001f);
+        Assert.AreEqual(0.7f, save2.EffectsVolume, 0.001f);
+        Object.DestroyImmediate(obj2);
+    }
+
+    [Test]
+    public void OldSave_DefaultsToFullVolume()
+    {
+        // Write an old-format save file without volume fields
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        File.WriteAllText(path, "{\"coins\":1,\"highScore\":2,\"upgrades\":[]}");
+
+        var go = new GameObject("save");
+        var save = go.AddComponent<SaveGameManager>();
+
+        Assert.AreEqual(1f, save.MusicVolume);
+        Assert.AreEqual(1f, save.EffectsVolume);
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void VersionField_WrittenToFile()
+    {
+        var go = new GameObject("save");
+        go.AddComponent<SaveGameManager>();
+        Object.DestroyImmediate(go);
+
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        string json = File.ReadAllText(path);
+        Assert.IsTrue(json.Contains("\"version\""));
+    }
 }

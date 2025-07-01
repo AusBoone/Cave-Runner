@@ -35,10 +35,18 @@ public class SaveGameManager : MonoBehaviour
     [Serializable]
     private class SaveData
     {
+        // Bump <see cref="CurrentVersion"/> when fields are added so older
+        // saves can be upgraded in <see cref="LoadData"/>.
+        public int version;
         public int coins;
         public int highScore;
+        public float musicVolume = 1f;   // range 0-1
+        public float effectsVolume = 1f; // range 0-1
         public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
+
+    // Version value written to disk alongside <see cref="SaveData"/>.
+    private const int CurrentVersion = 1;
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -85,6 +93,28 @@ public class SaveGameManager : MonoBehaviour
         }
     }
 
+    /// <summary>Stored music volume in the range 0–1.</summary>
+    public float MusicVolume
+    {
+        get => data.musicVolume;
+        set
+        {
+            data.musicVolume = Mathf.Clamp01(value);
+            SaveDataToFile();
+        }
+    }
+
+    /// <summary>Stored effects volume in the range 0–1.</summary>
+    public float EffectsVolume
+    {
+        get => data.effectsVolume;
+        set
+        {
+            data.effectsVolume = Mathf.Clamp01(value);
+            SaveDataToFile();
+        }
+    }
+
     /// <summary>Returns the purchased level count for an upgrade.</summary>
     public int GetUpgradeLevel(UpgradeType type)
     {
@@ -113,8 +143,18 @@ public class SaveGameManager : MonoBehaviour
                 SaveData loaded = JsonUtility.FromJson<SaveData>(json);
                 if (loaded != null)
                 {
+                    // Handle missing fields by checking the save version.
+                    if (loaded.version < 1)
+                    {
+                        loaded.musicVolume = 1f;
+                        loaded.effectsVolume = 1f;
+                    }
+
                     data.coins = loaded.coins;
                     data.highScore = loaded.highScore;
+                    data.musicVolume = Mathf.Clamp01(loaded.musicVolume);
+                    data.effectsVolume = Mathf.Clamp01(loaded.effectsVolume);
+
                     upgradeLevels.Clear();
                     foreach (var entry in loaded.upgrades)
                     {
@@ -138,6 +178,8 @@ public class SaveGameManager : MonoBehaviour
             // JSON-based system.
             data.coins = PlayerPrefs.GetInt(CoinsKey, 0);
             data.highScore = PlayerPrefs.GetInt(HighScoreKey, 0);
+            data.musicVolume = 1f;
+            data.effectsVolume = 1f;
             foreach (UpgradeType type in Enum.GetValues(typeof(UpgradeType)))
             {
                 int level = PlayerPrefs.GetInt(UpgradePrefix + type, 0);
@@ -158,6 +200,9 @@ public class SaveGameManager : MonoBehaviour
     /// </summary>
     private void SaveDataToFile()
     {
+        data.version = CurrentVersion;
+        data.musicVolume = Mathf.Clamp01(data.musicVolume);
+        data.effectsVolume = Mathf.Clamp01(data.effectsVolume);
         data.upgrades.Clear();
         foreach (var kvp in upgradeLevels)
         {

@@ -12,6 +12,10 @@ public class SettingsMenu : MonoBehaviour
     public Text slideKeyLabel;
     public Text pauseKeyLabel;
     public Toggle colorblindToggle;
+    public Slider musicVolumeSlider;
+    public Text musicVolumeLabel;
+    public Slider effectsVolumeSlider;
+    public Text effectsVolumeLabel;
 
     /// <summary>
     /// Populates UI elements with the current settings on start.
@@ -22,6 +26,16 @@ public class SettingsMenu : MonoBehaviour
         if (slideKeyLabel != null) slideKeyLabel.text = InputManager.SlideKey.ToString();
         if (pauseKeyLabel != null) pauseKeyLabel.text = InputManager.PauseKey.ToString();
         if (colorblindToggle != null) colorblindToggle.isOn = ColorblindManager.Enabled;
+        if (musicVolumeSlider != null && SaveGameManager.Instance != null)
+        {
+            musicVolumeSlider.value = SaveGameManager.Instance.MusicVolume;
+            UpdateMusicVolumeLabel(musicVolumeSlider.value);
+        }
+        if (effectsVolumeSlider != null && SaveGameManager.Instance != null)
+        {
+            effectsVolumeSlider.value = SaveGameManager.Instance.EffectsVolume;
+            UpdateEffectsVolumeLabel(effectsVolumeSlider.value);
+        }
     }
 
     /// <summary>
@@ -91,5 +105,56 @@ public class SettingsMenu : MonoBehaviour
     public void ToggleColorblind(bool value)
     {
         ColorblindManager.SetEnabled(value);
+    }
+
+    /// <summary>
+    /// Callback for the music volume slider. Persists the value and applies
+    /// it through <see cref="AudioManager"/>.
+    /// </summary>
+    public void ChangeMusicVolume(float value)
+    {
+        if (SaveGameManager.Instance != null)
+        {
+            SaveGameManager.Instance.MusicVolume = value;
+        }
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.SetMusicVolume(value);
+        }
+        UpdateMusicVolumeLabel(value);
+    }
+
+    /// <summary>
+    /// Callback for the effects volume slider.
+    /// </summary>
+    public void ChangeEffectsVolume(float value)
+    {
+        if (SaveGameManager.Instance != null)
+        {
+            SaveGameManager.Instance.EffectsVolume = value;
+        }
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.SetEffectsVolume(value);
+        }
+        UpdateEffectsVolumeLabel(value);
+    }
+
+    // Updates the on-screen music volume percentage if a label is assigned.
+    private void UpdateMusicVolumeLabel(float value)
+    {
+        if (musicVolumeLabel != null)
+        {
+            musicVolumeLabel.text = Mathf.RoundToInt(value * 100f) + "%";
+        }
+    }
+
+    // Updates the effects volume percentage label.
+    private void UpdateEffectsVolumeLabel(float value)
+    {
+        if (effectsVolumeLabel != null)
+        {
+            effectsVolumeLabel.text = Mathf.RoundToInt(value * 100f) + "%";
+        }
     }
 }

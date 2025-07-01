@@ -55,4 +55,18 @@ public class SaveGameManagerTests
         Assert.IsTrue(File.Exists(Path.Combine(Application.persistentDataPath, "savegame.json")));
         Object.DestroyImmediate(go);
     }
+
+    [Test]
+    public void Save_UsesTemporaryFile()
+    {
+        // Saving should not leave the temporary file used for atomic writes.
+        var go = new GameObject("save");
+        var save = go.AddComponent<SaveGameManager>();
+
+        save.Coins = 1; // triggers SaveDataToFile
+
+        string temp = Path.Combine(Application.persistentDataPath, "savegame.json.tmp");
+        Assert.IsFalse(File.Exists(temp));
+        Object.DestroyImmediate(go);
+    }
 }

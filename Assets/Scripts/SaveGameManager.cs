@@ -1,9 +1,12 @@
 // SaveGameManager.cs
 // -----------------------------------------------------------------------------
-// Provides persistent storage of player progress in a JSON file located under
-// Application.persistentDataPath. This replaces the previous PlayerPrefs based
-// system used by GameManager and ShopManager. On first run the manager migrates
-// any existing PlayerPrefs values into the new save file.
+// Provides persistent storage of player progress using a JSON file located
+// under Application.persistentDataPath. The design intentionally avoids
+// PlayerPrefs for large or structured data so saves can be inspected and
+// manually edited if required. On first run existing PlayerPrefs values are
+// migrated to maintain backward compatibility. Saving writes to a temporary
+// file first to reduce the chance of corruption if the application quits
+// during a write operation.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -104,25 +107,35 @@ public class SaveGameManager : MonoBehaviour
     {
         if (File.Exists(savePath))
         {
-            string json = File.ReadAllText(savePath);
-            SaveData loaded = JsonUtility.FromJson<SaveData>(json);
-            if (loaded != null)
+            try
             {
-                data.coins = loaded.coins;
-                data.highScore = loaded.highScore;
-                upgradeLevels.Clear();
-                foreach (var entry in loaded.upgrades)
+                string json = File.ReadAllText(savePath);
+                SaveData loaded = JsonUtility.FromJson<SaveData>(json);
+                if (loaded != null)
                 {
-                    if (Enum.TryParse(entry.type, out UpgradeType type))
+                    data.coins = loaded.coins;
+                    data.highScore = loaded.highScore;
+                    upgradeLevels.Clear();
+                    foreach (var entry in loaded.upgrades)
                     {
-                        upgradeLevels[type] = entry.level;
+                        if (Enum.TryParse(entry.type, out UpgradeType type))
+                        {
+                            upgradeLevels[type] = entry.level;
+                        }
                     }
+                    return;
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("Failed to parse save file, starting fresh: " + ex.Message);
             }
         }
         else
         {
-            // No save file yet; migrate values stored in PlayerPrefs if present.
+            // No save file found; migrate values stored in PlayerPrefs if
+            // present. This maintains compatibility with versions prior to the
+            // JSON-based system.
             data.coins = PlayerPrefs.GetInt(CoinsKey, 0);
             data.highScore = PlayerPrefs.GetInt(HighScoreKey, 0);
             foreach (UpgradeType type in Enum.GetValues(typeof(UpgradeType)))
@@ -133,13 +146,15 @@ public class SaveGameManager : MonoBehaviour
                     upgradeLevels[type] = level;
                 }
             }
+            // Persist the newly created data so future loads skip migration.
             SaveDataToFile();
         }
     }
 
     /// <summary>
-    /// Writes the current data object to disk. The upgrade dictionary is first
-    /// converted to a list of serializable entries.
+    /// Converts the current state into JSON and writes it to disk. A temporary
+    /// file is used so the existing save is not corrupted if the application
+    /// closes mid-write.
     /// </summary>
     private void SaveDataToFile()
     {
@@ -148,7 +163,14 @@ public class SaveGameManager : MonoBehaviour
         {
             data.upgrades.Add(new UpgradeEntry { type = kvp.Key.ToString(), level = kvp.Value });
         }
+
         string json = JsonUtility.ToJson(data);
-        File.WriteAllText(savePath, json);
+
+        // Write to a temp file first, then replace the original. This guards
+        // against partial writes leaving a corrupt save file.
+        string tempPath = savePath + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Copy(tempPath, savePath, true);
+        File.Delete(tempPath);
     }
 }

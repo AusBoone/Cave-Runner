@@ -2,6 +2,14 @@
 
 A 2D endless runner built with Unity. This repository contains basic scripts for a Jetpack Joyride–style game with jumping and sliding mechanics.
 
+Additional documentation describing gameplay systems lives in the [`docs`](docs/) folder.
+Key files include:
+- **GameMechanics.md** – high level overview of movement and scoring.
+- **InputBindings.md** – instructions for customizing controls.
+- **MovementTuning.md** – how to adjust physics parameters for a snappy feel.
+- **Testing.md** – running the included edit mode tests.
+- **GraphicsSettings.md** – recommended quality and resolution options.
+
 ## Getting Started
 1. Install **Unity 2022.3 LTS** or newer using Unity Hub.
 2. Clone this repository and open it with Unity.
@@ -9,7 +17,10 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
    - `GameManager` controls the scrolling speed, score and high score tracking.
    - `UIManager` shows the start menu, pause menu and game over screen.
    - `AudioManager` plays background music and sound effects.
-   - `PlayerController` handles jumping, double jumping, sliding and plays SFX.
+  - `PlayerController` handles jumping, double jumping and sliding while
+    applying jump/slide buffering, optional mid-air dive, fast-fall when holding
+    the down key, dynamic gravity scaling, an air dash triggered by sliding with
+    horizontal input, and slide canceling for responsive controls.
    - `ObstacleSpawner` generates stalagmites and stalactites with increasing difficulty.
    - `HazardSpawner` creates pits and bat swarms that spawn faster over time.
    - `Scroller` moves obstacles and scenery leftward.
@@ -149,8 +160,11 @@ play to toggle colorblind mode at any time.
 This project now supports Unity's **Input System** package. Install the package
 through the Package Manager and enable the *Input System Package* when prompted.
 The `InputManager` script exposes actions for **jump**, **slide**, and **pause**
-which automatically map to both keyboard and gamepad controls. If the package is
-not installed the scripts fall back to the legacy `KeyCode` input checks.
+which automatically map to keyboard, Xbox and PlayStation controllers. If the package is
+not installed the scripts fall back to the legacy `KeyCode` input checks with common
+joystick button mappings. WASD movement with the spacebar to jump is enabled by
+default. Call `InputManager.SetMoveLeftKey` and `InputManager.SetMoveRightKey`
+to change the horizontal keys when using the legacy input manager.
 Rebinding can be triggered from the in-game settings menu when the new system is
 available.
 

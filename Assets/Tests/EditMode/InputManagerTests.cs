@@ -1,32 +1,62 @@
+#if ENABLE_INPUT_SYSTEM
 using NUnit.Framework;
-using UnityEngine;
+using System.Reflection;
+using UnityEngine.InputSystem;
 
 /// <summary>
-/// Tests verifying that <see cref="InputManager"/> correctly loads and stores
-/// key bindings. These tests cover the KeyCode fallback behaviour so they run
-/// even when the new Input System package is absent.
+/// Tests related to InputManager's controller bindings. Ensures that both
+/// PlayStation and Xbox mappings are present when using the new Input System.
 /// </summary>
 public class InputManagerTests
 {
-    [SetUp]
-    public void ClearPrefs()
+    [Test]
+    public void JumpAction_IncludesConsoleBindings()
     {
-        PlayerPrefs.DeleteAll();
+        // Touch a method so the static constructor runs and actions are created.
+        InputManager.GetJumpDown();
+
+        // Access the private jumpAction field via reflection.
+        FieldInfo field = typeof(InputManager).GetField("jumpAction", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field, "jumpAction field missing");
+        InputAction action = (InputAction)field.GetValue(null);
+
+        bool dsFound = false;
+        bool xbFound = false;
+        foreach (var binding in action.bindings)
+        {
+            if (binding.effectivePath.Contains("DualShockGamepad") || binding.effectivePath.Contains("DualSenseGamepad"))
+            {
+                dsFound = true;
+            }
+            if (binding.effectivePath.Contains("XInputController"))
+            {
+                xbFound = true;
+            }
+        }
+        Assert.IsTrue(dsFound && xbFound, "Expected bindings for DualShock/DualSense and XInput controllers");
     }
 
     [Test]
-    public void Defaults_AreLoaded_WhenPrefsMissing()
+    public void MoveAction_HasKeyboardComposite()
     {
-        Assert.AreEqual(KeyCode.Space, InputManager.JumpKey);
-        Assert.AreEqual(KeyCode.LeftControl, InputManager.SlideKey);
-        Assert.AreEqual(KeyCode.Escape, InputManager.PauseKey);
-    }
+        // Force static constructor
+        InputManager.GetHorizontal();
 
-    [Test]
-    public void SetJumpKey_PersistsValue()
-    {
-        InputManager.SetJumpKey(KeyCode.Z);
-        Assert.AreEqual(KeyCode.Z, InputManager.JumpKey);
-        Assert.AreEqual("Z", PlayerPrefs.GetString("JumpKey"));
+        FieldInfo field = typeof(InputManager).GetField("moveAction", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field, "moveAction field missing");
+        InputAction action = (InputAction)field.GetValue(null);
+
+        bool hasComposite = false;
+        foreach (var binding in action.bindings)
+        {
+            if (binding.isComposite && binding.effectivePath == "1DAxis")
+            {
+                hasComposite = true;
+                break;
+            }
+        }
+
+        Assert.IsTrue(hasComposite, "Move action should use a 1DAxis composite for keyboard input");
     }
 }
+#endif

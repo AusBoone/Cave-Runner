@@ -97,6 +97,13 @@ public class StageManager : MonoBehaviour
         {
             GameManager.Instance.OnStageUnlocked += ApplyStage;
         }
+
+        // Provide spawner references to the adaptive difficulty system so
+        // it can scale spawn rates at runtime.
+        if (AdaptiveDifficultyManager.Instance != null)
+        {
+            AdaptiveDifficultyManager.Instance.RegisterSpawners(obstacleSpawner, hazardSpawner);
+        }
     }
 
     void Start()

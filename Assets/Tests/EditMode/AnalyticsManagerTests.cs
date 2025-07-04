@@ -66,4 +66,29 @@ public class AnalyticsManagerTests
         Assert.AreEqual(1, list.Count);
         Object.DestroyImmediate(go);
     }
+
+    [Test]
+    public void GetAverageDistance_ReturnsAverageOfSubset()
+    {
+        var go = new GameObject("am");
+        var am = go.AddComponent<AnalyticsManager>();
+        am.LogRun(100f, 0, true);
+        am.LogRun(200f, 0, true);
+        am.LogRun(300f, 0, true);
+
+        float avg = am.GetAverageDistance(2); // use last two runs
+        Assert.AreEqual(250f, avg);
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void GetAverageDistance_ReturnsZeroWithNoRuns()
+    {
+        var go = new GameObject("am");
+        var am = go.AddComponent<AnalyticsManager>();
+
+        Assert.AreEqual(0f, am.GetAverageDistance(5));
+        Object.DestroyImmediate(go);
+    }
 }
+

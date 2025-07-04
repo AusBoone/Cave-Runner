@@ -9,6 +9,7 @@ Key files include:
 - **MovementTuning.md** – how to adjust physics parameters for a snappy feel.
 - **Testing.md** – running the included edit mode tests.
 - **GraphicsSettings.md** – recommended quality and resolution options.
+- **AdaptiveDifficulty.md** – overview of the adaptive difficulty system.
 
 ## Getting Started
 1. Install **Unity 2022.3 LTS** or newer using Unity Hub.
@@ -40,6 +41,7 @@ Key files include:
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
+    - `AdaptiveDifficultyManager` scales spawn rates based on recent analytics.
    - `ShopManager` persists coins and upgrades via `SaveGameManager` so players can buy bonuses between runs. Upgrades extend power-up durations (magnet, speed boost, shield, coin bonus) and award extra coins per pickup.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
 5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. `SaveGameManager` is automatically created by `GameManager`, so no setup is required for the save file. Add a shop panel and assign it to `UIManager.shopPanel`.
@@ -133,7 +135,6 @@ upgrade levels and the high score are serialized to this file so progress
 persists across sessions.
 
 ## Analytics and Feedback
-`AnalyticsManager` keeps a log of each run's distance, coin count and whether
 the player died. Statistics are stored locally using Unity's `PlayerPrefs` and
 can be sent to your own server by entering a URL in the manager's
 `remoteEndpoint` field. If left blank, no network requests are made and the

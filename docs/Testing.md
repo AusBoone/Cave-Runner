@@ -22,5 +22,6 @@ The above command writes an XML report and log file that can be archived by your
 - Enhanced gravity logic for snappy jumps.
 - Fast fall behaviour when holding the down input.
 - Air dash impulse when sliding with horizontal input.
+- Adaptive difficulty scaling based on analytics.
 
 Each test creates lightweight GameObjects so they run quickly without requiring a scene.

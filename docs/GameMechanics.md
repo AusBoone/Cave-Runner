@@ -23,5 +23,6 @@ This document summarizes the core gameplay mechanics for **Cave-Runner** and how
 ## Saving and Progression
 - Player coins, upgrades and high scores are stored via `SaveGameManager`.
 - Stages unlock at set distance milestones defined in `GameManager.stageGoals`.
+- Adaptive difficulty adjusts spawn rates based on recent run performance. See **AdaptiveDifficultyManager**.
 
 Refer to the main [README](../README.md) for setup instructions and a full list of available scripts.

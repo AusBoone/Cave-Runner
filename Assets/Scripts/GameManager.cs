@@ -17,6 +17,11 @@ using System.Collections;
 /// bonus effect that multiplies coin pickups when active. The effect now
 /// stacks when additional power-ups are collected and exposes helper
 /// methods so UI elements can display the remaining time.
+/// 
+/// <remarks>
+/// 2024 update: starting a run now triggers <see cref="AdaptiveDifficultyManager"/>
+/// so obstacle and hazard spawners scale with player skill.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -144,6 +149,13 @@ public class GameManager : MonoBehaviour
         UpdateHighScoreLabel();
         UpdateCoinLabel();
         UpdateMultiplierLabel();
+
+        // After the run has been reset, allow the adaptive difficulty system to
+        // update spawn multipliers according to the player's recent performance.
+        if (AdaptiveDifficultyManager.Instance != null)
+        {
+            AdaptiveDifficultyManager.Instance.AdjustDifficulty();
+        }
     }
 
     /// <summary>

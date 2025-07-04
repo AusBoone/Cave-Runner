@@ -50,6 +50,26 @@ public class AnalyticsManager : MonoBehaviour
 
     private List<RunData> runs = new List<RunData>();
 
+    /// <summary>
+    /// Calculates the average distance of the most recent runs.
+    /// Returns zero when no history is available or <paramref name="count"/>
+    /// is less than one.
+    /// </summary>
+    /// <param name="count">Number of latest runs to average.</param>
+    public float GetAverageDistance(int count)
+    {
+        if (count <= 0 || runs.Count == 0)
+            return 0f;
+
+        int take = Mathf.Min(count, runs.Count);
+        float total = 0f;
+        for (int i = runs.Count - take; i < runs.Count; i++)
+        {
+            total += runs[i].distance;
+        }
+        return total / take;
+    }
+
     [System.Serializable]
     private struct RunData
     {

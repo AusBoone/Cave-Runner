@@ -116,4 +116,39 @@ public class StageManagerTests
         Object.DestroyImmediate(hazObj);
         Object.DestroyImmediate(smObj);
     }
+
+    [Test]
+    public void Awake_RegistersSpawnersWithAdaptiveManager()
+    {
+        var diffObj = new GameObject("diff");
+        var diff = diffObj.AddComponent<AdaptiveDifficultyManager>();
+
+        var obsObj = new GameObject("obs");
+        var obstacle = obsObj.AddComponent<ObstacleSpawner>();
+        var hazObj = new GameObject("haz");
+        var hazard = hazObj.AddComponent<HazardSpawner>();
+
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.obstacleSpawner = obstacle;
+        sm.hazardSpawner = hazard;
+
+        // Manually invoke Awake so registration occurs after fields are assigned
+        typeof(StageManager).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(sm, null);
+
+        var obsField = typeof(AdaptiveDifficultyManager).GetField("obstacleSpawner", BindingFlags.NonPublic | BindingFlags.Instance);
+        var hazField = typeof(AdaptiveDifficultyManager).GetField("hazardSpawner", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.AreSame(obstacle, obsField.GetValue(diff));
+        Assert.AreSame(hazard, hazField.GetValue(diff));
+
+        Object.DestroyImmediate(smObj);
+        Object.DestroyImmediate(obsObj);
+        Object.DestroyImmediate(hazObj);
+        Object.DestroyImmediate(diffObj);
+        // Clear the static instance to avoid cross test contamination
+        typeof(AdaptiveDifficultyManager).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
+            .SetValue(null, null);
+    }
 }
+

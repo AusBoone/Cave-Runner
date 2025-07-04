@@ -14,7 +14,7 @@ public class DailyChallengeManager : MonoBehaviour
     public enum ChallengeType { Distance, Coins, PowerUpUse }
 
     /// <summary>Supported power-up identifiers for power-up challenges.</summary>
-    public enum PowerUpType { Magnet, SpeedBoost, Shield, GravityFlip, SlowMotion }
+    public enum PowerUpType { Magnet, SpeedBoost, Shield, GravityFlip, SlowMotion, CoinBonus }
 
     [Serializable]
     private class ChallengeState

@@ -29,15 +29,18 @@ Key files include:
    - **Coin Combo** increases coin value when you grab coins quickly.
    - `PowerUpSpawner` spawns temporary power-up items.
    - `MagnetPowerUp` grants a short-lived coin magnet effect when collected.
-   - `SpeedBoostPowerUp` temporarily increases the player's speed.
-   - `CoinMagnet` attaches to the player and pulls coins in while the effect is active.
+  - `SpeedBoostPowerUp` temporarily increases the player's speed.
+  - `CoinBonusPowerUp` multiplies coin pickups for a short time. Durations
+    stack when multiple are collected and an optional UI label can display the
+    remaining time.
+  - `CoinMagnet` attaches to the player and pulls coins in while the effect is active.
    - `CameraFollow` keeps the camera tracking the player.
    - `ParallaxBackground` scrolls looping background sprites.
    - `SteamManager` initializes the Steamworks API and saves high scores to the cloud.
     - `WorkshopManager` uploads and downloads level or skin packs from the Steam Workshop.
     - `ObjectPool` provides reusable objects for the spawners.
     - `AnalyticsManager` logs run data locally and can post it to a remote URL you provide.
-   - `ShopManager` persists coins and upgrades via `SaveGameManager` so players can buy bonuses between runs. Upgrades currently extend power-up durations (magnet, speed boost, shield) and award extra coins per pickup.
+   - `ShopManager` persists coins and upgrades via `SaveGameManager` so players can buy bonuses between runs. Upgrades extend power-up durations (magnet, speed boost, shield, coin bonus) and award extra coins per pickup.
 4. Add prefabs for your player, obstacles, hazards, and coins, then assign them in the inspector. Link the coin label and combo label fields of `GameManager` to UI Text elements.
 5. Create a GameObject with the `ShopManager` script so coins and upgrades persist between runs. `SaveGameManager` is automatically created by `GameManager`, so no setup is required for the save file. Add a shop panel and assign it to `UIManager.shopPanel`.
 6. Tag any obstacle or hazard prefab with **Obstacle** or **Hazard** so collisions trigger a restart. Tag coin prefabs with **Coin** so they can be collected.

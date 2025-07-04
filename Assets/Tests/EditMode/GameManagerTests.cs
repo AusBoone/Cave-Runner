@@ -119,6 +119,69 @@ public class GameManagerTests
     }
 
     [Test]
+    public void ActivateCoinBonus_MultipliesCoins()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.StartGame();
+
+        gm.ActivateCoinBonus(1f, 2f);
+        gm.AddCoins(1);
+        Assert.AreEqual(2, gm.GetCoins());
+
+        typeof(GameManager).GetField("coinBonusTimer", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(gm, 0f);
+        gm.Update();
+        gm.AddCoins(1);
+        Assert.AreEqual(3, gm.GetCoins());
+
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Verifies that coin bonus pickups stack their durations and keep the
+    /// highest multiplier.
+    /// </summary>
+    [Test]
+    public void ActivateCoinBonus_StacksDurationAndMultiplier()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.StartGame();
+
+        gm.ActivateCoinBonus(1f, 2f);
+        gm.ActivateCoinBonus(0.5f, 3f);
+
+        var timerField = typeof(GameManager).GetField("coinBonusTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        var multField = typeof(GameManager).GetField("coinBonusMultiplier", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        float timer = (float)timerField.GetValue(gm);
+        float multiplier = (float)multField.GetValue(gm);
+
+        Assert.AreEqual(1.5f, timer);
+        Assert.AreEqual(3f, multiplier);
+
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Ensures the public getters return the current bonus values for UI.
+    /// </summary>
+    [Test]
+    public void GetCoinBonusMethods_ReturnCurrentValues()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.StartGame();
+
+        gm.ActivateCoinBonus(1f, 2f);
+
+        Assert.AreEqual(1f, gm.GetCoinBonusTimeRemaining());
+        Assert.AreEqual(2f, gm.GetCoinBonusMultiplier());
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
     public void ActivateSlowMotion_ChangesTimeScale()
     {
         var go = new GameObject("gm");

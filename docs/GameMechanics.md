@@ -12,6 +12,8 @@ This document summarizes the core gameplay mechanics for **Cave-Runner** and how
 - **Magnet** – Attracts coins within a radius for a limited time.
 - **Speed Boost** – Temporarily increases player speed.
 - **Shield** – Absorbs one obstacle or hazard hit before breaking.
+- **Coin Bonus** – Temporarily multiplies the value of collected coins. Multiple
+  bonuses stack their remaining time and a UI indicator can show the countdown.
 
 ## Scoring
 - Distance traveled increments continuously while alive.

@@ -24,5 +24,8 @@ public enum UpgradeType
     BaseSpeedBonus = 4,
 
     /// <summary>Number of random power-ups granted when starting a new run.</summary>
-    StartingPowerUp = 5
+    StartingPowerUp = 5,
+
+    /// <summary>Extends the duration of the coin bonus power-up.</summary>
+    CoinBonusDuration = 6
 }

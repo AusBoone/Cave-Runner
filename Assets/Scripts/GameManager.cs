@@ -13,7 +13,10 @@ using System.Collections;
 /// increases, optional feedback such as camera shake, particles and a
 /// pitched sound effect is played. Recent revisions add slow motion
 /// support, stage-specific speed modifiers and the ability to start a run
-/// with random power-ups.
+/// with random power-ups. This revision also introduces a temporary coin
+/// bonus effect that multiplies coin pickups when active. The effect now
+/// stacks when additional power-ups are collected and exposes helper
+/// methods so UI elements can display the remaining time.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -39,6 +42,10 @@ public class GameManager : MonoBehaviour
     private bool gravityFlipped;              // true while gravity is inverted
     private float coinComboTimer;             // countdown for maintaining a coin combo
     private int coinComboMultiplier = 1;      // current coin multiplier from the combo
+
+    // Coin bonus power-up variables
+    private float coinBonusTimer;             // remaining time coins are multiplied
+    private float coinBonusMultiplier = 1f;   // active multiplier applied to coin pickups
 
     private float slowMotionTimer;            // time remaining on slow motion
     private float slowMotionScale = 1f;       // scale value applied during slow motion
@@ -121,6 +128,8 @@ public class GameManager : MonoBehaviour
         currentStage = 0;
         coinComboTimer = 0f;
         coinComboMultiplier = 1;
+        coinBonusTimer = 0f;
+        coinBonusMultiplier = 1f;
 
         if (SteamManager.Instance != null)
         {
@@ -178,6 +187,16 @@ public class GameManager : MonoBehaviour
             {
                 coinComboMultiplier = 1;
                 UpdateMultiplierLabel();
+            }
+        }
+
+        // Count down coin bonus timer and reset when expired
+        if (coinBonusTimer > 0f)
+        {
+            coinBonusTimer -= Time.deltaTime;
+            if (coinBonusTimer <= 0f)
+            {
+                coinBonusMultiplier = 1f;
             }
         }
 
@@ -243,6 +262,8 @@ public class GameManager : MonoBehaviour
             gravityFlipped = false;
             gravityFlipTimer = 0f;
         }
+        coinBonusMultiplier = 1f;
+        coinBonusTimer = 0f;
         int finalScore = Mathf.FloorToInt(distance);
         int highScore = SaveGameManager.Instance.HighScore;
 
@@ -328,6 +349,8 @@ public class GameManager : MonoBehaviour
         currentStage = 0;
         coinComboTimer = 0f;
         coinComboMultiplier = 1;
+        coinBonusTimer = 0f;
+        coinBonusMultiplier = 1f;
 
         stageSpeedMultiplier = 1f;
         slowMotionTimer = 0f;
@@ -389,6 +412,41 @@ public class GameManager : MonoBehaviour
     {
         speedMultiplier = multiplier;
         speedBoostTimer = duration;
+    }
+
+    /// <summary>
+    /// Temporarily increases the value of collected coins.
+    /// </summary>
+    /// <param name="duration">Seconds the bonus remains active.</param>
+    /// <param name="multiplier">Multiplier applied to each coin pickup.</param>
+    public void ActivateCoinBonus(float duration, float multiplier)
+    {
+        if (duration <= 0f)
+            throw new ArgumentException("duration must be positive", nameof(duration));
+        if (multiplier < 1f)
+            throw new ArgumentOutOfRangeException(nameof(multiplier), "multiplier must be >= 1");
+
+        // Extend any active bonus so multiple pickups stack
+        coinBonusTimer += duration;
+        // Use whichever multiplier is higher to encourage combining power-ups
+        coinBonusMultiplier = Mathf.Max(coinBonusMultiplier, multiplier);
+    }
+
+    /// <summary>
+    /// Remaining seconds on the current coin bonus effect. Returns zero when
+    /// no bonus is active.
+    /// </summary>
+    public float GetCoinBonusTimeRemaining()
+    {
+        return Mathf.Max(0f, coinBonusTimer);
+    }
+
+    /// <summary>
+    /// Current multiplier applied to coin pickups from the coin bonus.
+    /// </summary>
+    public float GetCoinBonusMultiplier()
+    {
+        return coinBonusMultiplier;
     }
 
     /// <summary>
@@ -497,8 +555,8 @@ public class GameManager : MonoBehaviour
             bonus = ShopManager.Instance.GetUpgradeEffect(UpgradeType.CoinMultiplier);
         }
 
-        // Final value after combo and upgrade bonuses are applied.
-        coins += Mathf.RoundToInt((amount + bonus) * coinComboMultiplier);
+        // Final value after all bonuses are applied including temporary coin bonus.
+        coins += Mathf.RoundToInt((amount + bonus) * coinComboMultiplier * coinBonusMultiplier);
         UpdateCoinLabel();
         UpdateMultiplierLabel();
     }

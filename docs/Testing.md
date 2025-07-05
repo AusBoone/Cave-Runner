@@ -17,6 +17,13 @@ Unity -batchmode -projectPath <path> -runTests -testPlatform editmode \
 
 The above command writes an XML report and log file that can be archived by your CI system.
 
+## Continuous Integration
+EditMode tests are automatically executed on every push and pull request using
+GitHub Actions. The workflow defined at `.github/workflows/unity-tests.yml`
+installs Unity via the GameCI actions, runs the command shown above and uploads
+the generated `TestResults` folder as an artifact. No manual steps are required
+to verify that new commits keep the tests passing.
+
 ## What Is Covered?
 - Jump and slide buffering to ensure responsive controls.
 - Enhanced gravity logic for snappy jumps.

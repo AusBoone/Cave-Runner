@@ -1,3 +1,21 @@
+#region WorkshopManager Overview
+/*
+ * Provides convenience wrappers around the Steamworks UGC API so the game can
+ * download and upload community content. Usage typically looks like:
+ *
+ *   // After SteamManager has initialized Steamworks
+ *   WorkshopManager.Instance.DownloadSubscribedItems(paths =>
+ *   {
+ *       foreach (var dir in paths)
+ *       {
+ *           // Load assets from each directory
+ *       }
+ *   });
+ *
+ * Call <see cref="UploadItem"/> to publish new content. These features require
+ * the Steamworks.NET plugin and only function on standalone platforms.
+ */
+#endregion
 using UnityEngine;
 #if UNITY_STANDALONE
 using Steamworks;

@@ -1,3 +1,15 @@
+#region AudioManager Overview
+/*
+ * Provides global music and sound effect control. Attach this component to a
+ * GameObject in the starting scene and access <see cref="AudioManager.Instance"/>
+ * to play effects:
+ *
+ *   AudioManager.Instance.PlaySound("Jump");
+ *
+ * Volume levels are saved via <see cref="SaveGameManager"/> so they persist
+ * between sessions. The manager persists across scene loads.
+ */
+#endregion
 using UnityEngine;
 
 /// <summary>

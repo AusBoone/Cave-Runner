@@ -1,0 +1,31 @@
+name: Unity EditMode Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run EditMode tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Unity
+        uses: game-ci/unity-setup@v2
+        with:
+          unityVersion: 2022.3.0f1
+      - name: Run tests
+        uses: game-ci/unity-test-runner@v2
+        with:
+          testMode: EditMode
+          artifactsPath: TestResults
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: TestResults
+          path: TestResults
+

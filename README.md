@@ -90,6 +90,9 @@ with your app's ID so Steamworks initializes correctly.
 - Include a shop panel in the canvas and wire its buttons to `UIManager.ShowShop` and `UIManager.HideShop`.
 This project now includes simple menus, audio hooks, and escalating difficulty but you can further expand it with custom art, music, and polished effects.
 ## Stage Configuration
+See [docs/StageConfiguration.md](docs/StageConfiguration.md) for a detailed
+guide to creating `StageDataSO` assets and unlocking stages.
+
 `GameManager` uses the `stageGoals` array to determine when stages unlock.
 Each element maps to an entry on `StageManager`. Provide the background sprite
 name along with obstacle and hazard prefabs for that stage so tougher hazards

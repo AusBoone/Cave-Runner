@@ -5,9 +5,13 @@
 // hazard prefab lists and now applies stage-specific spawn probabilities and
 // difficulty multipliers to spawners. This revision also supports stage
 // modifiers such as custom gravity and speed multipliers for added variety.
+// 2024 update: assets are now loaded through the Unity Addressables system
+// asynchronously so stages can stream in without freezing the main thread.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 /// <summary>
 /// Coordinates stage-related visuals and hazards as the player travels further.
@@ -19,31 +23,31 @@ public class StageManager : MonoBehaviour
     [System.Serializable]
     public class StageData
     {
-        [Tooltip("Sprite loaded from Resources/Art to use as the background.")]
-        public string backgroundSprite;
+        [Tooltip("Address of the background sprite to load asynchronously.")]
+        public AssetReferenceSprite backgroundSprite;
 
         [Tooltip("Ground obstacles available during this stage.")]
-        public GameObject[] groundObstacles;
+        public AssetReferenceGameObject[] groundObstacles;
         [Tooltip("Ceiling obstacles available during this stage.")]
-        public GameObject[] ceilingObstacles;
+        public AssetReferenceGameObject[] ceilingObstacles;
         [Tooltip("Moving platforms spawned in this stage.")]
-        public GameObject[] movingPlatforms;
+        public AssetReferenceGameObject[] movingPlatforms;
         [Tooltip("Rotating hazards spawned in this stage.")]
-        public GameObject[] rotatingHazards;
+        public AssetReferenceGameObject[] rotatingHazards;
 
         [Tooltip("Pit hazards for the HazardSpawner.")]
-        public GameObject[] pits;
+        public AssetReferenceGameObject[] pits;
         [Tooltip("Flying hazards such as bats for the HazardSpawner.")]
-        public GameObject[] bats;
+        public AssetReferenceGameObject[] bats;
 
         [Tooltip("Zig-zagging enemies available in this stage.")]
-        public GameObject[] zigZagEnemies;
+        public AssetReferenceGameObject[] zigZagEnemies;
 
         [Tooltip("Swooping enemies available in this stage.")]
-        public GameObject[] swoopingEnemies;
+        public AssetReferenceGameObject[] swoopingEnemies;
 
         [Tooltip("Shooter enemies available in this stage.")]
-        public GameObject[] shooterEnemies;
+        public AssetReferenceGameObject[] shooterEnemies;
 
         [Header("Spawn Rate Multipliers")]
         [Tooltip("Multiplier applied to obstacle spawn rate during this stage.")]
@@ -129,40 +133,65 @@ public class StageManager : MonoBehaviour
     /// <param name="stageIndex">Index of the stage to apply.</param>
     public void ApplyStage(int stageIndex)
     {
+        if (loadRoutine != null)
+        {
+            StopCoroutine(loadRoutine);
+        }
+        loadRoutine = StartCoroutine(LoadStageRoutine(stageIndex));
+    }
+
+    // Keeps track of the running coroutine so tests can verify async behaviour
+    private Coroutine loadRoutine;
+
+    // Coroutine that performs asynchronous addressable loading and updates
+    // spawners when complete.
+    private IEnumerator LoadStageRoutine(int stageIndex)
+    {
         if (stages == null || stageIndex < 0 || stageIndex >= stages.Length)
         {
-            return; // invalid index or no data
+            yield break; // invalid index or no data
         }
 
         StageDataSO asset = stages[stageIndex];
         if (asset == null)
         {
-            return; // asset missing
+            yield break; // asset missing
         }
         StageData data = asset.stage;
 
-        // Swap the scrolling background sprite if a name was provided.
-        if (parallaxBackground != null && !string.IsNullOrEmpty(data.backgroundSprite))
+        UIManager.Instance?.ShowLoadingIndicator();
+
+        // Load the background sprite asynchronously
+        Sprite bgSprite = null;
+        if (parallaxBackground != null && data.backgroundSprite != null &&
+            data.backgroundSprite.RuntimeKeyIsValid())
         {
-            parallaxBackground.spriteName = data.backgroundSprite;
+            AsyncOperationHandle<Sprite> bgHandle = data.backgroundSprite.LoadAssetAsync<Sprite>();
+            yield return bgHandle;
+            if (bgHandle.Status == AsyncOperationStatus.Succeeded)
+            {
+                bgSprite = bgHandle.Result;
+            }
+            Addressables.Release(bgHandle);
+        }
+
+        if (parallaxBackground != null && bgSprite != null)
+        {
+            parallaxBackground.spriteName = bgSprite.name;
             var sr = parallaxBackground.GetComponent<SpriteRenderer>();
             if (sr != null)
             {
-                Sprite loaded = Resources.Load<Sprite>("Art/" + data.backgroundSprite);
-                if (loaded != null)
-                {
-                    sr.sprite = loaded;
-                }
+                sr.sprite = bgSprite;
             }
         }
 
-        // Update obstacle prefabs and apply spawn settings for this stage.
+        // Load and assign obstacle prefabs
         if (obstacleSpawner != null)
         {
-            obstacleSpawner.groundObstacles = data.groundObstacles;
-            obstacleSpawner.ceilingObstacles = data.ceilingObstacles;
-            obstacleSpawner.movingPlatforms = data.movingPlatforms;
-            obstacleSpawner.rotatingHazards = data.rotatingHazards;
+            yield return LoadPrefabs(data.groundObstacles, r => obstacleSpawner.groundObstacles = r);
+            yield return LoadPrefabs(data.ceilingObstacles, r => obstacleSpawner.ceilingObstacles = r);
+            yield return LoadPrefabs(data.movingPlatforms, r => obstacleSpawner.movingPlatforms = r);
+            yield return LoadPrefabs(data.rotatingHazards, r => obstacleSpawner.rotatingHazards = r);
             obstacleSpawner.spawnMultiplier = data.obstacleSpawnMultiplier;
             obstacleSpawner.groundChance = data.groundObstacleChance;
             obstacleSpawner.ceilingChance = data.ceilingObstacleChance;
@@ -170,14 +199,14 @@ public class StageManager : MonoBehaviour
             obstacleSpawner.rotatingChance = data.rotatingHazardChance;
         }
 
-        // Update hazard prefabs and spawn parameters for this stage.
+        // Load and assign hazard prefabs
         if (hazardSpawner != null)
         {
-            hazardSpawner.pitPrefabs = data.pits;
-            hazardSpawner.batPrefabs = data.bats;
-            hazardSpawner.zigZagPrefabs = data.zigZagEnemies;
-            hazardSpawner.swoopPrefabs = data.swoopingEnemies;
-            hazardSpawner.shooterPrefabs = data.shooterEnemies;
+            yield return LoadPrefabs(data.pits, r => hazardSpawner.pitPrefabs = r);
+            yield return LoadPrefabs(data.bats, r => hazardSpawner.batPrefabs = r);
+            yield return LoadPrefabs(data.zigZagEnemies, r => hazardSpawner.zigZagPrefabs = r);
+            yield return LoadPrefabs(data.swoopingEnemies, r => hazardSpawner.swoopPrefabs = r);
+            yield return LoadPrefabs(data.shooterEnemies, r => hazardSpawner.shooterPrefabs = r);
             hazardSpawner.spawnMultiplier = data.hazardSpawnMultiplier;
             hazardSpawner.pitChance = data.pitChance;
             hazardSpawner.batChance = data.batChance;
@@ -192,5 +221,34 @@ public class StageManager : MonoBehaviour
             GameManager.Instance.SetStageSpeedMultiplier(data.speedMultiplier);
         }
         Physics2D.gravity = new Vector2(0f, -9.81f * data.gravityScale);
+
+        UIManager.Instance?.HideLoadingIndicator();
+        loadRoutine = null;
+    }
+
+    // Utility coroutine to load a set of GameObject references via Addressables
+    // and invoke a callback with the resulting array.
+    private IEnumerator LoadPrefabs(AssetReferenceGameObject[] refs, System.Action<GameObject[]> setter)
+    {
+        if (refs == null || refs.Length == 0)
+        {
+            setter?.Invoke(new GameObject[0]);
+            yield break;
+        }
+
+        var list = new System.Collections.Generic.List<GameObject>();
+        foreach (var r in refs)
+        {
+            if (r == null || !r.RuntimeKeyIsValid())
+                continue;
+            AsyncOperationHandle<GameObject> handle = r.LoadAssetAsync();
+            yield return handle;
+            if (handle.Status == AsyncOperationStatus.Succeeded)
+            {
+                list.Add(handle.Result);
+            }
+            Addressables.Release(handle);
+        }
+        setter?.Invoke(list.ToArray());
     }
 }

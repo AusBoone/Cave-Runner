@@ -14,12 +14,16 @@
  *
  * Call <see cref="UploadItem"/> to publish new content. These features require
  * the Steamworks.NET plugin and only function on standalone platforms.
+ * 2024 update: introduced helper methods that load downloaded content using
+ * Unity Addressables so large workshop packs stream in smoothly.
  */
 #endregion
 using UnityEngine;
 #if UNITY_STANDALONE
 using Steamworks;
 #endif
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections.Generic;
 
 /// <summary>
@@ -169,6 +173,33 @@ public class WorkshopManager : MonoBehaviour
 
         var createHandle = SteamUGC.CreateItem(SteamUtils.GetAppID(), EWorkshopFileType.k_EWorkshopFileTypeCommunity);
         createResult.Set(createHandle);
+    }
+
+    /// <summary>
+    /// Loads an addressable asset and invokes the callback when finished. A
+    /// loading indicator is shown via <see cref="UIManager"/> while the request
+    /// is in progress.
+    /// </summary>
+    public void LoadAddressableAsset<T>(string address, System.Action<T> callback)
+    {
+        StartCoroutine(LoadAddressableRoutine(address, callback));
+    }
+
+    private IEnumerator LoadAddressableRoutine<T>(string address, System.Action<T> callback)
+    {
+        if (string.IsNullOrEmpty(address))
+        {
+            callback?.Invoke(default);
+            yield break;
+        }
+
+        UIManager.Instance?.ShowLoadingIndicator();
+        AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(address);
+        yield return handle;
+        T result = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : default;
+        callback?.Invoke(result);
+        Addressables.Release(handle);
+        UIManager.Instance?.HideLoadingIndicator();
     }
 #endif
 }

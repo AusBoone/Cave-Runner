@@ -27,5 +27,11 @@ public enum UpgradeType
     StartingPowerUp = 5,
 
     /// <summary>Extends the duration of the coin bonus power-up.</summary>
-    CoinBonusDuration = 6
+    CoinBonusDuration = 6,
+
+    /// <summary>Additional seconds the <see cref="DoubleJumpPowerUp"/> remains active.</summary>
+    DoubleJumpDuration = 7,
+
+    /// <summary>Additional seconds applied to <see cref="InvincibilityPowerUp"/>.</summary>
+    InvincibilityDuration = 8
 }

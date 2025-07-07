@@ -7,6 +7,8 @@
 // modifiers such as custom gravity and speed multipliers for added variety.
 // 2024 update: assets are now loaded through the Unity Addressables system
 // asynchronously so stages can stream in without freezing the main thread.
+// Music tracks are also swapped using AudioManager's cross-fading functionality
+// when a new stage begins.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -48,6 +50,10 @@ public class StageManager : MonoBehaviour
 
         [Tooltip("Shooter enemies available in this stage.")]
         public AssetReferenceGameObject[] shooterEnemies;
+
+        [Header("Audio")]
+        [Tooltip("Names of music clips under Resources/Audio played during this stage.")]
+        public string[] stageMusic;
 
         [Header("Spawn Rate Multipliers")]
         [Tooltip("Multiplier applied to obstacle spawn rate during this stage.")]
@@ -222,6 +228,18 @@ public class StageManager : MonoBehaviour
         }
         Physics2D.gravity = new Vector2(0f, -9.81f * data.gravityScale);
 
+        // Choose a random music track for this stage and start a cross-fade
+        if (data.stageMusic != null && data.stageMusic.Length > 0 && AudioManager.Instance != null)
+        {
+            int idx = Random.Range(0, data.stageMusic.Length);
+            string clipName = data.stageMusic[idx];
+            AudioClip clip = LoadStageMusic(clipName);
+            if (clip != null)
+            {
+                AudioManager.Instance.CrossfadeTo(clip);
+            }
+        }
+
         UIManager.Instance?.HideLoadingIndicator();
         loadRoutine = null;
     }
@@ -250,5 +268,15 @@ public class StageManager : MonoBehaviour
             Addressables.Release(handle);
         }
         setter?.Invoke(list.ToArray());
+    }
+
+    /// <summary>
+    /// Loads a music clip by name from the Resources/Audio folder. Exposed as
+    /// virtual so tests can provide lightweight clips without asset files.
+    /// </summary>
+    /// <param name="clipName">Filename of the clip without path.</param>
+    protected virtual AudioClip LoadStageMusic(string clipName)
+    {
+        return Resources.Load<AudioClip>("Audio/" + clipName);
     }
 }

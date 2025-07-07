@@ -39,9 +39,10 @@ These helpers abstract away the details of which input method is active.
 ## Mobile Touch Controls
 
 When building for mobile platforms you can provide on-screen buttons for jump,
-slide and pause. The `MobileControls.prefab` under `Assets/Prefabs` contains a
-Canvas with three buttons wired to `TouchInputManager`. Drop this prefab into
-your scene to enable touch controls.
+slide and pause. The simplified `MobileUI.prefab` lives under `Resources/UI` and
+is instantiated automatically by `UIManager` on mobile devices. It exposes three
+large buttons hooked up through `TouchInputManager`. You can also drop the
+legacy `MobileControls.prefab` into your scene if you prefer manual placement.
 
 The buttons invoke `OnJumpDown`/`OnJumpUp`, `OnSlideDown`/`OnSlideUp` and
 `OnPause` on `TouchInputManager` so the existing input queries work unchanged.

@@ -1,0 +1,19 @@
+# MobileUI.prefab
+# 
+# Placeholder prefab describing a simplified on-screen UI for mobile builds.
+# Structure:
+#  - Canvas (with TouchInputManager component)
+#    - JumpButton (bigger size, anchors bottom left)
+#    - SlideButton (bigger size, anchors bottom right)
+#    - PauseButton (anchors top right)
+# 
+# Each button should invoke the following TouchInputManager events:
+#  - JumpButton PointerDown -> OnJumpDown
+#  - JumpButton PointerUp   -> OnJumpUp
+#  - SlideButton PointerDown -> OnSlideDown
+#  - SlideButton PointerUp   -> OnSlideUp
+#  - PauseButton Click       -> OnPause
+# 
+# The layout intentionally uses large buttons and minimal graphics so
+# smaller phone screens can be tapped easily. Replace this file with an
+# actual Unity prefab when editing inside the Unity Editor.

@@ -1,0 +1,10 @@
+# This prefab is a placeholder describing the hierarchy for mobile controls.
+# Create a Canvas with three Buttons named JumpButton, SlideButton and PauseButton.
+# Attach a TouchInputManager component to the Canvas.
+# Configure each Button:
+#  - JumpButton OnPointerDown -> TouchInputManager.OnJumpDown
+#  - JumpButton OnPointerUp   -> TouchInputManager.OnJumpUp
+#  - SlideButton OnPointerDown -> TouchInputManager.OnSlideDown
+#  - SlideButton OnPointerUp   -> TouchInputManager.OnSlideUp
+#  - PauseButton OnClick       -> TouchInputManager.OnPause
+# The prefab can be expanded with graphics/anchoring as needed.

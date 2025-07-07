@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -10,13 +11,43 @@ using System.Reflection;
 /// </summary>
 public class AnalyticsManagerTests
 {
+    private class MockRequest : AnalyticsManager.IWebRequest
+    {
+        private readonly Queue<UnityWebRequest.Result> results;
+        public int sendCount;
+
+        public MockRequest(IEnumerable<UnityWebRequest.Result> results)
+        {
+            this.results = new Queue<UnityWebRequest.Result>(results);
+        }
+
+        public float UploadProgress => 1f;
+        public bool IsDone => true;
+        public UnityWebRequest.Result Result { get; private set; }
+        public string Error => Result == UnityWebRequest.Result.Success ? null : "error";
+
+        public IEnumerator Send()
+        {
+            sendCount++;
+            Result = results.Dequeue();
+            yield break;
+        }
+    }
+
     private class TestAnalyticsManager : AnalyticsManager
     {
         public int delayCalls;
+        public Queue<UnityWebRequest.Result> mockResults = new Queue<UnityWebRequest.Result>();
+
         protected override YieldInstruction RetryDelay(float seconds)
         {
             delayCalls++;
             return null; // skip real waiting in tests
+        }
+
+        protected override IWebRequest CreateWebRequest(string url, byte[] body)
+        {
+            return new MockRequest(mockResults);
         }
     }
 
@@ -31,12 +62,14 @@ public class AnalyticsManagerTests
     {
         var go = new GameObject("am");
         var am = go.AddComponent<TestAnalyticsManager>();
-        am.remoteEndpoint = "http://invalid.invalid"; // unreachable
+        am.remoteEndpoint = "http://example.com";
         am.maxRetries = 0;
+        am.mockResults.Enqueue(UnityWebRequest.Result.ProtocolError); // fail once
 
         am.LogRun(5f, 10, true);
 
-        var routine = am.SendData();
+        var method = typeof(AnalyticsManager).GetMethod("UploadLoop", BindingFlags.NonPublic | BindingFlags.Instance);
+        var routine = (IEnumerator)method.Invoke(am, null);
         while (routine.MoveNext()) { }
 
         var field = typeof(AnalyticsManager).GetField("runs", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -50,20 +83,22 @@ public class AnalyticsManagerTests
     {
         var go = new GameObject("am");
         var am = go.AddComponent<TestAnalyticsManager>();
-        am.remoteEndpoint = "http://invalid.invalid"; // unreachable
-        am.maxRetries = 1;
+        am.remoteEndpoint = "http://example.com";
+        am.maxRetries = 2;
         am.retryBackoff = 0f; // remove delay
+        am.mockResults.Enqueue(UnityWebRequest.Result.ProtocolError);
+        am.mockResults.Enqueue(UnityWebRequest.Result.Success);
 
         am.LogRun(1f, 1, false);
 
-        var routine = am.SendData();
-        int iterations = 0;
-        while (routine.MoveNext() && iterations < 10) { iterations++; }
+        var method = typeof(AnalyticsManager).GetMethod("UploadLoop", BindingFlags.NonPublic | BindingFlags.Instance);
+        var routine = (IEnumerator)method.Invoke(am, null);
+        while (routine.MoveNext()) { }
 
-        Assert.GreaterOrEqual(am.delayCalls, 1);
+        Assert.GreaterOrEqual(am.delayCalls, 1); // retry occurred
         var field = typeof(AnalyticsManager).GetField("runs", BindingFlags.NonPublic | BindingFlags.Instance);
         var list = (IList)field.GetValue(am);
-        Assert.AreEqual(1, list.Count);
+        Assert.AreEqual(0, list.Count); // cleared after success
         Object.DestroyImmediate(go);
     }
 

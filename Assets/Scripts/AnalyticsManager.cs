@@ -5,6 +5,17 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 
+// -----------------------------------------------------------------------------
+// 2025 update summary
+// -----------------------------------------------------------------------------
+// This revision introduces a persistent upload coroutine that runs in the
+// background so analytics data can be posted without blocking gameplay. Data is
+// queued locally when the network is unavailable and retried with exponential
+// backoff. Upload progress callbacks enable UI elements to display the status
+// of ongoing network operations. Tests now use a mock web request so retry logic
+// can be validated offline.
+// -----------------------------------------------------------------------------
+
 /// <summary>
 /// Enhanced in 2024 to gracefully handle network failures when posting
 /// analytics data. Requests are now wrapped in try/catch blocks and can
@@ -17,7 +28,9 @@ using System.Threading;
 /// analytics endpoint. Data is stored locally using PlayerPrefs and
 /// transmitted after each run or when the application quits. When
 /// <see cref="remoteEndpoint"/> is left blank, no data leaves the
-/// player's machine.
+/// player's machine. Upload operations run in a background coroutine and
+/// fire <see cref="UploadProgress"/> and <see cref="UploadFinished"/> events so
+/// UI can reflect status.
 /// </summary>
 public class AnalyticsManager : MonoBehaviour
 {
@@ -37,6 +50,68 @@ public class AnalyticsManager : MonoBehaviour
 
     // Flag prevents multiple simultaneous send operations
     private bool isSending;
+
+    /// <summary>
+    /// Interface abstracting UnityWebRequest so retry logic can be unit tested
+    /// with mocked implementations.
+    /// </summary>
+    public interface IWebRequest
+    {
+        float UploadProgress { get; }
+        bool IsDone { get; }
+        UnityWebRequest.Result Result { get; }
+        string Error { get; }
+        IEnumerator Send();
+    }
+
+    /// <summary>
+    /// Raised repeatedly while a web request is uploading. Provides the
+    /// current progress value from 0..1 so UI can display a spinner or bar.
+    /// </summary>
+    public event System.Action<float> UploadProgress;
+
+    /// <summary>
+    /// Event fired when an upload finishes. The boolean argument is true on
+    /// success. UI elements can hide progress indicators at this point.
+    /// </summary>
+    public event System.Action<bool> UploadFinished;
+
+    private Coroutine uploadRoutine;
+
+    /// <summary>
+    /// Creates a concrete web request for posting analytics. Subclasses in tests
+    /// return mocked objects so results can be simulated without network access.
+    /// </summary>
+    protected virtual IWebRequest CreateWebRequest(string url, byte[] body)
+    {
+        return new UnityWebRequestWrapper(url, body);
+    }
+
+    /// <summary>
+    /// Adapter that exposes UnityWebRequest through the IWebRequest interface.
+    /// </summary>
+    private class UnityWebRequestWrapper : IWebRequest
+    {
+        private readonly UnityWebRequest request;
+
+        public UnityWebRequestWrapper(string url, byte[] body)
+        {
+            request = new UnityWebRequest(url, "POST");
+            request.uploadHandler = new UploadHandlerRaw(body);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+        }
+
+        public float UploadProgress => request.uploadProgress;
+        public bool IsDone => request.isDone;
+        public UnityWebRequest.Result Result => request.result;
+        public string Error => request.error;
+
+        public IEnumerator Send()
+        {
+            yield return request.SendWebRequest();
+        }
+    }
 
     /// <summary>
     /// Creates a yield instruction used to wait between retry attempts. The
@@ -96,10 +171,7 @@ public class AnalyticsManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
             LoadLocal();
-            if (runs.Count > 0)
-            {
-                StartCoroutine(SendData());
-            }
+            BeginUploadsIfNeeded();
         }
         else
         {
@@ -115,7 +187,7 @@ public class AnalyticsManager : MonoBehaviour
     {
         runs.Add(new RunData(distance, coins, death));
         SaveLocal();
-        StartCoroutine(SendData());
+        BeginUploadsIfNeeded();
     }
 
     /// <summary>
@@ -145,68 +217,84 @@ public class AnalyticsManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Posts the run list to the remote endpoint if one is specified.
-    /// On success the local data is cleared.
+    /// Starts the persistent upload coroutine if there is data waiting and no
+    /// current upload is active.
     /// </summary>
-    private IEnumerator SendData()
+    private void BeginUploadsIfNeeded()
+    {
+        if (runs.Count > 0 && uploadRoutine == null)
+        {
+            uploadRoutine = StartCoroutine(UploadLoop());
+        }
+    }
+
+    /// <summary>
+    /// Coroutine that continuously attempts to upload analytics in the
+    /// background. Data is kept locally until a request succeeds or retries are
+    /// exhausted. Progress events fire so UI can show upload status.
+    /// </summary>
+    private IEnumerator UploadLoop()
     {
         if (runs.Count == 0 || isSending)
-        {
             yield break;
-        }
 
         isSending = true;
-        string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
-        if (string.IsNullOrEmpty(remoteEndpoint))
-        {
-            Debug.Log("Analytics data: " + json);
-            isSending = false;
-            yield break;
-        }
-
         int attempt = 0;
-        while (true)
+
+        while (runs.Count > 0)
         {
-            using (UnityWebRequest req = new UnityWebRequest(remoteEndpoint, "POST"))
+            // Skip sending when offline and wait before retrying.
+            if (Application.internetReachability == NetworkReachability.NotReachable)
             {
-                byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-
-                try
-                {
-                    yield return req.SendWebRequest();
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogWarning("Analytics request threw an exception: " + ex.Message);
-                    // treat as failure below
-                }
-
-                if (req.result == UnityWebRequest.Result.Success)
-                {
-                    runs.Clear();
-                    PlayerPrefs.DeleteKey("AnalyticsData");
-                    isSending = false;
-                    yield break;
-                }
-                else
-                {
-                    Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.error}");
-                }
+                float offlineWait = retryBackoff * Mathf.Pow(2f, attempt);
+                yield return RetryDelay(offlineWait);
+                attempt++;
+                continue;
             }
 
-            if (attempt++ >= maxRetries)
+            string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
+            if (string.IsNullOrEmpty(remoteEndpoint))
             {
-                Debug.LogWarning("Giving up on analytics send until next attempt");
-                isSending = false;
-                yield break;
+                Debug.Log("Analytics data: " + json);
+                runs.Clear();
+                PlayerPrefs.DeleteKey("AnalyticsData");
+                break;
             }
 
-            float wait = retryBackoff * Mathf.Pow(2f, attempt - 1);
-            yield return RetryDelay(wait);
+            IWebRequest req = CreateWebRequest(remoteEndpoint, System.Text.Encoding.UTF8.GetBytes(json));
+            UploadProgress?.Invoke(0f);
+
+            IEnumerator send = req.Send();
+            while (send.MoveNext())
+            {
+                UploadProgress?.Invoke(req.UploadProgress);
+                yield return send.Current;
+            }
+            UploadProgress?.Invoke(1f);
+
+            if (req.Result == UnityWebRequest.Result.Success)
+            {
+                runs.Clear();
+                PlayerPrefs.DeleteKey("AnalyticsData");
+                attempt = 0; // reset on success
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
+                if (attempt++ >= maxRetries)
+                {
+                    Debug.LogWarning("Giving up on analytics send until next attempt");
+                    break;
+                }
+
+                float wait = retryBackoff * Mathf.Pow(2f, attempt - 1);
+                yield return RetryDelay(wait);
+            }
         }
+
+        isSending = false;
+        uploadRoutine = null;
+        UploadFinished?.Invoke(runs.Count == 0);
     }
 
     /// <summary>
@@ -217,80 +305,64 @@ public class AnalyticsManager : MonoBehaviour
     private IEnumerator SendDataBlocking()
     {
         if (runs.Count == 0 || isSending)
-        {
             yield break;
-        }
 
         isSending = true;
-        string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
-        if (string.IsNullOrEmpty(remoteEndpoint))
-        {
-            Debug.Log("Analytics data: " + json);
-            isSending = false;
-            yield break;
-        }
-
         int attempt = 0;
-        while (true)
+
+        while (runs.Count > 0)
         {
-            using (UnityWebRequest req = new UnityWebRequest(remoteEndpoint, "POST"))
+            if (Application.internetReachability == NetworkReachability.NotReachable)
             {
-                byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-
-                UnityWebRequestAsyncOperation op = null;
-                try
-                {
-                    op = req.SendWebRequest();
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogWarning("Analytics request threw an exception: " + ex.Message);
-                }
-
-                Stopwatch sw = Stopwatch.StartNew();
-                while (op != null && !op.isDone && sw.Elapsed.TotalSeconds < sendTimeout)
+                float wait = retryBackoff * Mathf.Pow(2f, attempt++);
+                Stopwatch delay = Stopwatch.StartNew();
+                while (delay.Elapsed.TotalSeconds < wait)
                 {
                     Thread.Sleep(10);
                     yield return null;
                 }
-
-                if (op != null && !op.isDone)
-                {
-                    req.Abort();
-                    Debug.LogWarning("Analytics send timed out");
-                }
-
-                if (op != null && req.result == UnityWebRequest.Result.Success)
-                {
-                    runs.Clear();
-                    PlayerPrefs.DeleteKey("AnalyticsData");
-                    isSending = false;
-                    yield break;
-                }
-                else if (op != null)
-                {
-                    Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.error}");
-                }
+                continue;
             }
 
-            if (attempt++ >= maxRetries)
+            string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
+            if (string.IsNullOrEmpty(remoteEndpoint))
             {
-                Debug.LogWarning("Giving up on analytics send until next attempt");
-                isSending = false;
-                yield break;
+                Debug.Log("Analytics data: " + json);
+                runs.Clear();
+                PlayerPrefs.DeleteKey("AnalyticsData");
+                break;
             }
 
-            float wait = retryBackoff * Mathf.Pow(2f, attempt - 1);
-            Stopwatch delay = Stopwatch.StartNew();
-            while (delay.Elapsed.TotalSeconds < wait)
+            IWebRequest req = CreateWebRequest(remoteEndpoint, System.Text.Encoding.UTF8.GetBytes(json));
+            IEnumerator send = req.Send();
+            Stopwatch sw = Stopwatch.StartNew();
+            while (send.MoveNext() && sw.Elapsed.TotalSeconds < sendTimeout)
             {
                 Thread.Sleep(10);
                 yield return null;
             }
+
+            if (!req.IsDone)
+            {
+                Debug.LogWarning("Analytics send timed out");
+            }
+
+            if (req.Result == UnityWebRequest.Result.Success)
+            {
+                runs.Clear();
+                PlayerPrefs.DeleteKey("AnalyticsData");
+                attempt = 0;
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
+                if (attempt++ >= maxRetries)
+                    break;
+            }
         }
+
+        isSending = false;
+        UploadFinished?.Invoke(runs.Count == 0);
     }
 
     [System.Serializable]

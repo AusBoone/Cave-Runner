@@ -111,6 +111,11 @@ public class ObstacleSpawner : MonoBehaviour
         {
             Spawn();
             float mult = Mathf.Max(0.01f, spawnMultiplier);
+            if (GameManager.Instance != null && GameManager.Instance.HardcoreMode)
+            {
+                // Hardcore mode spawns obstacles more frequently
+                mult *= Mathf.Max(0.01f, GameManager.Instance.hardcoreSpawnMultiplier);
+            }
             timer = spawnInterval / (difficulty * mult);
         }
     }

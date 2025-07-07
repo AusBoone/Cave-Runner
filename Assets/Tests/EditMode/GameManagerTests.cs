@@ -200,4 +200,55 @@ public class GameManagerTests
         Assert.AreEqual(1f, Time.timeScale);
         Object.DestroyImmediate(go);
     }
+
+    /// <summary>
+    /// Enabling hardcore mode should multiply the player's speed.
+    /// </summary>
+    [Test]
+    public void HardcoreMode_IncreasesSpeed()
+    {
+        // Need a SaveGameManager so the GameManager can persist settings
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.StartGame();
+
+        float normal = gm.GetSpeed();
+        gm.HardcoreMode = true;
+        float hardcore = gm.GetSpeed();
+
+        Assert.AreEqual(normal * gm.hardcoreSpeedMultiplier, hardcore, 0.001f);
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(saveObj);
+    }
+
+    /// <summary>
+    /// Hardcore mode selection should be saved and loaded across sessions.
+    /// </summary>
+    [Test]
+    public void HardcoreMode_PersistedBetweenRuns()
+    {
+        // Enable hardcore mode and destroy the objects to force a save
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+        var gmObj = new GameObject("gm");
+        var gm = gmObj.AddComponent<GameManager>();
+        gm.HardcoreMode = true;
+        Object.DestroyImmediate(gmObj);
+        Object.DestroyImmediate(saveObj);
+
+        // Creating new instances should load the persisted setting
+        var saveObj2 = new GameObject("save2");
+        saveObj2.AddComponent<SaveGameManager>();
+        var gmObj2 = new GameObject("gm2");
+        var gm2 = gmObj2.AddComponent<GameManager>();
+
+        Assert.IsTrue(gm2.HardcoreMode);
+
+        Object.DestroyImmediate(gmObj2);
+        Object.DestroyImmediate(saveObj2);
+    }
 }

@@ -46,11 +46,12 @@ public class SaveGameManager : MonoBehaviour
         public bool tutorialCompleted;   // has the intro tutorial been shown
         public bool jumpTipShown;        // has the jump tip been displayed
         public bool slideTipShown;       // has the slide tip been displayed
+        public bool hardcoreMode;        // optional hardcore mode toggle
         public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
 
     // Version value written to disk alongside <see cref="SaveData"/>.
-    private const int CurrentVersion = 3;
+    private const int CurrentVersion = 4;
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -168,6 +169,17 @@ public class SaveGameManager : MonoBehaviour
         }
     }
 
+    /// <summary>Whether hardcore mode is enabled.</summary>
+    public bool HardcoreMode
+    {
+        get => data.hardcoreMode;
+        set
+        {
+            data.hardcoreMode = value;
+            SaveDataToFile();
+        }
+    }
+
     /// <summary>Returns the purchased level count for an upgrade.</summary>
     public int GetUpgradeLevel(UpgradeType type)
     {
@@ -212,6 +224,10 @@ public class SaveGameManager : MonoBehaviour
                         loaded.jumpTipShown = false;
                         loaded.slideTipShown = false;
                     }
+                    if (loaded.version < 4)
+                    {
+                        loaded.hardcoreMode = false;
+                    }
 
                     data.coins = loaded.coins;
                     data.highScore = loaded.highScore;
@@ -221,6 +237,7 @@ public class SaveGameManager : MonoBehaviour
                     data.tutorialCompleted = loaded.tutorialCompleted;
                     data.jumpTipShown = loaded.jumpTipShown;
                     data.slideTipShown = loaded.slideTipShown;
+                    data.hardcoreMode = loaded.hardcoreMode;
                     LocalizationManager.SetLanguage(data.language);
                     
                     upgradeLevels.Clear();
@@ -252,6 +269,7 @@ public class SaveGameManager : MonoBehaviour
             data.tutorialCompleted = PlayerPrefs.GetInt("TutorialSeen", 0) == 1;
             data.jumpTipShown = false;
             data.slideTipShown = false;
+            data.hardcoreMode = false;
             foreach (UpgradeType type in Enum.GetValues(typeof(UpgradeType)))
             {
                 int level = PlayerPrefs.GetInt(UpgradePrefix + type, 0);

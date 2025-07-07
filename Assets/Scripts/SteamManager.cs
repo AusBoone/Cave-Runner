@@ -2,16 +2,39 @@ using UnityEngine;
 #if UNITY_STANDALONE
 using Steamworks;
 #endif
+using System.Collections.Generic;
 
 /// <summary>
 /// Handles initialization of the Steamworks API, achievement unlocking,
 /// cloud saves and leaderboard submission. The leaderboard identifier can
 /// be configured in the inspector so different boards may be used in
-/// various builds.
+/// various builds. This revision adds helper methods to fetch localized
+/// achievement names and descriptions via <see cref="LocalizationManager"/>.
 /// </summary>
 public class SteamManager : MonoBehaviour
 {
     public static SteamManager Instance { get; private set; }
+
+    // Mapping of Steam achievement identifiers to localization keys for
+    // display names and descriptions. These tables allow the UI to fetch
+    // translated strings without relying on Steam's built-in text.
+    private static readonly Dictionary<string, string> achievementNameKeys = new Dictionary<string, string>
+    {
+        { "ACH_DISTANCE_1000", "ach_distance_1000_name" },
+        { "ACH_DISTANCE_5000", "ach_distance_5000_name" },
+        { "ACH_COINS_50", "ach_coins_50_name" },
+        { "ACH_COINS_200", "ach_coins_200_name" },
+        { "ACH_DAILY_COMPLETE", "ach_daily_complete_name" }
+    };
+
+    private static readonly Dictionary<string, string> achievementDescKeys = new Dictionary<string, string>
+    {
+        { "ACH_DISTANCE_1000", "ach_distance_1000_desc" },
+        { "ACH_DISTANCE_5000", "ach_distance_5000_desc" },
+        { "ACH_COINS_50", "ach_coins_50_desc" },
+        { "ACH_COINS_200", "ach_coins_200_desc" },
+        { "ACH_DAILY_COMPLETE", "ach_daily_complete_desc" }
+    };
 
 #if UNITY_STANDALONE
     private bool initialized;
@@ -131,6 +154,32 @@ public class SteamManager : MonoBehaviour
         }
 #endif
         return 0;
+    }
+
+    /// <summary>
+    /// Retrieves the localized display name for the given achievement.
+    /// Falls back to <paramref name="id"/> when no mapping exists.
+    /// </summary>
+    public static string GetAchievementName(string id)
+    {
+        if (achievementNameKeys.TryGetValue(id, out string key))
+        {
+            return LocalizationManager.Get(key);
+        }
+        return id;
+    }
+
+    /// <summary>
+    /// Retrieves the localized description for the given achievement.
+    /// Returns <paramref name="id"/> if no translation key is defined.
+    /// </summary>
+    public static string GetAchievementDescription(string id)
+    {
+        if (achievementDescKeys.TryGetValue(id, out string key))
+        {
+            return LocalizationManager.Get(key);
+        }
+        return id;
     }
 
 #if UNITY_STANDALONE

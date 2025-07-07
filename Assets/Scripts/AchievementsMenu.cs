@@ -35,8 +35,8 @@ public class AchievementsMenu : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             string id = SteamUserStats.GetAchievementName(i);
-            string name = SteamUserStats.GetAchievementDisplayAttribute(id, "name");
-            string desc = SteamUserStats.GetAchievementDisplayAttribute(id, "desc");
+            string name = SteamManager.GetAchievementName(id);
+            string desc = SteamManager.GetAchievementDescription(id);
             bool achieved;
             SteamUserStats.GetAchievement(id, out achieved);
 
@@ -44,7 +44,8 @@ public class AchievementsMenu : MonoBehaviour
             Text text = entry.GetComponentInChildren<Text>();
             if (text != null)
             {
-                text.text = string.Format("{0} - {1}{2}", name, desc, achieved ? " (Unlocked)" : "");
+                string unlocked = achieved ? LocalizationManager.Get("achievement_unlocked") : string.Empty;
+                text.text = string.Format("{0} - {1}{2}", name, desc, unlocked);
             }
         }
 #endif

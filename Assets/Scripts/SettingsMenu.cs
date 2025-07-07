@@ -18,6 +18,7 @@ public class SettingsMenu : MonoBehaviour
     public Slider effectsVolumeSlider;
     public Text effectsVolumeLabel;
     public Dropdown languageDropdown;
+    public Toggle rumbleToggle;
 
     /// <summary>
     /// Populates UI elements with the current settings on start.
@@ -28,6 +29,7 @@ public class SettingsMenu : MonoBehaviour
         if (slideKeyLabel != null) slideKeyLabel.text = InputManager.SlideKey.ToString();
         if (pauseKeyLabel != null) pauseKeyLabel.text = InputManager.PauseKey.ToString();
         if (colorblindToggle != null) colorblindToggle.isOn = ColorblindManager.Enabled;
+        if (rumbleToggle != null) rumbleToggle.isOn = InputManager.RumbleEnabled;
         if (musicVolumeSlider != null && SaveGameManager.Instance != null)
         {
             musicVolumeSlider.value = SaveGameManager.Instance.MusicVolume;
@@ -120,6 +122,14 @@ public class SettingsMenu : MonoBehaviour
     public void ToggleColorblind(bool value)
     {
         ColorblindManager.SetEnabled(value);
+    }
+
+    /// <summary>
+    /// Enables or disables controller rumble via the settings toggle.
+    /// </summary>
+    public void ToggleRumble(bool value)
+    {
+        InputManager.SetRumbleEnabled(value);
     }
 
     /// <summary>

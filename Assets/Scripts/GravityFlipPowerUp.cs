@@ -28,6 +28,7 @@ public class GravityFlipPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+            InputManager.TriggerRumble(0.3f, 0.1f);
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

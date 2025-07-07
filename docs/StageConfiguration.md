@@ -16,6 +16,8 @@ Every `StageDataSO` contains one `StageData` struct. Each field affects gameplay
 - **zigZagEnemies** – Addressable enemies that zig‑zag horizontally.
 - **swoopingEnemies** – Addressable enemies that swoop toward the player in an arc.
 - **shooterEnemies** – Addressable enemies that fire projectiles at the player.
+- **stageMusic** – Names of music clips located under `Resources/Audio`.
+  One clip is randomly chosen when the stage begins and cross-faded in.
 - **obstacleSpawnMultiplier** – Scales how frequently obstacles spawn.
 - **hazardSpawnMultiplier** – Scales how frequently hazards spawn.
 - **groundObstacleChance** – Relative probability that a ground obstacle spawns compared to other obstacle types.

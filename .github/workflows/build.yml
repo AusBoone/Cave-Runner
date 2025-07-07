@@ -34,7 +34,9 @@ jobs:
 
       # Install the requested Unity version on the runner
       - name: Set up Unity
-        uses: game-ci/unity-setup@v2
+        # Use the maintained GameCI action to install the requested Unity version
+        # This replaces the deprecated unity-setup@v2 action
+        uses: game-ci/unity-setup@v3
         with:
           unityVersion: 2022.3.0f1
 
@@ -49,7 +51,8 @@ jobs:
 
       # Upload the XML and log results from the test run
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        # Store the XML and log output from the test run
+        uses: actions/upload-artifact@v4
         with:
           name: TestResults-${{ matrix.platform }}
           path: TestResults
@@ -65,7 +68,8 @@ jobs:
 
       # Publish the built files so they can be downloaded from the workflow
       - name: Upload build
-        uses: actions/upload-artifact@v3
+        # Archive the platform-specific build so it can be downloaded from CI
+        uses: actions/upload-artifact@v4
         with:
           name: Build-${{ matrix.platform }}
           path: build/${{ matrix.platform }}

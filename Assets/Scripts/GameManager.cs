@@ -19,6 +19,12 @@ using System.Collections;
 /// methods so UI elements can display the remaining time. A new hardcore
 /// mode option further increases game speed and spawn rates for an extra
 /// challenge.
+///
+/// <remarks>
+/// 2024 update: exposes <see cref="GetCoinComboMultiplier"/> so external
+/// systems such as <see cref="AdaptiveDifficultyManager"/> can react to the
+/// player's combo performance.
+/// </remarks>
 /// 
 /// <remarks>
 /// 2024 update: starting a run now triggers <see cref="AdaptiveDifficultyManager"/>
@@ -632,6 +638,16 @@ public class GameManager : MonoBehaviour
     public int GetCurrentStage()
     {
         return currentStage;
+    }
+
+    /// <summary>
+    /// Current coin combo multiplier. Returns one when no combo is
+    /// active so callers can easily scale rewards based on the combo
+    /// state.
+    /// </summary>
+    public int GetCoinComboMultiplier()
+    {
+        return coinComboMultiplier;
     }
 
     /// <summary>

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
+// LocalizationManager is used to fetch translated strings for fallback labels.
+// This revision reads the local-player label and entry format from the
+// localization tables so leaderboard text updates when the language changes.
+
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
 /// is unavailable. The service exposes two endpoints:
@@ -111,7 +115,8 @@ public class LeaderboardClient : MonoBehaviour
         if (result == null || result.Count == 0)
         {
             int local = SaveGameManager.Instance != null ? SaveGameManager.Instance.HighScore : 0;
-            result = new List<ScoreEntry> { new ScoreEntry { name = "Local", score = local } };
+            string name = LocalizationManager.Get("leaderboard_local_player");
+            result = new List<ScoreEntry> { new ScoreEntry { name = name, score = local } };
         }
         callback?.Invoke(result);
     }

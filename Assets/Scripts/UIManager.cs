@@ -218,10 +218,11 @@ public class UIManager : MonoBehaviour
                         if (leaderboardText != null && entries != null)
                         {
                             var sb = new System.Text.StringBuilder();
+                            string fmt = LocalizationManager.Get("leaderboard_entry_format");
                             for (int i = 0; i < entries.Length; i++)
                             {
                                 string name = SteamFriends.GetFriendPersonaName(entries[i].m_steamIDUser);
-                                sb.AppendLine((i + 1) + ". " + name + " - " + entries[i].m_nScore);
+                                sb.AppendLine(string.Format(fmt, i + 1, name, entries[i].m_nScore));
                             }
                             leaderboardText.text = sb.ToString();
                         }
@@ -251,9 +252,10 @@ public class UIManager : MonoBehaviour
         if (leaderboardText != null && scores != null)
         {
             var sb = new System.Text.StringBuilder();
+            string fmt = LocalizationManager.Get("leaderboard_entry_format");
             for (int i = 0; i < scores.Count; i++)
             {
-                sb.AppendLine((i + 1) + ". " + scores[i].name + " - " + scores[i].score);
+                sb.AppendLine(string.Format(fmt, i + 1, scores[i].name, scores[i].score));
             }
             leaderboardText.text = sb.ToString();
         }

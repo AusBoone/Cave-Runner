@@ -76,4 +76,16 @@ public class SteamManagerTests
         Assert.Pass("Steamworks not available");
 #endif
     }
+
+    /// <summary>
+    /// Achievement display strings should reflect the active language.
+    /// </summary>
+    [Test]
+    public void AchievementStrings_Localized()
+    {
+        LocalizationManager.SetLanguage("en");
+        Assert.AreEqual("Traveler", SteamManager.GetAchievementName("ACH_DISTANCE_1000"));
+        LocalizationManager.SetLanguage("es");
+        Assert.AreEqual("Viajero", SteamManager.GetAchievementName("ACH_DISTANCE_1000"));
+    }
 }

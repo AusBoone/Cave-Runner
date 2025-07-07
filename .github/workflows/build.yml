@@ -1,9 +1,8 @@
 # Unity Build Pipeline
 #
-# Uses GameCI actions to create standalone builds for Windows, macOS and Linux.
-# A preceding test job mirrors the steps from docs/Testing.md to ensure
-# EditMode tests pass before building. Build artifacts are zipped under
-# `build/<platform>` and uploaded for each job.
+# Builds for Windows, macOS and Linux using GameCI actions. Each job runs
+# EditMode tests exactly as described in docs/Testing.md before invoking the
+# builder. Artifacts for each platform are uploaded from `build/<platform>`.
 
 name: Unity Builds
 
@@ -14,13 +13,51 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Run EditMode tests
+  build-windows:
+    name: Build Windows
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        # Needed so the runner has the project files
+      # Checkout the repository so Unity has access to the project files
+      - uses: actions/checkout@v3
+      # Set up the requested Unity version
+      - name: Set up Unity
+        uses: game-ci/unity-setup@v2
+        with:
+          unityVersion: 2022.3.0f1
+      # Run EditMode tests before building to ensure the project is stable
+      - name: Run tests
+        uses: game-ci/unity-test-runner@v2
+        with:
+          testMode: EditMode
+          artifactsPath: TestResults
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      # Store the test results as a build artifact
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: WindowsTestResults
+          path: TestResults
+      # Build the game for Windows
+      - name: Build project
+        uses: game-ci/unity-builder@v2
+        with:
+          targetPlatform: StandaloneWindows64
+          buildsPath: build
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      # Upload the generated executable located under `build/StandaloneWindows64`
+      - name: Upload build
+        uses: actions/upload-artifact@v3
+        with:
+          name: WindowsBuild
+          path: build/StandaloneWindows64
+
+  build-macos:
+    name: Build macOS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       - name: Set up Unity
         uses: game-ci/unity-setup@v2
         with:
@@ -35,46 +72,8 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
-          name: TestResults
+          name: macOSTestResults
           path: TestResults
-          # The XML report and logs land here
-
-  build-windows:
-    name: Build Windows
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Set up Unity
-        uses: game-ci/unity-setup@v2
-        with:
-          unityVersion: 2022.3.0f1
-      - name: Build project
-        uses: game-ci/unity-builder@v2
-        with:
-          targetPlatform: StandaloneWindows64
-          buildsPath: build
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      - name: Upload build
-        uses: actions/upload-artifact@v3
-        with:
-          name: WindowsBuild
-          path: build/StandaloneWindows64
-          # Executable and data files stored in this folder
-
-  build-macos:
-    name: Build macOS
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Set up Unity
-        uses: game-ci/unity-setup@v2
-        with:
-          unityVersion: 2022.3.0f1
       - name: Build project
         uses: game-ci/unity-builder@v2
         with:
@@ -82,24 +81,34 @@ jobs:
           buildsPath: build
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      # macOS builds are placed under `build/StandaloneOSX` as a zipped .app bundle
       - name: Upload build
         uses: actions/upload-artifact@v3
         with:
           name: macOSBuild
           path: build/StandaloneOSX
-          # macOS .app bundle zipped in this directory
 
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: test
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       - name: Set up Unity
         uses: game-ci/unity-setup@v2
         with:
           unityVersion: 2022.3.0f1
+      - name: Run tests
+        uses: game-ci/unity-test-runner@v2
+        with:
+          testMode: EditMode
+          artifactsPath: TestResults
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: LinuxTestResults
+          path: TestResults
       - name: Build project
         uses: game-ci/unity-builder@v2
         with:
@@ -107,9 +116,9 @@ jobs:
           buildsPath: build
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      # Linux build artifacts are found in `build/StandaloneLinux64`
       - name: Upload build
         uses: actions/upload-artifact@v3
         with:
           name: LinuxBuild
           path: build/StandaloneLinux64
-          # Linux build files zipped under this folder

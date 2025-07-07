@@ -11,7 +11,8 @@ using UnityEngine;
 /// gravity scaling, an optional fast-fall when holding the down key, an air dash
 /// triggered by sliding with horizontal input, and slide canceling so releasing
 /// the key ends the move immediately. These tweaks keep jumps snappy and give
-/// the player crisp mid-air control.
+/// the player crisp mid-air control. Support for <see cref="DoubleJumpPowerUp"/>
+/// adds a temporary extra jump timer handled by this controller.
 /// </summary>
 public class PlayerController : MonoBehaviour
 {
@@ -66,6 +67,10 @@ public class PlayerController : MonoBehaviour
     private float slideBufferTimer;
     private bool airDivePending;
     private float dashTimer;
+    // Duration the extra air jump ability remains active.
+    private float doubleJumpTimer;
+    // Base number of air jumps normally allowed.
+    private const int BaseAirJumps = 1;
 
     /// <summary>
     /// Caches component references used for controlling the character.
@@ -81,6 +86,7 @@ public class PlayerController : MonoBehaviour
         slideBufferTimer = 0f;
         airDivePending = false;
         dashTimer = 0f;
+        doubleJumpTimer = 0f;
     }
 
     /// <summary>
@@ -98,6 +104,10 @@ public class PlayerController : MonoBehaviour
         if (dashTimer > 0f)
         {
             dashTimer -= Time.deltaTime;
+        }
+        if (doubleJumpTimer > 0f)
+        {
+            doubleJumpTimer -= Time.deltaTime;
         }
 
         // Handle jump input and variable jump height using custom bindings
@@ -197,7 +207,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// Uses a raycast to determine if the player is touching a surface in the
     /// current gravity direction. Also manages the coyote-time grace period and
-    /// available double jump.
+    /// available air jumps including those from <see cref="DoubleJumpPowerUp"/>.
     /// </summary>
     void CheckGrounded()
     {
@@ -209,11 +219,12 @@ public class PlayerController : MonoBehaviour
         isGrounded = hit.collider != null;
         if (isGrounded)
         {
-            // Reset coyote timer and available jumps when touching the ground
+            // Reset coyote timer and available jumps when touching the ground.
             coyoteTimer = coyoteTime;
             if (!wasGrounded)
             {
-                jumpsRemaining = 1; // allow one extra jump in air
+                int extra = doubleJumpTimer > 0f ? 1 : 0;
+                jumpsRemaining = BaseAirJumps + extra;
             }
         }
         else
@@ -225,7 +236,7 @@ public class PlayerController : MonoBehaviour
 
     /// <summary>
     /// Executes a jump if conditions are met. Supports coyote time and
-    /// a single air jump.
+    /// extra air jumps granted by <see cref="DoubleJumpPowerUp"/>.
     /// </summary>
     void AttemptJump()
     {
@@ -355,6 +366,21 @@ public class PlayerController : MonoBehaviour
             {
                 GameManager.Instance.GameOver();
             }
+        }
+    }
+
+    /// <summary>
+    /// Enables an additional mid-air jump for a limited time.
+    /// </summary>
+    public void ActivateDoubleJump(float duration)
+    {
+        if (duration <= 0f)
+            throw new System.ArgumentException("duration must be positive", nameof(duration));
+
+        doubleJumpTimer = duration;
+        if (isGrounded)
+        {
+            jumpsRemaining = BaseAirJumps + 1;
         }
     }
 }

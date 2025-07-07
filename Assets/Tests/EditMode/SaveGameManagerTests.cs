@@ -112,4 +112,19 @@ public class SaveGameManagerTests
         string json = File.ReadAllText(path);
         Assert.IsTrue(json.Contains("\"version\""));
     }
+
+    [Test]
+    public void LanguageValue_IsPersisted()
+    {
+        // Save a language preference and ensure it loads correctly on next startup
+        var go = new GameObject("save");
+        var save = go.AddComponent<SaveGameManager>();
+        save.Language = "es";
+        Object.DestroyImmediate(go);
+
+        var go2 = new GameObject("save2");
+        var save2 = go2.AddComponent<SaveGameManager>();
+        Assert.AreEqual("es", save2.Language);
+        Object.DestroyImmediate(go2);
+    }
 }

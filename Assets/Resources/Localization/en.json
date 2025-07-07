@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {"key": "settings_language", "value": "Language"},
+    {"key": "settings_music_volume", "value": "Music Volume"},
+    {"key": "settings_effects_volume", "value": "Effects Volume"},
+    {"key": "settings_jump_key", "value": "Jump"},
+    {"key": "settings_slide_key", "value": "Slide"},
+    {"key": "settings_pause_key", "value": "Pause"},
+    {"key": "final_score_format", "value": "Score: {0}"},
+    {"key": "high_score_format", "value": "High Score: {0}"},
+    {"key": "coins_format", "value": "Coins: {0}"},
+    {"key": "percentage_format", "value": "{0}%"}
+  ]
+}

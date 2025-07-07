@@ -61,6 +61,17 @@ public static class InputManager
         KeyCode.JoystickButton9  // Options/Start on PlayStation
     };
 
+    // State flags updated by TouchInputManager when on-screen buttons
+    // are used. These emulate keyboard/gamepad input so the existing
+    // accessor methods work for mobile without changes elsewhere.
+    private static bool touchJumpHeld;
+    private static bool touchJumpDown;
+    private static bool touchJumpUp;
+    private static bool touchSlideHeld;
+    private static bool touchSlideDown;
+    private static bool touchSlideUp;
+    private static bool touchPauseDown;
+
     // Fallback KeyCodes used when the new Input System isn't available.
     public static KeyCode JumpKey { get; private set; }
     public static KeyCode SlideKey { get; private set; }
@@ -213,6 +224,54 @@ public static class InputManager
         PlayerPrefs.Save();
     }
 
+    // The following methods are used by TouchInputManager so UI buttons can
+    // mimic traditional input. Each method toggles internal flags that the
+    // public accessors consume on the next query.
+
+    /// <summary>
+    /// Called when the on-screen jump button is pressed.
+    /// </summary>
+    public static void TouchJumpDown()
+    {
+        touchJumpHeld = true;
+        touchJumpDown = true;
+    }
+
+    /// <summary>
+    /// Called when the on-screen jump button is released.
+    /// </summary>
+    public static void TouchJumpUp()
+    {
+        touchJumpHeld = false;
+        touchJumpUp = true;
+    }
+
+    /// <summary>
+    /// Called when the on-screen slide button is pressed.
+    /// </summary>
+    public static void TouchSlideDown()
+    {
+        touchSlideHeld = true;
+        touchSlideDown = true;
+    }
+
+    /// <summary>
+    /// Called when the on-screen slide button is released.
+    /// </summary>
+    public static void TouchSlideUp()
+    {
+        touchSlideHeld = false;
+        touchSlideUp = true;
+    }
+
+    /// <summary>
+    /// Called when the on-screen pause button is tapped.
+    /// </summary>
+    public static void TouchPause()
+    {
+        touchPauseDown = true;
+    }
+
 #if ENABLE_INPUT_SYSTEM
     /// <summary>
     /// Begins an interactive rebinding operation for the jump action.
@@ -285,6 +344,11 @@ public static class InputManager
             return jumpAction.WasPressedThisFrame();
         }
 #endif
+        if (touchJumpDown)
+        {
+            touchJumpDown = false;
+            return true;
+        }
         if (Input.GetKeyDown(JumpKey))
         {
             return true;
@@ -310,6 +374,10 @@ public static class InputManager
             return jumpAction.IsPressed();
         }
 #endif
+        if (touchJumpHeld)
+        {
+            return true;
+        }
         if (Input.GetKey(JumpKey))
         {
             return true;
@@ -335,6 +403,11 @@ public static class InputManager
             return jumpAction.WasReleasedThisFrame();
         }
 #endif
+        if (touchJumpUp)
+        {
+            touchJumpUp = false;
+            return true;
+        }
         if (Input.GetKeyUp(JumpKey))
         {
             return true;
@@ -360,6 +433,11 @@ public static class InputManager
             return slideAction.WasPressedThisFrame();
         }
 #endif
+        if (touchSlideDown)
+        {
+            touchSlideDown = false;
+            return true;
+        }
         if (Input.GetKeyDown(SlideKey))
         {
             return true;
@@ -385,6 +463,10 @@ public static class InputManager
             return slideAction.IsPressed();
         }
 #endif
+        if (touchSlideHeld)
+        {
+            return true;
+        }
         if (Input.GetKey(SlideKey))
         {
             return true;
@@ -412,6 +494,11 @@ public static class InputManager
             return slideAction.WasReleasedThisFrame();
         }
 #endif
+        if (touchSlideUp)
+        {
+            touchSlideUp = false;
+            return true;
+        }
         if (Input.GetKeyUp(SlideKey))
         {
             return true;
@@ -462,6 +549,11 @@ public static class InputManager
             return pauseAction.WasPressedThisFrame();
         }
 #endif
+        if (touchPauseDown)
+        {
+            touchPauseDown = false;
+            return true;
+        }
         if (Input.GetKeyDown(PauseKey))
         {
             return true;

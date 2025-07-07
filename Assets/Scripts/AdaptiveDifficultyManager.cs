@@ -1,10 +1,21 @@
 using UnityEngine;
 
+/*
+ * 2024 patch summary:
+ * - Difficulty scaling now also considers the player's highest coin combo from
+ *   the previous run via GameManager.
+ * - A small bonus multiplier is applied for high combos to reward skilled
+ *   coin collection with slightly tougher spawns.
+ */
+
 /// <summary>
 /// Adjusts obstacle and hazard spawn rates based on the player's recent
 /// performance. The manager queries <see cref="AnalyticsManager"/> for the
 /// average distance of the last few runs and scales spawner multipliers so
 /// difficulty increases for skilled players and eases off when runs end early.
+/// A 2024 revision also factors in the highest coin combo achieved in the last
+/// session via <see cref="GameManager"/> allowing skilled play to nudge the
+/// difficulty upward.
 /// </summary>
 public class AdaptiveDifficultyManager : MonoBehaviour
 {
@@ -29,6 +40,11 @@ public class AdaptiveDifficultyManager : MonoBehaviour
     public float maxMultiplier = 2f;
 
     private float currentMultiplier = 1f;
+
+    // Bonus applied for each additional combo multiplier level. For example
+    // a value of 0.05f means a combo of x3 increases the multiplier by
+    // 10% (1 + (3 - 1) * 0.05).
+    private const float comboBonusStep = 0.05f;
 
     private ObstacleSpawner obstacleSpawner;
     private HazardSpawner hazardSpawner;
@@ -78,6 +94,18 @@ public class AdaptiveDifficultyManager : MonoBehaviour
         {
             currentMultiplier = Mathf.Max(minMultiplier, currentMultiplier - decreaseStep);
         }
+
+        // Factor in the player's coin combo performance from the last run. A
+        // high combo implies the player consistently collects coins, so the
+        // difficulty can scale up slightly faster. The bonus is clamped using
+        // the configured min/max bounds to avoid runaway values.
+        int combo = 1;
+        if (GameManager.Instance != null)
+        {
+            combo = Mathf.Max(1, GameManager.Instance.GetCoinComboMultiplier());
+        }
+        float comboMult = 1f + (combo - 1) * comboBonusStep;
+        currentMultiplier = Mathf.Clamp(currentMultiplier * comboMult, minMultiplier, maxMultiplier);
 
         if (obstacleSpawner != null)
             obstacleSpawner.spawnMultiplier = currentMultiplier;

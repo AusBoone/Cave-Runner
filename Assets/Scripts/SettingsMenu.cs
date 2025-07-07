@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 /// <summary>
 /// Provides UI hooks for changing key bindings and colorblind mode. When the
@@ -16,6 +17,7 @@ public class SettingsMenu : MonoBehaviour
     public Text musicVolumeLabel;
     public Slider effectsVolumeSlider;
     public Text effectsVolumeLabel;
+    public Dropdown languageDropdown;
 
     /// <summary>
     /// Populates UI elements with the current settings on start.
@@ -35,6 +37,19 @@ public class SettingsMenu : MonoBehaviour
         {
             effectsVolumeSlider.value = SaveGameManager.Instance.EffectsVolume;
             UpdateEffectsVolumeLabel(effectsVolumeSlider.value);
+        }
+        if (languageDropdown != null)
+        {
+            languageDropdown.ClearOptions();
+            var options = new List<Dropdown.OptionData>();
+            foreach (string lang in LocalizationManager.AvailableLanguages)
+            {
+                options.Add(new Dropdown.OptionData(lang));
+            }
+            languageDropdown.options = options;
+            string current = SaveGameManager.Instance != null ? SaveGameManager.Instance.Language : LocalizationManager.CurrentLanguage;
+            int index = options.FindIndex(o => o.text == current);
+            languageDropdown.value = index >= 0 ? index : 0;
         }
     }
 
@@ -140,12 +155,30 @@ public class SettingsMenu : MonoBehaviour
         UpdateEffectsVolumeLabel(value);
     }
 
+    /// <summary>
+    /// Callback for the language dropdown. Persists the selected language and
+    /// reloads translations via <see cref="LocalizationManager"/>.
+    /// </summary>
+    public void ChangeLanguage(int index)
+    {
+        if (languageDropdown == null || index < 0 || index >= languageDropdown.options.Count)
+            return;
+
+        string lang = languageDropdown.options[index].text;
+        LocalizationManager.SetLanguage(lang);
+        if (SaveGameManager.Instance != null)
+        {
+            SaveGameManager.Instance.Language = lang;
+        }
+    }
+
     // Updates the on-screen music volume percentage if a label is assigned.
     private void UpdateMusicVolumeLabel(float value)
     {
         if (musicVolumeLabel != null)
         {
-            musicVolumeLabel.text = Mathf.RoundToInt(value * 100f) + "%";
+            string fmt = LocalizationManager.Get("percentage_format");
+            musicVolumeLabel.text = string.Format(fmt, Mathf.RoundToInt(value * 100f));
         }
     }
 
@@ -154,7 +187,8 @@ public class SettingsMenu : MonoBehaviour
     {
         if (effectsVolumeLabel != null)
         {
-            effectsVolumeLabel.text = Mathf.RoundToInt(value * 100f) + "%";
+            string fmt = LocalizationManager.Get("percentage_format");
+            effectsVolumeLabel.text = string.Format(fmt, Mathf.RoundToInt(value * 100f));
         }
     }
 }

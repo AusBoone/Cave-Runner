@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {"key": "settings_language", "value": "Idioma"},
+    {"key": "settings_music_volume", "value": "Volumen de Música"},
+    {"key": "settings_effects_volume", "value": "Volumen de Efectos"},
+    {"key": "settings_jump_key", "value": "Saltar"},
+    {"key": "settings_slide_key", "value": "Deslizar"},
+    {"key": "settings_pause_key", "value": "Pausa"},
+    {"key": "final_score_format", "value": "Puntuación: {0}"},
+    {"key": "high_score_format", "value": "Récord: {0}"},
+    {"key": "coins_format", "value": "Monedas: {0}"},
+    {"key": "percentage_format", "value": "{0}%"}
+  ]
+}

@@ -147,15 +147,18 @@ public class UIManager : MonoBehaviour
     {
         if (finalScoreLabel != null)
         {
-            finalScoreLabel.text = score.ToString();
+            string fmt = LocalizationManager.Get("final_score_format");
+            finalScoreLabel.text = string.Format(fmt, score);
         }
         if (highScoreLabel != null)
         {
-            highScoreLabel.text = highScore.ToString();
+            string fmt = LocalizationManager.Get("high_score_format");
+            highScoreLabel.text = string.Format(fmt, highScore);
         }
         if (coinScoreLabel != null)
         {
-            coinScoreLabel.text = coins.ToString();
+            string fmt = LocalizationManager.Get("coins_format");
+            coinScoreLabel.text = string.Format(fmt, coins);
         }
         ShowPanel(gameOverPanel);
     }

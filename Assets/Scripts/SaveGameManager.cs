@@ -42,11 +42,12 @@ public class SaveGameManager : MonoBehaviour
         public int highScore;
         public float musicVolume = 1f;   // range 0-1
         public float effectsVolume = 1f; // range 0-1
+        public string language = "en";   // language code
         public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
 
     // Version value written to disk alongside <see cref="SaveData"/>.
-    private const int CurrentVersion = 1;
+    private const int CurrentVersion = 2;
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -115,6 +116,21 @@ public class SaveGameManager : MonoBehaviour
         }
     }
 
+    /// <summary>Currently selected language code.</summary>
+    public string Language
+    {
+        get => data.language;
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                data.language = value;
+                SaveDataToFile();
+                LocalizationManager.SetLanguage(value);
+            }
+        }
+    }
+
     /// <summary>Returns the purchased level count for an upgrade.</summary>
     public int GetUpgradeLevel(UpgradeType type)
     {
@@ -149,12 +165,18 @@ public class SaveGameManager : MonoBehaviour
                         loaded.musicVolume = 1f;
                         loaded.effectsVolume = 1f;
                     }
+                    if (loaded.version < 2)
+                    {
+                        loaded.language = "en";
+                    }
 
                     data.coins = loaded.coins;
                     data.highScore = loaded.highScore;
                     data.musicVolume = Mathf.Clamp01(loaded.musicVolume);
                     data.effectsVolume = Mathf.Clamp01(loaded.effectsVolume);
-
+                    data.language = loaded.language ?? "en";
+                    LocalizationManager.SetLanguage(data.language);
+                    
                     upgradeLevels.Clear();
                     foreach (var entry in loaded.upgrades)
                     {
@@ -180,6 +202,7 @@ public class SaveGameManager : MonoBehaviour
             data.highScore = PlayerPrefs.GetInt(HighScoreKey, 0);
             data.musicVolume = 1f;
             data.effectsVolume = 1f;
+            data.language = "en";
             foreach (UpgradeType type in Enum.GetValues(typeof(UpgradeType)))
             {
                 int level = PlayerPrefs.GetInt(UpgradePrefix + type, 0);
@@ -190,6 +213,7 @@ public class SaveGameManager : MonoBehaviour
             }
             // Persist the newly created data so future loads skip migration.
             SaveDataToFile();
+            LocalizationManager.SetLanguage(data.language);
         }
     }
 
@@ -203,6 +227,10 @@ public class SaveGameManager : MonoBehaviour
         data.version = CurrentVersion;
         data.musicVolume = Mathf.Clamp01(data.musicVolume);
         data.effectsVolume = Mathf.Clamp01(data.effectsVolume);
+        if (string.IsNullOrEmpty(data.language))
+        {
+            data.language = "en";
+        }
         data.upgrades.Clear();
         foreach (var kvp in upgradeLevels)
         {

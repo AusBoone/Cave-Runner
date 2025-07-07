@@ -13,7 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Unity
-        uses: game-ci/unity-setup@v2
+        # Install Unity using the latest supported GameCI action. The previous
+        # version referenced in the workflow was deprecated and caused failures.
+        uses: game-ci/unity-setup@v3
         with:
           unityVersion: 2022.3.0f1
       - name: Run tests
@@ -24,7 +26,8 @@ jobs:
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
       - name: Upload results
-        uses: actions/upload-artifact@v3
+        # Preserve the generated TestResults folder so it can be inspected
+        uses: actions/upload-artifact@v4
         with:
           name: TestResults
           path: TestResults

@@ -84,7 +84,10 @@ with your app's ID so Steamworks initializes correctly.
 - Attach two `AudioSource` components to a new `AudioManager` GameObject—one for music and one for sound effects—then assign them in the inspector.
 - Place `ObstacleSpawner`, `HazardSpawner`, and `CoinSpawner` objects slightly off the right side of the screen (around x = 10) so spawned prefabs scroll in from the side. The spawners automatically reuse objects with an internal pool for smoother performance.
 - Add a `PowerUpSpawner` object with magnet or speed boost prefabs so players can collect temporary power-ups. Attach a `CoinMagnet` component to the player for magnet bonuses.
-- Drag the `MobileControls` prefab under your UI canvas when targeting mobile platforms. It exposes jump, slide and pause buttons hooked up through `TouchInputManager`.
+- For phone and tablet builds the game automatically instantiates the simplified
+  `MobileUI` prefab from `Resources/UI`. You can still drop the older
+  `MobileControls` prefab onto an existing canvas if you prefer to customize the
+  layout manually.
 - Add a `StageManager` object and assign background sprite names and obstacle
   prefabs for each stage. The manager listens to `GameManager.OnStageUnlocked`
   and swaps the active background plus spawner lists when new stages begin.

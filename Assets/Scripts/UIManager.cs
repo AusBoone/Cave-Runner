@@ -17,7 +17,9 @@ using System.Linq;
 /// and restart the game. Also exposes <see cref="AnimateComboLabel"/> which is
 /// used to draw attention to the coin combo multiplier when it changes. This
 /// revision introduces a loading indicator that other systems toggle while
-/// Addressable assets load asynchronously.
+/// Addressable assets load asynchronously. It now detects mobile platforms at
+/// runtime and instantiates <c>MobileUI.prefab</c> from the Resources folder so
+/// phones and tablets display a touch‑friendly canvas.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -49,6 +51,10 @@ public class UIManager : MonoBehaviour
 
     private const float panelHideDelay = 0.5f; // wait so hide animation can play
 
+    // Instantiated at runtime when running on mobile platforms. Holds the
+    // simplified canvas defined by MobileUI.prefab.
+    private GameObject mobileCanvas;
+
     /// <summary>
     /// Configure the singleton instance.
     /// </summary>
@@ -61,6 +67,22 @@ public class UIManager : MonoBehaviour
         else if (Instance != this)
         {
             Destroy(gameObject);
+            return;
+        }
+
+        // Instantiate the simplified mobile UI when running on a handheld
+        // device so players can easily tap the larger controls.
+        if (Application.isMobilePlatform)
+        {
+            GameObject prefab = Resources.Load<GameObject>("UI/MobileUI");
+            if (prefab != null)
+            {
+                mobileCanvas = Instantiate(prefab);
+            }
+            else
+            {
+                Debug.LogWarning("MobileUI prefab not found in Resources/UI");
+            }
         }
     }
 

@@ -1,8 +1,12 @@
 # Unity Build Pipeline
 #
-# Builds for Windows, macOS and Linux using GameCI actions. Each job runs
-# EditMode tests exactly as described in docs/Testing.md before invoking the
-# builder. Artifacts for each platform are uploaded from `build/<platform>`.
+# This workflow uses GameCI actions to build the project for Windows, macOS,
+# and Linux. Before each build the EditMode tests described in
+# `docs/Testing.md` are executed. Artifacts for each platform are downloaded
+# from the following directories:
+#   Windows -> `build/StandaloneWindows64`
+#   macOS   -> `build/StandaloneOSX`
+#   Linux   -> `build/StandaloneLinux64`
 
 name: Unity Builds
 
@@ -13,112 +17,56 @@ on:
     branches: [ main ]
 
 jobs:
-  build-windows:
-    name: Build Windows
+  build:
+    # A single job that runs for each platform in a matrix
+    name: Build ${{ matrix.platform }}
     runs-on: ubuntu-latest
-    steps:
-      # Checkout the repository so Unity has access to the project files
-      - uses: actions/checkout@v3
-      # Set up the requested Unity version
-      - name: Set up Unity
-        uses: game-ci/unity-setup@v2
-        with:
-          unityVersion: 2022.3.0f1
-      # Run EditMode tests before building to ensure the project is stable
-      - name: Run tests
-        uses: game-ci/unity-test-runner@v2
-        with:
-          testMode: EditMode
-          artifactsPath: TestResults
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      # Store the test results as a build artifact
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: WindowsTestResults
-          path: TestResults
-      # Build the game for Windows
-      - name: Build project
-        uses: game-ci/unity-builder@v2
-        with:
-          targetPlatform: StandaloneWindows64
-          buildsPath: build
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      # Upload the generated executable located under `build/StandaloneWindows64`
-      - name: Upload build
-        uses: actions/upload-artifact@v3
-        with:
-          name: WindowsBuild
-          path: build/StandaloneWindows64
+    strategy:
+      matrix:
+        platform:
+          - StandaloneWindows64
+          - StandaloneOSX
+          - StandaloneLinux64
 
-  build-macos:
-    name: Build macOS
-    runs-on: ubuntu-latest
     steps:
+      # Checkout the repository so Unity can access the project files
       - uses: actions/checkout@v3
-      - name: Set up Unity
-        uses: game-ci/unity-setup@v2
-        with:
-          unityVersion: 2022.3.0f1
-      - name: Run tests
-        uses: game-ci/unity-test-runner@v2
-        with:
-          testMode: EditMode
-          artifactsPath: TestResults
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: macOSTestResults
-          path: TestResults
-      - name: Build project
-        uses: game-ci/unity-builder@v2
-        with:
-          targetPlatform: StandaloneOSX
-          buildsPath: build
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      # macOS builds are placed under `build/StandaloneOSX` as a zipped .app bundle
-      - name: Upload build
-        uses: actions/upload-artifact@v3
-        with:
-          name: macOSBuild
-          path: build/StandaloneOSX
 
-  build-linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+      # Install the requested Unity version on the runner
       - name: Set up Unity
         uses: game-ci/unity-setup@v2
         with:
           unityVersion: 2022.3.0f1
-      - name: Run tests
+
+      # Run EditMode tests in the same manner as documented in docs/Testing.md
+      - name: Run EditMode tests
         uses: game-ci/unity-test-runner@v2
         with:
           testMode: EditMode
           artifactsPath: TestResults
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
+      # Upload the XML and log results from the test run
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
-          name: LinuxTestResults
+          name: TestResults-${{ matrix.platform }}
           path: TestResults
+
+      # Build the project for the platform specified by the matrix entry
       - name: Build project
         uses: game-ci/unity-builder@v2
         with:
-          targetPlatform: StandaloneLinux64
+          targetPlatform: ${{ matrix.platform }}
           buildsPath: build
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      # Linux build artifacts are found in `build/StandaloneLinux64`
+
+      # Publish the built files so they can be downloaded from the workflow
       - name: Upload build
         uses: actions/upload-artifact@v3
         with:
-          name: LinuxBuild
-          path: build/StandaloneLinux64
+          name: Build-${{ matrix.platform }}
+          path: build/${{ matrix.platform }}
+

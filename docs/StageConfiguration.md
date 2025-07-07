@@ -6,16 +6,16 @@ The `StageManager` controls which background sprite, obstacles and hazards are a
 
 Every `StageDataSO` contains one `StageData` struct. Each field affects gameplay when its stage becomes active:
 
-- **backgroundSprite** – Name of a sprite located under `Resources/Art` that replaces the current background when the stage starts.
-- **groundObstacles** – Prefabs spawned by `ObstacleSpawner` on the ground.
-- **ceilingObstacles** – Prefabs spawned upside‑down on the ceiling.
-- **movingPlatforms** – Platform prefabs that move horizontally or vertically.
-- **rotatingHazards** – Hazards that spin or rotate as they move across the screen.
-- **pits** – Pit prefabs for the `HazardSpawner`.
-- **bats** – Flying hazard prefabs spawned from above.
-- **zigZagEnemies** – Enemies that zig‑zag horizontally.
-- **swoopingEnemies** – Enemies that swoop toward the player in an arc.
-- **shooterEnemies** – Enemies that fire projectiles at the player.
+- **backgroundSprite** – Addressable reference to the sprite that replaces the current background when the stage starts.
+- **groundObstacles** – Addressable prefabs spawned by `ObstacleSpawner` on the ground.
+- **ceilingObstacles** – Addressable prefabs spawned upside‑down on the ceiling.
+- **movingPlatforms** – Addressable platform prefabs that move horizontally or vertically.
+- **rotatingHazards** – Addressable hazards that spin or rotate as they move across the screen.
+- **pits** – Addressable pit prefabs for the `HazardSpawner`.
+- **bats** – Addressable flying hazard prefabs spawned from above.
+- **zigZagEnemies** – Addressable enemies that zig‑zag horizontally.
+- **swoopingEnemies** – Addressable enemies that swoop toward the player in an arc.
+- **shooterEnemies** – Addressable enemies that fire projectiles at the player.
 - **obstacleSpawnMultiplier** – Scales how frequently obstacles spawn.
 - **hazardSpawnMultiplier** – Scales how frequently hazards spawn.
 - **groundObstacleChance** – Relative probability that a ground obstacle spawns compared to other obstacle types.

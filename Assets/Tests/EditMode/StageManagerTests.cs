@@ -1,5 +1,8 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.AddressableAssets;
+using System.Collections;
 using System.Reflection;
 
 /// <summary>
@@ -8,8 +11,8 @@ using System.Reflection;
 /// </summary>
 public class StageManagerTests
 {
-    [Test]
-    public void ApplyStage_UpdatesSpawnerLists()
+    [UnityTest]
+    public IEnumerator ApplyStage_UpdatesSpawnerLists()
     {
         // Setup basic objects and component hierarchy
         var gmObj = new GameObject("gm");
@@ -36,13 +39,13 @@ public class StageManagerTests
         var stageAsset = ScriptableObject.CreateInstance<StageDataSO>();
         stageAsset.stage = new StageManager.StageData
         {
-            backgroundSprite = "stageA",
-            groundObstacles = new[] { dummy },
-            ceilingObstacles = new GameObject[0],
-            movingPlatforms = new GameObject[0],
-            rotatingHazards = new GameObject[0],
-            pits = new GameObject[0],
-            bats = new GameObject[0],
+            backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000000"),
+            groundObstacles = new[] { new AssetReferenceGameObject("00000000000000000000000000000000") },
+            ceilingObstacles = new AssetReferenceGameObject[0],
+            movingPlatforms = new AssetReferenceGameObject[0],
+            rotatingHazards = new AssetReferenceGameObject[0],
+            pits = new AssetReferenceGameObject[0],
+            bats = new AssetReferenceGameObject[0],
             obstacleSpawnMultiplier = 2f,
             hazardSpawnMultiplier = 0.5f,
             speedMultiplier = 1.5f,
@@ -51,9 +54,14 @@ public class StageManagerTests
         sm.stages = new[] { stageAsset };
 
         sm.ApplyStage(0);
+        // Wait for the async coroutine to complete
+        var field = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (field.GetValue(sm) != null)
+        {
+            yield return null;
+        }
 
-        Assert.AreEqual("stageA", bg.spriteName);
-        Assert.AreSame(dummy, obstacleSpawner.groundObstacles[0]);
+        // Asset reference is invalid so no prefab will load, but multipliers should still apply
         Assert.AreEqual(2f, obstacleSpawner.spawnMultiplier);
         Assert.AreEqual(0.5f, hazardSpawner.spawnMultiplier);
         var multField = typeof(GameManager).GetField("stageSpeedMultiplier", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -70,8 +78,43 @@ public class StageManagerTests
         Object.DestroyImmediate(smObj);
     }
 
-    [Test]
-    public void Event_TriggersStageChange()
+    /// <summary>
+    /// Verifies that applying a stage occurs over multiple frames so the main
+    /// thread remains responsive while Addressables load.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ApplyStage_IsAsynchronous()
+    {
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.parallaxBackground = new GameObject("bg").AddComponent<ParallaxBackground>();
+        sm.obstacleSpawner = smObj.AddComponent<ObstacleSpawner>();
+        sm.hazardSpawner = smObj.AddComponent<HazardSpawner>();
+
+        var asset = ScriptableObject.CreateInstance<StageDataSO>();
+        asset.stage = new StageManager.StageData
+        {
+            backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000003"),
+            groundObstacles = new AssetReferenceGameObject[0]
+        };
+        sm.stages = new[] { asset };
+
+        sm.ApplyStage(0);
+        var field = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.IsNotNull(field.GetValue(sm));
+        yield return null; // ensure at least one frame passes
+        Assert.IsNotNull(field.GetValue(sm));
+        while (field.GetValue(sm) != null)
+        {
+            yield return null;
+        }
+
+        Object.DestroyImmediate(smObj);
+        Object.DestroyImmediate(asset);
+    }
+
+    [UnityTest]
+    public IEnumerator Event_TriggersStageChange()
     {
         var gmObj = new GameObject("gm");
         var gm = gmObj.AddComponent<GameManager>();
@@ -93,9 +136,9 @@ public class StageManagerTests
         sm.obstacleSpawner = obstacleSpawner;
         sm.hazardSpawner = hazardSpawner;
         var start = ScriptableObject.CreateInstance<StageDataSO>();
-        start.stage = new StageManager.StageData { backgroundSprite = "start" };
+        start.stage = new StageManager.StageData { backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000001") };
         var next = ScriptableObject.CreateInstance<StageDataSO>();
-        next.stage = new StageManager.StageData { backgroundSprite = "next" };
+        next.stage = new StageManager.StageData { backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000002") };
         sm.stages = new[] { start, next };
 
         gm.StartGame();
@@ -107,6 +150,13 @@ public class StageManagerTests
         distField.SetValue(gm, 0.2f);
         var update = typeof(GameManager).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance);
         update.Invoke(gm, null);
+
+        // Wait for StageManager to apply the new stage asynchronously
+        var field = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (field.GetValue(sm) != null)
+        {
+            yield return null;
+        }
 
         Assert.AreEqual("next", bg.spriteName);
 

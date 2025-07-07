@@ -15,10 +15,18 @@ using System.Linq;
 /// <see cref="InputManager"/> so players can rebind the action with the new
 /// Input System. Interfaces with the <see cref="GameManager"/> to start, pause
 /// and restart the game. Also exposes <see cref="AnimateComboLabel"/> which is
-/// used to draw attention to the coin combo multiplier when it changes.
+/// used to draw attention to the coin combo multiplier when it changes. This
+/// revision introduces a loading indicator that other systems toggle while
+/// Addressable assets load asynchronously.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
+    /// <summary>
+    /// Singleton instance so other managers can easily show/hide the loading
+    /// indicator while asynchronous operations occur.
+    /// </summary>
+    public static UIManager Instance { get; private set; }
+
     public GameObject startPanel;
     public GameObject gameOverPanel;
     public GameObject pausePanel;
@@ -34,10 +42,27 @@ public class UIManager : MonoBehaviour
     public GameObject achievementsPanel;
     public GameObject shopPanel;
     public Text workshopListText;
+    [Tooltip("Panel containing a simple loading indicator graphic.")]
+    public GameObject loadingPanel;
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
 
     private const float panelHideDelay = 0.5f; // wait so hide animation can play
+
+    /// <summary>
+    /// Configure the singleton instance.
+    /// </summary>
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+        }
+    }
 
     // Immediately disables a panel without playing an animation
     private void HidePanelImmediate(GameObject panel)
@@ -84,6 +109,28 @@ public class UIManager : MonoBehaviour
         panel.SetActive(false);
     }
 
+    /// <summary>
+    /// Enables the loading panel while addressable assets are loading.
+    /// </summary>
+    public void ShowLoadingIndicator()
+    {
+        if (loadingPanel != null)
+        {
+            loadingPanel.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// Hides the loading panel once asset loading has finished.
+    /// </summary>
+    public void HideLoadingIndicator()
+    {
+        if (loadingPanel != null)
+        {
+            loadingPanel.SetActive(false);
+        }
+    }
+
 #if UNITY_STANDALONE
     private List<string> downloadedPacks = new List<string>();
 #endif
@@ -122,6 +169,7 @@ public class UIManager : MonoBehaviour
         HidePanelImmediate(achievementsPanel);
         HidePanelImmediate(shopPanel);
         HidePanelImmediate(settingsPanel);
+        HidePanelImmediate(loadingPanel);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetUIManager(this);

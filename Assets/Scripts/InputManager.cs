@@ -2,6 +2,7 @@ using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
+using System.Collections;
 
 /// <summary>
 /// Centralised helper for reading player input. This file was expanded to
@@ -18,6 +19,8 @@ public static class InputManager
     private const string JumpPref = "JumpKey";
     private const string SlidePref = "SlideKey";
     private const string PausePref = "PauseKey";
+    // Preference key storing whether vibration is enabled.
+    private const string RumblePref = "RumbleEnabled";
     // New preference key used for the fast fall / down action.
     private const string DownPref = "DownKey";
     // Preference keys for custom left and right movement when using the
@@ -40,6 +43,10 @@ public static class InputManager
     private static InputAction pauseAction;
     private static InputAction downAction;
     private static InputAction moveAction;
+    // Host MonoBehaviour used for running rumble coroutines.
+    private static RumbleHost rumbleHost;
+    // Reference to the currently running rumble coroutine so it can be stopped.
+    private static Coroutine rumbleRoutine;
 #endif
 
     // Joystick button codes for legacy input manager support. These arrays
@@ -82,6 +89,8 @@ public static class InputManager
     // Keys used for horizontal movement when the legacy input manager is active.
     public static KeyCode MoveLeftKey { get; private set; }
     public static KeyCode MoveRightKey { get; private set; }
+    // True when controller rumble is allowed. Controlled via SettingsMenu.
+    public static bool RumbleEnabled { get; private set; }
 
     static InputManager()
     {
@@ -94,8 +103,15 @@ public static class InputManager
         // WASD controls are enabled by default for horizontal movement.
         MoveLeftKey = LoadKey(LeftPref, KeyCode.A);
         MoveRightKey = LoadKey(RightPref, KeyCode.D);
-
+        // Load rumble preference (enabled by default).
+        RumbleEnabled = PlayerPrefs.GetInt(RumblePref, 1) == 1;
 #if ENABLE_INPUT_SYSTEM
+        // Create a hidden object for coroutine execution so rumble can
+        // run without requiring a separate manager component.
+        var hostObj = new GameObject("InputManagerRumbleHost");
+        hostObj.hideFlags = HideFlags.HideAndDontSave;
+        Object.DontDestroyOnLoad(hostObj);
+        rumbleHost = hostObj.AddComponent<RumbleHost>();
         // Setup actions so either keyboard or various gamepads can trigger them.
         jumpAction = new InputAction("Jump", InputActionType.Button);
         jumpAction.AddBinding(PlayerPrefs.GetString(JumpBindingPref, "<Keyboard>/space"));
@@ -221,6 +237,16 @@ public static class InputManager
     {
         PauseKey = key;
         PlayerPrefs.SetString(PausePref, key.ToString());
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>
+    /// Enables or disables controller rumble feedback.
+    /// </summary>
+    public static void SetRumbleEnabled(bool enabled)
+    {
+        RumbleEnabled = enabled;
+        PlayerPrefs.SetInt(RumblePref, enabled ? 1 : 0);
         PlayerPrefs.Save();
     }
 
@@ -596,4 +622,35 @@ public static class InputManager
             return axis;
         return Input.GetAxisRaw("Horizontal");
     }
+
+#if ENABLE_INPUT_SYSTEM
+    /// <summary>
+    /// Triggers controller rumble using the current gamepad. The effect stops
+    /// automatically after the supplied duration.
+    /// </summary>
+    public static void TriggerRumble(float strength, float duration)
+    {
+        if (!RumbleEnabled || Gamepad.current == null)
+            return;
+
+        strength = Mathf.Clamp01(strength);
+        duration = Mathf.Max(0f, duration);
+
+        if (rumbleRoutine != null)
+            rumbleHost.StopCoroutine(rumbleRoutine);
+
+        rumbleRoutine = rumbleHost.StartCoroutine(RumbleRoutine(strength, duration));
+    }
+
+    // Coroutine that applies rumble then resets the motor speeds.
+    private static IEnumerator RumbleRoutine(float strength, float duration)
+    {
+        Gamepad.current.SetMotorSpeeds(strength, strength);
+        yield return new WaitForSeconds(duration);
+        Gamepad.current.SetMotorSpeeds(0f, 0f);
+    }
+
+    // Lightweight MonoBehaviour used solely to run coroutines for rumble.
+    private class RumbleHost : MonoBehaviour {}
+#endif
 }

@@ -42,6 +42,7 @@ public class CoinBonusPowerUp : MonoBehaviour
         {
             AudioManager.Instance.PlaySound(collectClip);
         }
+        InputManager.TriggerRumble(0.3f, 0.1f);
         // Return to pool if pooled, otherwise destroy.
         PooledObject po = GetComponent<PooledObject>();
         if (po != null && po.Pool != null)

@@ -35,6 +35,8 @@ public class ShieldPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+            // Brief vibration feedback on pickup.
+            InputManager.TriggerRumble(0.3f, 0.1f);
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

@@ -58,5 +58,19 @@ public class InputManagerTests
 
         Assert.IsTrue(hasComposite, "Move action should use a 1DAxis composite for keyboard input");
     }
+
+    [Test]
+    public void TriggerRumble_StartsCoroutine()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        InputManager.TriggerRumble(0.5f, 0.01f);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field, "rumbleRoutine field missing");
+        Assert.IsNotNull(field.GetValue(null), "TriggerRumble should start a coroutine when a gamepad is present");
+        InputSystem.RemoveDevice(gamepad);
+    }
 }
 #endif

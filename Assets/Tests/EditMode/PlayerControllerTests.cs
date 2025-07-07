@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using UnityEngine;
 using System.Reflection;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 /// <summary>
 /// Tests for PlayerController. Specifically verifies that the new
@@ -178,5 +181,30 @@ public class PlayerControllerTests
 
         Object.DestroyImmediate(player);
     }
+
+#if ENABLE_INPUT_SYSTEM
+    [Test]
+    public void AttemptJump_TriggersRumble()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        var player = new GameObject("player");
+        player.AddComponent<Rigidbody2D>();
+        player.AddComponent<CapsuleCollider2D>();
+        var pc = player.AddComponent<PlayerController>();
+
+        typeof(PlayerController).GetField("isGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(pc, true);
+
+        InputManager.SetRumbleEnabled(true);
+        typeof(PlayerController).GetMethod("AttemptJump", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field.GetValue(null), "Rumble should start when jumping with a gamepad connected");
+
+        Object.DestroyImmediate(player);
+        InputSystem.RemoveDevice(gamepad);
+    }
+#endif
 }
 

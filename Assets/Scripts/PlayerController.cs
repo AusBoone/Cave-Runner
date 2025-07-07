@@ -241,6 +241,8 @@ public class PlayerController : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(jumpClip);
             }
+            // Provide haptic feedback so jumps feel responsive.
+            InputManager.TriggerRumble(0.5f, 0.1f);
             if (!isGrounded && jumpsRemaining > 0)
             {
                 jumpsRemaining--;
@@ -345,6 +347,8 @@ public class PlayerController : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(hitClip);
             }
+            // Strong rumble feedback on taking damage.
+            InputManager.TriggerRumble(1f, 0.3f);
             if (GameManager.Instance != null && !GameManager.Instance.IsGameOver())
             {
                 GameManager.Instance.GameOver();

@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using UnityEngine;
 using System.Reflection;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 /// <summary>
 /// Unit tests verifying that <see cref="ShieldPowerUp"/> correctly grants the
@@ -118,4 +121,32 @@ public class ShieldPowerUpTests
         Object.DestroyImmediate(poolObj);
         Object.DestroyImmediate(player);
     }
+
+#if ENABLE_INPUT_SYSTEM
+    [Test]
+    public void OnTriggerEnter_TriggersRumble()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+
+        var player = new GameObject("player");
+        player.tag = "Player";
+        player.AddComponent<PlayerShield>();
+        var playerCol = player.AddComponent<BoxCollider2D>();
+
+        var powerObj = new GameObject("power");
+        var sp = powerObj.AddComponent<ShieldPowerUp>();
+        var powerCol = powerObj.AddComponent<BoxCollider2D>();
+        powerCol.isTrigger = true;
+
+        InputManager.SetRumbleEnabled(true);
+        sp.OnTriggerEnter2D(playerCol);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field.GetValue(null), "Collecting the power-up should start a rumble coroutine");
+
+        Object.DestroyImmediate(powerObj);
+        Object.DestroyImmediate(player);
+        InputSystem.RemoveDevice(gamepad);
+    }
+#endif
 }

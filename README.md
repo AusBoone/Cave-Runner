@@ -122,6 +122,12 @@ The `SteamManager` component also exposes a **leaderboardId** field. Set this to
 the Steam leaderboard identifier you wish to use for global high scores. The
 UI's leaderboard panel queries this ID when downloading and uploading scores.
 
+For non-Steam versions of the game a lightweight HTTP leaderboard service is
+available via the new `LeaderboardClient` component. Configure its `serviceUrl`
+and reference it from `UIManager` to display scores retrieved from a REST
+endpoint. If the service cannot be reached the local high score is shown
+instead.
+
 ### Workshop Content
 The included `WorkshopManager` script uses Steamworks.NET's UGC API so you can
 share level or skin packs on the Steam Workshop.

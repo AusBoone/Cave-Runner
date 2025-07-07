@@ -312,6 +312,11 @@ public class GameManager : MonoBehaviour
             // Submit the score to the Steam leaderboard
             SteamManager.Instance.UploadScore(finalScore);
         }
+        else if (LeaderboardClient.Instance != null)
+        {
+            // Non-Steam builds post to the HTTP leaderboard instead
+            StartCoroutine(LeaderboardClient.Instance.UploadScore(finalScore));
+        }
 
         // Persist run coins so they can be spent in the shop
         if (ShopManager.Instance != null)

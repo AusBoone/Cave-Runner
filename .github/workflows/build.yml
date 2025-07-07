@@ -1,0 +1,72 @@
+# Unity Build Pipeline
+#
+# This workflow uses GameCI actions to build the project for Windows, macOS,
+# and Linux. Before each build the EditMode tests described in
+# `docs/Testing.md` are executed. Artifacts for each platform are downloaded
+# from the following directories:
+#   Windows -> `build/StandaloneWindows64`
+#   macOS   -> `build/StandaloneOSX`
+#   Linux   -> `build/StandaloneLinux64`
+
+name: Unity Builds
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    # A single job that runs for each platform in a matrix
+    name: Build ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - StandaloneWindows64
+          - StandaloneOSX
+          - StandaloneLinux64
+
+    steps:
+      # Checkout the repository so Unity can access the project files
+      - uses: actions/checkout@v3
+
+      # Install the requested Unity version on the runner
+      - name: Set up Unity
+        uses: game-ci/unity-setup@v2
+        with:
+          unityVersion: 2022.3.0f1
+
+      # Run EditMode tests in the same manner as documented in docs/Testing.md
+      - name: Run EditMode tests
+        uses: game-ci/unity-test-runner@v2
+        with:
+          testMode: EditMode
+          artifactsPath: TestResults
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
+      # Upload the XML and log results from the test run
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: TestResults-${{ matrix.platform }}
+          path: TestResults
+
+      # Build the project for the platform specified by the matrix entry
+      - name: Build project
+        uses: game-ci/unity-builder@v2
+        with:
+          targetPlatform: ${{ matrix.platform }}
+          buildsPath: build
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
+      # Publish the built files so they can be downloaded from the workflow
+      - name: Upload build
+        uses: actions/upload-artifact@v3
+        with:
+          name: Build-${{ matrix.platform }}
+          path: build/${{ matrix.platform }}
+

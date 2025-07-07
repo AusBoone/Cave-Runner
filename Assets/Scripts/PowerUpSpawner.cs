@@ -55,7 +55,14 @@ public class PowerUpSpawner : MonoBehaviour
         if (timer <= 0f)
         {
             SpawnPowerUp();
-            timer = spawnInterval / difficulty;
+            float interval = spawnInterval / difficulty;
+            if (GameManager.Instance != null && GameManager.Instance.HardcoreMode)
+            {
+                // Hardcore mode lowers the power-up frequency by scaling the interval
+                float mult = Mathf.Max(0.01f, GameManager.Instance.hardcorePowerUpRateMultiplier);
+                interval *= 1f / mult;
+            }
+            timer = interval;
         }
     }
 

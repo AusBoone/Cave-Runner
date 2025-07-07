@@ -95,6 +95,11 @@ public class HazardSpawner : MonoBehaviour
         {
             SpawnHazard();
             float mult = Mathf.Max(0.01f, spawnMultiplier);
+            if (GameManager.Instance != null && GameManager.Instance.HardcoreMode)
+            {
+                // Hardcore mode increases hazard frequency using the configured multiplier
+                mult *= Mathf.Max(0.01f, GameManager.Instance.hardcoreSpawnMultiplier);
+            }
             timer = spawnInterval / (difficulty * mult);
         }
     }

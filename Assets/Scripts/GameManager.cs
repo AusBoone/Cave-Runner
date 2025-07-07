@@ -16,7 +16,9 @@ using System.Collections;
 /// with random power-ups. This revision also introduces a temporary coin
 /// bonus effect that multiplies coin pickups when active. The effect now
 /// stacks when additional power-ups are collected and exposes helper
-/// methods so UI elements can display the remaining time.
+/// methods so UI elements can display the remaining time. A new hardcore
+/// mode option further increases game speed and spawn rates for an extra
+/// challenge.
 /// 
 /// <remarks>
 /// 2024 update: starting a run now triggers <see cref="AdaptiveDifficultyManager"/>
@@ -55,6 +57,21 @@ public class GameManager : MonoBehaviour
     private float slowMotionTimer;            // time remaining on slow motion
     private float slowMotionScale = 1f;       // scale value applied during slow motion
     private float stageSpeedMultiplier = 1f;  // modifier set by StageManager
+
+    // -----------------------------------------------------------
+    // Hardcore mode fields
+    // -----------------------------------------------------------
+    [Header("Hardcore Mode")]
+    [Tooltip("Enable increased speed and spawn rates with fewer power-ups.")]
+    [SerializeField]
+    private bool hardcoreMode;                // stored flag indicating mode state
+
+    [Tooltip("Multiplier applied to world speed when hardcore mode is active.")]
+    public float hardcoreSpeedMultiplier = 1.2f;
+    [Tooltip("Multiplier applied to hazard and obstacle spawn rates in hardcore mode.")]
+    public float hardcoreSpawnMultiplier = 1.5f;
+    [Tooltip("Multiplier applied to power-up spawn interval when hardcore mode is active.")]
+    public float hardcorePowerUpRateMultiplier = 0.5f;
 
     [Tooltip("Time allowed between coin pickups to continue the combo.")]
     public float comboDuration = 1.5f;        // seconds before the combo resets
@@ -104,6 +121,23 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// True when hardcore mode is enabled. Updating this property also persists
+    /// the setting via <see cref="SaveGameManager"/> if available.
+    /// </summary>
+    public bool HardcoreMode
+    {
+        get => hardcoreMode;
+        set
+        {
+            hardcoreMode = value;
+            if (SaveGameManager.Instance != null)
+            {
+                SaveGameManager.Instance.HardcoreMode = value;
+            }
+        }
+    }
+
+    /// <summary>
     /// Initializes the singleton instance and loads the saved high
     /// score from either <see cref="SaveGameManager"/> or the Steam cloud.
     /// </summary>
@@ -126,6 +160,9 @@ public class GameManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        // Load the persisted hardcore mode preference after ensuring
+        // SaveGameManager exists. Default to false when no save is present.
+        hardcoreMode = SaveGameManager.Instance != null && SaveGameManager.Instance.HardcoreMode;
         currentSpeed = baseSpeed;
         coins = 0;
         gravityFlipped = false;
@@ -223,8 +260,10 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Update distance traveled applying all active multipliers
-        distance += currentSpeed * speedMultiplier * stageSpeedMultiplier * Time.deltaTime;
+        // Update distance traveled applying all active multipliers. Hardcore
+        // mode further increases speed using <see cref="hardcoreSpeedMultiplier"/>.
+        float hcMult = hardcoreMode ? hardcoreSpeedMultiplier : 1f;
+        distance += currentSpeed * speedMultiplier * stageSpeedMultiplier * hcMult * Time.deltaTime;
 
         // Notify listeners when distance milestones are crossed
         if (stageGoals != null && currentStage < stageGoals.Length && distance >= stageGoals[currentStage])
@@ -250,7 +289,8 @@ public class GameManager : MonoBehaviour
         {
             return 0f;
         }
-        return currentSpeed * speedMultiplier * stageSpeedMultiplier;
+        float hcMult = hardcoreMode ? hardcoreSpeedMultiplier : 1f;
+        return currentSpeed * speedMultiplier * stageSpeedMultiplier * hcMult;
     }
 
     /// <summary>

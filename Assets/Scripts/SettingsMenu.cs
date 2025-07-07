@@ -19,6 +19,7 @@ public class SettingsMenu : MonoBehaviour
     public Text effectsVolumeLabel;
     public Dropdown languageDropdown;
     public Toggle rumbleToggle;
+    public Toggle hardcoreToggle; // toggle for hardcore mode
 
     [Tooltip("Tutorial manager used to show help panels.")]
     public TutorialManager tutorialManager;
@@ -33,6 +34,8 @@ public class SettingsMenu : MonoBehaviour
         if (pauseKeyLabel != null) pauseKeyLabel.text = InputManager.PauseKey.ToString();
         if (colorblindToggle != null) colorblindToggle.isOn = ColorblindManager.Enabled;
         if (rumbleToggle != null) rumbleToggle.isOn = InputManager.RumbleEnabled;
+        if (hardcoreToggle != null && SaveGameManager.Instance != null)
+            hardcoreToggle.isOn = SaveGameManager.Instance.HardcoreMode;
         if (musicVolumeSlider != null && SaveGameManager.Instance != null)
         {
             musicVolumeSlider.value = SaveGameManager.Instance.MusicVolume;
@@ -133,6 +136,19 @@ public class SettingsMenu : MonoBehaviour
     public void ToggleRumble(bool value)
     {
         InputManager.SetRumbleEnabled(value);
+    }
+
+    /// <summary>
+    /// Toggle hardcore mode via settings. Saves the value and informs the
+    /// active <see cref="GameManager"/> if present.
+    /// </summary>
+    public void ToggleHardcore(bool value)
+    {
+        if (SaveGameManager.Instance != null)
+            SaveGameManager.Instance.HardcoreMode = value;
+
+        if (GameManager.Instance != null)
+            GameManager.Instance.HardcoreMode = value;
     }
 
     /// <summary>

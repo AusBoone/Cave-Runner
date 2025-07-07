@@ -28,6 +28,8 @@ public class UIManager : MonoBehaviour
     public Text coinScoreLabel;
     public GameObject leaderboardPanel;
     public Text leaderboardText;
+    [Tooltip("Client used for non-Steam leaderboard requests.")]
+    public LeaderboardClient leaderboardClient;
     public GameObject workshopPanel;
     public GameObject achievementsPanel;
     public GameObject shopPanel;
@@ -193,16 +195,16 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Displays the leaderboard panel and populates it with scores from Steam.
+    /// Displays the leaderboard panel and populates it with scores retrieved
+    /// from either Steam or the HTTP-based <see cref="LeaderboardClient"/>.
     /// </summary>
     public void ShowLeaderboard()
     {
-#if UNITY_STANDALONE
         ShowPanel(leaderboardPanel);
+#if UNITY_STANDALONE
         if (SteamManager.Instance != null)
         {
-            // Use the configured leaderboard ID from SteamManager so multiple
-            // boards can be supported across deployments.
+            // Use the configured leaderboard ID from SteamManager so multiple boards can be supported across deployments.
             string id = SteamManager.Instance.leaderboardId;
             SteamManager.Instance.FindOrCreateLeaderboard(id, success =>
             {
@@ -222,11 +224,36 @@ public class UIManager : MonoBehaviour
                         }
                     });
                 }
+                else if (leaderboardClient != null)
+                {
+                    StartCoroutine(leaderboardClient.GetTopScores(DisplayScores));
+                }
             });
         }
+        else if (leaderboardClient != null)
+        {
+            StartCoroutine(leaderboardClient.GetTopScores(DisplayScores));
+        }
 #else
-        ShowPanel(leaderboardPanel);
+        if (leaderboardClient != null)
+        {
+            StartCoroutine(leaderboardClient.GetTopScores(DisplayScores));
+        }
 #endif
+    }
+
+    // Helper to format and display leaderboard entries in the panel
+    private void DisplayScores(List<LeaderboardClient.ScoreEntry> scores)
+    {
+        if (leaderboardText != null && scores != null)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < scores.Count; i++)
+            {
+                sb.AppendLine((i + 1) + ". " + scores[i].name + " - " + scores[i].score);
+            }
+            leaderboardText.text = sb.ToString();
+        }
     }
 
     /// <summary>

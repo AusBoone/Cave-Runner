@@ -232,6 +232,7 @@ public class PlayerController : MonoBehaviour
         // Allow jumping while grounded, during the coyote window, or if an extra jump remains.
         if (isGrounded || coyoteTimer > 0f || jumpsRemaining > 0)
         {
+            TutorialManager.Instance?.RegisterJump();
             rb.velocity = new Vector2(rb.velocity.x, 0f);
             rb.AddForce(Vector2.up * jumpForce);
             isJumping = true;
@@ -258,6 +259,7 @@ public class PlayerController : MonoBehaviour
     {
         if (!isSliding)
         {
+            TutorialManager.Instance?.RegisterSlide();
             isSliding = true;
             slideTimer = slideDuration;
             coll.size = new Vector2(colliderSize.x, colliderSize.y / 2f);

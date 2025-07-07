@@ -20,6 +20,9 @@ public class SettingsMenu : MonoBehaviour
     public Dropdown languageDropdown;
     public Toggle rumbleToggle;
 
+    [Tooltip("Tutorial manager used to show help panels.")]
+    public TutorialManager tutorialManager;
+
     /// <summary>
     /// Populates UI elements with the current settings on start.
     /// </summary>
@@ -199,6 +202,18 @@ public class SettingsMenu : MonoBehaviour
         {
             string fmt = LocalizationManager.Get("percentage_format");
             effectsVolumeLabel.text = string.Format(fmt, Mathf.RoundToInt(value * 100f));
+        }
+    }
+
+    /// <summary>
+    /// Shows the tutorial sequence again as a help reference.
+    /// </summary>
+    public void ShowHelp()
+    {
+        if (tutorialManager != null)
+        {
+            tutorialManager.gameObject.SetActive(true);
+            tutorialManager.BeginTutorial();
         }
     }
 }

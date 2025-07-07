@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using System.Reflection;
+using System.IO;
 
 /// <summary>
 /// EditMode tests for <see cref="TutorialManager"/> verifying that the tutorial
@@ -15,6 +16,14 @@ public class TutorialManagerTests
         // Ensure each test starts with a clean PlayerPrefs state and normal time.
         PlayerPrefs.DeleteAll();
         Time.timeScale = 1f;
+        for (int i = 0; i < SaveSlotManager.MaxSlots; i++)
+        {
+            string dir = Path.Combine(Application.persistentDataPath, $"slot_{i}");
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, true);
+            }
+        }
     }
 
     [Test]
@@ -94,5 +103,90 @@ public class TutorialManagerTests
 
         Object.DestroyImmediate(obj);
         Object.DestroyImmediate(panel);
+    }
+
+    [Test]
+    public void Tutorial_TriggersPerSaveSlot()
+    {
+        // Slot 0 should show the tutorial the first time.
+        SaveSlotManager.SetSlot(0);
+        var saveObj = new GameObject("save0");
+        saveObj.AddComponent<SaveGameManager>();
+
+        var obj = new GameObject("tm");
+        var tm = obj.AddComponent<TutorialManager>();
+        var panel = new GameObject("panel");
+        tm.tutorialPanels = new[] { panel };
+
+        typeof(TutorialManager).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(tm, null);
+        Assert.IsTrue(panel.activeSelf);
+        tm.Next();
+        Object.DestroyImmediate(obj);
+        Object.DestroyImmediate(panel);
+        Object.DestroyImmediate(saveObj);
+
+        // Same slot should skip on next load.
+        SaveSlotManager.SetSlot(0);
+        var saveObj2 = new GameObject("save1");
+        saveObj2.AddComponent<SaveGameManager>();
+        var obj2 = new GameObject("tm2");
+        var tm2 = obj2.AddComponent<TutorialManager>();
+        var panel2 = new GameObject("panel2");
+        tm2.tutorialPanels = new[] { panel2 };
+        typeof(TutorialManager).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(tm2, null);
+        Assert.IsFalse(obj2.activeSelf);
+        Object.DestroyImmediate(obj2);
+        Object.DestroyImmediate(panel2);
+        Object.DestroyImmediate(saveObj2);
+
+        // Slot 1 is a fresh profile so tutorial should show again.
+        SaveSlotManager.SetSlot(1);
+        var saveObj3 = new GameObject("save2");
+        saveObj3.AddComponent<SaveGameManager>();
+        var obj3 = new GameObject("tm3");
+        var tm3 = obj3.AddComponent<TutorialManager>();
+        var panel3 = new GameObject("panel3");
+        tm3.tutorialPanels = new[] { panel3 };
+        typeof(TutorialManager).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(tm3, null);
+        Assert.IsTrue(panel3.activeSelf);
+        Object.DestroyImmediate(obj3);
+        Object.DestroyImmediate(panel3);
+        Object.DestroyImmediate(saveObj3);
+    }
+
+    [Test]
+    public void ContextTips_ShowOnlyOnce()
+    {
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+
+        var obj = new GameObject("tm");
+        var tm = obj.AddComponent<TutorialManager>();
+        var jump = new GameObject("jump");
+        var slide = new GameObject("slide");
+        jump.SetActive(false);
+        slide.SetActive(false);
+        tm.jumpTipPanel = jump;
+        tm.slideTipPanel = slide;
+
+        tm.RegisterJump();
+        Assert.IsTrue(jump.activeSelf);
+        tm.CloseTip(jump);
+        tm.RegisterJump();
+        Assert.IsFalse(jump.activeSelf);
+
+        tm.RegisterSlide();
+        Assert.IsTrue(slide.activeSelf);
+        tm.CloseTip(slide);
+        tm.RegisterSlide();
+        Assert.IsFalse(slide.activeSelf);
+
+        Object.DestroyImmediate(obj);
+        Object.DestroyImmediate(jump);
+        Object.DestroyImmediate(slide);
+        Object.DestroyImmediate(saveObj);
     }
 }

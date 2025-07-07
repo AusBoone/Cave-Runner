@@ -43,11 +43,14 @@ public class SaveGameManager : MonoBehaviour
         public float musicVolume = 1f;   // range 0-1
         public float effectsVolume = 1f; // range 0-1
         public string language = "en";   // language code
+        public bool tutorialCompleted;   // has the intro tutorial been shown
+        public bool jumpTipShown;        // has the jump tip been displayed
+        public bool slideTipShown;       // has the slide tip been displayed
         public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
 
     // Version value written to disk alongside <see cref="SaveData"/>.
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -63,7 +66,8 @@ public class SaveGameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            savePath = Path.Combine(Application.persistentDataPath, "savegame.json");
+            // Use the SaveSlotManager so each profile writes to its own file
+            savePath = SaveSlotManager.GetPath("savegame.json");
             LoadData();
         }
         else
@@ -131,6 +135,39 @@ public class SaveGameManager : MonoBehaviour
         }
     }
 
+    /// <summary>True once the introductory tutorial has been completed.</summary>
+    public bool TutorialCompleted
+    {
+        get => data.tutorialCompleted;
+        set
+        {
+            data.tutorialCompleted = value;
+            SaveDataToFile();
+        }
+    }
+
+    /// <summary>Whether the jump hint has already been shown.</summary>
+    public bool JumpTipShown
+    {
+        get => data.jumpTipShown;
+        set
+        {
+            data.jumpTipShown = value;
+            SaveDataToFile();
+        }
+    }
+
+    /// <summary>Whether the slide hint has already been shown.</summary>
+    public bool SlideTipShown
+    {
+        get => data.slideTipShown;
+        set
+        {
+            data.slideTipShown = value;
+            SaveDataToFile();
+        }
+    }
+
     /// <summary>Returns the purchased level count for an upgrade.</summary>
     public int GetUpgradeLevel(UpgradeType type)
     {
@@ -169,12 +206,21 @@ public class SaveGameManager : MonoBehaviour
                     {
                         loaded.language = "en";
                     }
+                    if (loaded.version < 3)
+                    {
+                        loaded.tutorialCompleted = false;
+                        loaded.jumpTipShown = false;
+                        loaded.slideTipShown = false;
+                    }
 
                     data.coins = loaded.coins;
                     data.highScore = loaded.highScore;
                     data.musicVolume = Mathf.Clamp01(loaded.musicVolume);
                     data.effectsVolume = Mathf.Clamp01(loaded.effectsVolume);
                     data.language = loaded.language ?? "en";
+                    data.tutorialCompleted = loaded.tutorialCompleted;
+                    data.jumpTipShown = loaded.jumpTipShown;
+                    data.slideTipShown = loaded.slideTipShown;
                     LocalizationManager.SetLanguage(data.language);
                     
                     upgradeLevels.Clear();
@@ -203,6 +249,9 @@ public class SaveGameManager : MonoBehaviour
             data.musicVolume = 1f;
             data.effectsVolume = 1f;
             data.language = "en";
+            data.tutorialCompleted = PlayerPrefs.GetInt("TutorialSeen", 0) == 1;
+            data.jumpTipShown = false;
+            data.slideTipShown = false;
             foreach (UpgradeType type in Enum.GetValues(typeof(UpgradeType)))
             {
                 int level = PlayerPrefs.GetInt(UpgradePrefix + type, 0);

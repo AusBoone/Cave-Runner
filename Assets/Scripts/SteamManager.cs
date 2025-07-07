@@ -24,7 +24,10 @@ public class SteamManager : MonoBehaviour
         { "ACH_DISTANCE_5000", "ach_distance_5000_name" },
         { "ACH_COINS_50", "ach_coins_50_name" },
         { "ACH_COINS_200", "ach_coins_200_name" },
-        { "ACH_DAILY_COMPLETE", "ach_daily_complete_name" }
+        { "ACH_DAILY_COMPLETE", "ach_daily_complete_name" },
+        { "ACH_COMBO_10", "ach_combo_10_name" },
+        { "ACH_FIRST_BOSS", "ach_boss_first_name" },
+        { "ACH_HARDCORE_WIN", "ach_hardcore_win_name" }
     };
 
     private static readonly Dictionary<string, string> achievementDescKeys = new Dictionary<string, string>
@@ -33,7 +36,10 @@ public class SteamManager : MonoBehaviour
         { "ACH_DISTANCE_5000", "ach_distance_5000_desc" },
         { "ACH_COINS_50", "ach_coins_50_desc" },
         { "ACH_COINS_200", "ach_coins_200_desc" },
-        { "ACH_DAILY_COMPLETE", "ach_daily_complete_desc" }
+        { "ACH_DAILY_COMPLETE", "ach_daily_complete_desc" },
+        { "ACH_COMBO_10", "ach_combo_10_desc" },
+        { "ACH_FIRST_BOSS", "ach_boss_first_desc" },
+        { "ACH_HARDCORE_WIN", "ach_hardcore_win_desc" }
     };
 
 #if UNITY_STANDALONE

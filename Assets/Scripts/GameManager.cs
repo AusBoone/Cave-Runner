@@ -30,6 +30,10 @@ using System.Collections;
 /// 2024 update: starting a run now triggers <see cref="AdaptiveDifficultyManager"/>
 /// so obstacle and hazard spawners scale with player skill.
 /// </remarks>
+/// <remarks>
+/// 2025 update: achievements are now unlocked for high coin combos,
+/// boss defeats and clearing hardcore mode.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -108,6 +112,9 @@ public class GameManager : MonoBehaviour
     private const string AchDistance5000 = "ACH_DISTANCE_5000";
     private const string AchCoins50 = "ACH_COINS_50";
     private const string AchCoins200 = "ACH_COINS_200";
+    private const string AchCombo10 = "ACH_COMBO_10";
+    private const string AchFirstBoss = "ACH_FIRST_BOSS";
+    private const string AchHardcoreWin = "ACH_HARDCORE_WIN";
 
     public static GameManager Instance { get; private set; }
 
@@ -355,6 +362,14 @@ public class GameManager : MonoBehaviour
                 SteamManager.Instance.UnlockAchievement(AchCoins200);
             }
 
+            // Completing a long run in hardcore mode grants an additional
+            // achievement. The distance threshold mirrors the standard
+            // marathon achievement so players must truly master the mode.
+            if (hardcoreMode && finalScore >= 5000)
+            {
+                SteamManager.Instance.UnlockAchievement(AchHardcoreWin);
+            }
+
             // Submit the score to the Steam leaderboard
             SteamManager.Instance.UploadScore(finalScore);
         }
@@ -575,6 +590,14 @@ public class GameManager : MonoBehaviour
             AudioManager.Instance.PlaySound(comboSound, pitch);
         }
 
+        // Unlock the combo achievement once the multiplier reaches the
+        // defined threshold. The SteamManager ignores duplicate unlocks
+        // so this check can run every increase without additional state.
+        if (SteamManager.Instance != null && coinComboMultiplier >= 10)
+        {
+            SteamManager.Instance.UnlockAchievement(AchCombo10);
+        }
+
     }
 
     /// <summary>
@@ -583,6 +606,18 @@ public class GameManager : MonoBehaviour
     public void SetUIManager(UIManager manager)
     {
         uiManager = manager;
+    }
+
+    /// <summary>
+    /// Called by boss entities when defeated so the appropriate Steam
+    /// achievement can be granted.
+    /// </summary>
+    public void NotifyBossDefeated()
+    {
+        if (SteamManager.Instance != null)
+        {
+            SteamManager.Instance.UnlockAchievement(AchFirstBoss);
+        }
     }
 
     /// <summary>

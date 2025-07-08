@@ -239,5 +239,25 @@ public class StageManagerTests
         typeof(AdaptiveDifficultyManager).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
             .SetValue(null, null);
     }
+
+    /// <summary>
+    /// When an invalid stage index is supplied the coroutine reference should
+    /// clear immediately so callers do not hold a stale handle.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator LoadStageRoutine_InvalidIndex_ClearsReference()
+    {
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.stages = new StageDataSO[0];
+
+        sm.ApplyStage(5); // out of bounds
+
+        FieldInfo field = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        yield return null; // allow coroutine to run
+        Assert.IsNull(field.GetValue(sm), "loadRoutine should be cleared after early exit");
+
+        Object.DestroyImmediate(smObj);
+    }
 }
 

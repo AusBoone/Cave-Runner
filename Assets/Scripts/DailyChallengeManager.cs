@@ -84,12 +84,14 @@ public class DailyChallengeManager : MonoBehaviour
                 if (GameManager.Instance != null)
                 {
                     state.progress = Mathf.FloorToInt(GameManager.Instance.GetDistance());
+                    SaveState();
                 }
                 break;
             case ChallengeType.Coins:
                 if (GameManager.Instance != null)
                 {
                     state.progress = GameManager.Instance.GetCoins();
+                    SaveState();
                 }
                 break;
         }
@@ -206,6 +208,23 @@ public class DailyChallengeManager : MonoBehaviour
         if (SteamManager.Instance != null)
         {
             SteamManager.Instance.UnlockAchievement(AchComplete);
+        }
+    }
+
+    // Persist the challenge whenever the application quits so progress is not
+    // lost on shutdown.
+    void OnApplicationQuit()
+    {
+        SaveState();
+    }
+
+    // Mobile platforms may pause the app without quitting. Save progress when
+    // entering the background.
+    void OnApplicationPause(bool paused)
+    {
+        if (paused)
+        {
+            SaveState();
         }
     }
 }

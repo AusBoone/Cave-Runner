@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using System.IO;
+using System.Reflection;
+using System.Text.RegularExpressions;
 
 /// <summary>
 /// Tests covering the JSON serialization and migration behaviour of
@@ -173,5 +176,26 @@ public class SaveGameManagerTests
         mgr2.ChangeSlot(0);
         Assert.AreEqual(2, mgr2.Coins, "Slot 0 should retain original value");
         Object.DestroyImmediate(obj2);
+    }
+
+    /// <summary>
+    /// Saving to an invalid path should log a warning rather than throwing an
+    /// exception so the game can continue running.
+    /// </summary>
+    [Test]
+    public void SaveDataToFile_InvalidPath_LogsWarning()
+    {
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SaveGameManager>();
+
+        FieldInfo pathField = typeof(SaveGameManager).GetField("savePath", BindingFlags.NonPublic | BindingFlags.Instance);
+        pathField.SetValue(mgr, Path.Combine(Application.dataPath, "no_such_dir", "save.json"));
+
+        LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("Failed to write save file"));
+
+        MethodInfo method = typeof(SaveGameManager).GetMethod("SaveDataToFile", BindingFlags.NonPublic | BindingFlags.Instance);
+        method.Invoke(mgr, null);
+
+        Object.DestroyImmediate(obj);
     }
 }

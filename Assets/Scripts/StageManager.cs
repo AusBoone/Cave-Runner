@@ -9,6 +9,8 @@
 // asynchronously so stages can stream in without freezing the main thread.
 // Music tracks are also swapped using AudioManager's cross-fading functionality
 // when a new stage begins.
+// 2026 fix: LoadStageRoutine now clears its coroutine reference when exiting
+// early so callers don't hold on to a stale handle.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -175,14 +177,21 @@ public class StageManager : MonoBehaviour
     // spawners when complete.
     private IEnumerator LoadStageRoutine(int stageIndex)
     {
+        // Immediately exit and clear the coroutine reference when provided an
+        // invalid index or the stages array is missing. This prevents callers
+        // from retaining a stale coroutine handle after an early bailout.
         if (stages == null || stageIndex < 0 || stageIndex >= stages.Length)
         {
-            yield break; // invalid index or no data
+            loadRoutine = null;
+            UIManager.Instance?.HideLoadingIndicator();
+            yield break;
         }
 
         StageDataSO asset = stages[stageIndex];
         if (asset == null)
         {
+            loadRoutine = null;
+            UIManager.Instance?.HideLoadingIndicator();
             yield break; // asset missing
         }
         StageData data = asset.stage;

@@ -46,4 +46,27 @@ public class CoinMagnetTests
 
         Object.DestroyImmediate(player);
     }
+
+    /// <summary>
+    /// Awake should clamp the collider buffer size to a minimum of one and log
+    /// a warning when configured with an invalid value.
+    /// </summary>
+    [Test]
+    public void Awake_InvalidBufferSize_ClampsAndLogs()
+    {
+        var player = new GameObject("player");
+        var magnet = player.AddComponent<CoinMagnet>();
+        var sizeField = typeof(CoinMagnet).GetField("colliderBufferSize", BindingFlags.NonPublic | BindingFlags.Instance);
+        sizeField.SetValue(magnet, 0);
+        var awake = typeof(CoinMagnet).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("colliderBufferSize"));
+        awake.Invoke(magnet, null);
+
+        var bufferField = typeof(CoinMagnet).GetField("_colliderBuffer", BindingFlags.NonPublic | BindingFlags.Instance);
+        var buffer = (Collider2D[])bufferField.GetValue(magnet);
+        Assert.AreEqual(1, buffer.Length);
+
+        Object.DestroyImmediate(player);
+    }
 }

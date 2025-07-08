@@ -1,6 +1,7 @@
 #if ENABLE_INPUT_SYSTEM
 using NUnit.Framework;
 using System.Reflection;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
@@ -93,6 +94,35 @@ public class InputManagerTests
         Assert.IsNull(field.GetValue(null), "Coroutine should complete even when paused");
         Time.timeScale = 1f;
         InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// Reinitializing InputManager should not spawn multiple rumble hosts.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator StaticConstructor_ReusesRumbleHost()
+    {
+        InputManager.GetJumpDown();
+        yield return null;
+        int before = 0;
+        foreach (var go in Object.FindObjectsOfType<GameObject>())
+        {
+            if (go.name == "InputManagerRumbleHost")
+                before++;
+        }
+
+        typeof(InputManager).GetField("rumbleHost", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(InputManager).TypeHandle);
+        yield return null;
+
+        int after = 0;
+        foreach (var go in Object.FindObjectsOfType<GameObject>())
+        {
+            if (go.name == "InputManagerRumbleHost")
+                after++;
+        }
+
+        Assert.AreEqual(before, after, "Only one rumble host should exist after reinit");
     }
 }
 #endif

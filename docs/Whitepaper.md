@@ -16,6 +16,39 @@ The primary goals behind Cave-Runner are:
 - **Extensibility**: Scriptable objects and modular managers allow new stages, enemies, and power‑ups to be added without code changes.
 - **Analytics driven balance**: A lightweight analytics system feeds the adaptive difficulty manager and provides insight into player behavior.
 
+### 2.1 Design Principles
+Cave-Runner prioritizes short play sessions and quick iteration. The codebase follows a
+"small components" philosophy where each script focuses on a single responsibility.
+Manager classes expose C# events so systems can subscribe and react without tight
+coupling.
+
+Systems rarely reference one another directly. Instead, shared events such as
+`GameManager.OnGameStart` or `StageManager.OnStageComplete` act as the glue
+between modules. This event-driven approach keeps features decoupled so that a
+new manager can plug into the flow with minimal code changes. For example, the
+`AnalyticsManager` only listens for score and death events yet never knows which
+objects report them.
+
+Modifiable data such as stage settings, available enemies, and power-up lists live in
+`ScriptableObject` assets. Keeping this configuration outside of the codebase lets
+designers balance the game or add content without recompiling. Most core managers are
+agnostic to the specific assets; they simply load lists at runtime and react to events
+from other systems.
+
+For instance, `StageDataSO` defines which enemy prefabs can spawn in each stage
+and their relative probabilities. A designer can duplicate an existing asset,
+tweak the values in the Inspector, and immediately test a new encounter mix.
+Because managers consume abstract interfaces, no code changes are required when
+new `ScriptableObject` instances appear in the project.
+
+Most runtime objects are spawned through a shared `ObjectPool` to minimize
+allocation spikes. Pooled objects subscribe to relevant events when enabled and
+unsubscribe when recycled. This pattern keeps performance consistent even as the
+game scales to dozens of simultaneous hazards.
+
+This structure enables quick iteration in Unity while maintaining clean separation
+between logic and content. It also keeps dependencies clear when contributors add new
+features or swap out prefabs.
 ## 3. Gameplay Overview
 Players control an explorer running through a side‑scrolling cave. The goal is to travel as far as possible while avoiding obstacles and hazards. Distance traveled contributes to the score along with coins collected along the way. Progress unlocks new stages with unique backgrounds and enemy combinations. The shop allows coins to be spent on permanent upgrades that extend power‑up durations and award bonus coins.
 
@@ -53,6 +86,32 @@ Cave-Runner supports both keyboard and controller inputs out of the box. Control
 ### 3.5 Scoring and Progression
 Distance traveled and coins collected contribute to the player’s final score. Longer runs unlock additional stages and fill progress bars for achievements. Coin totals persist across sessions and are spent in the shop to purchase upgrades or cosmetic skins.
 
+### 3.6 Enemy Behaviors
+Enemy hazards vary by stage and include:
+- **Bat Swarms** that swoop toward the player's last position. These groups of
+  bats spawn from above and track the player's recent Y coordinate. Ducking or
+  sliding at the last second lets skilled players avoid them. Spawn timing is
+  randomized within a range so players cannot memorize exact patterns.
+- **Rolling Boulders** that bounce along the ground, accelerating slightly after
+  each impact. Their physics-based motion means the spacing between boulders can
+  vary, keeping players on their toes. Later stages introduce larger boulders
+  that require a perfectly timed jump to clear.
+- **Falling Stalactites** triggered when the player passes beneath a ceiling
+  marker. The warning gives a brief moment to react before the hazard drops
+  straight down. Stalactites can be tuned per stage to fall faster or delay
+  longer, allowing gentle or punishing sequences.
+- **Spiked Barriers** that slide into the lane at set intervals. The timing is
+  configurable per stage so barriers can appear in challenging sequences.
+
+Designers adjust each enemy’s parameters through dedicated `ScriptableObject`
+assets. To introduce a custom hazard, derive a new class from `BaseEnemy`,
+implement its movement logic, and create a prefab referencing that script.
+Register the prefab in `HazardSpawner` or assign it to `StageDataSO.enemies` to
+activate it during runs.
+
+Spawn probabilities for each hazard come from the active stage’s data. Designers
+can introduce entirely new enemies by deriving from `BaseEnemy`, creating a new
+prefab, and registering it with `HazardSpawner` or the relevant stage asset.
 ## 4. Technical Architecture
 The project is organized under `Assets/Scripts` with a focus on modularity and reuse. Key components include:
 
@@ -78,6 +137,31 @@ Player progress is serialized to `savegame.json` in `Application.persistentDataP
 
 ### 4.7 Analytics and Adaptive Difficulty
 `AnalyticsManager` logs distance traveled, coins collected, and death causes. Data can optionally be posted to a remote server. `AdaptiveDifficultyManager` queries recent analytics at the start of each run and nudges spawner multipliers up or down to keep players challenged.
+AnalyticsManager stores statistics from the last ten runs and exposes average distance and coin rate. Each entry includes the run length, coins collected, time of death, and cause of death. These snapshots are serialized to `analytics.json` in the persistent data folder and optionally uploaded to a REST endpoint for aggregate metrics.
+
+AdaptiveDifficultyManager compares this rolling average to a configurable target value. If the average exceeds the target, spawn multipliers increase; if it falls short, the multipliers decrease. Adjustments are capped by `minMultiplier` and `maxMultiplier` to avoid wild difficulty swings. The check runs only at the start of a new game to keep mid-run pacing stable.
+
+In pseudocode, the algorithm looks like:
+
+```
+avg = AnalyticsManager.AverageDistance()
+if avg > targetDistance:
+    multiplier += increaseStep
+else if avg < targetDistance:
+    multiplier -= decreaseStep
+multiplier = Clamp(multiplier, minMultiplier, maxMultiplier)
+```
+
+The real implementation applies a smoothing factor so the multiplier only moves
+a quarter of the way toward the new value each run:
+
+```
+newMultiplier = Lerp(previousMultiplier, multiplier, 0.25)
+```
+
+This prevents sudden spikes when a single exceptional run skews the average.
+
+This automatic tuning keeps gameplay challenging without manual tweaking. When analytics are disabled, the manager reverts to default multipliers defined in the stage data.
 
 ### 4.8 Achievements, Leaderboards, and Workshop
 Integration with **Steamworks.NET** enables Steam achievements and cloud saves. `SteamManager` exposes convenience methods to unlock achievements and submit scores to Steam leaderboards. For non-Steam builds, `LeaderboardClient` can post scores to a simple REST service.

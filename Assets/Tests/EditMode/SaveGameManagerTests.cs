@@ -127,4 +127,22 @@ public class SaveGameManagerTests
         Assert.AreEqual("es", save2.Language);
         Object.DestroyImmediate(go2);
     }
+
+    [Test]
+    public void MissingUpgrades_DoesNotThrow()
+    {
+        // Simulate an old save file without the upgrades list to ensure
+        // LoadData handles null gracefully after the recent bug fix.
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        File.WriteAllText(path, "{\"coins\":2,\"highScore\":3}");
+
+        var go = new GameObject("save");
+        var save = go.AddComponent<SaveGameManager>();
+
+        Assert.AreEqual(2, save.Coins);
+        Assert.AreEqual(3, save.HighScore);
+        Assert.AreEqual(0, save.GetUpgradeLevel(UpgradeType.MagnetDuration));
+
+        Object.DestroyImmediate(go);
+    }
 }

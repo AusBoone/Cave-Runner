@@ -7,6 +7,10 @@
 // migrated to maintain backward compatibility. Saving writes to a temporary
 // file first to reduce the chance of corruption if the application quits
 // during a write operation.
+//
+// 2025 bug fix: loading no longer throws when the "upgrades" array is missing
+// from a legacy save file. The loader now checks for null before iterating so
+// older saves continue to load correctly.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -241,11 +245,14 @@ public class SaveGameManager : MonoBehaviour
                     LocalizationManager.SetLanguage(data.language);
                     
                     upgradeLevels.Clear();
-                    foreach (var entry in loaded.upgrades)
+                    if (loaded.upgrades != null)
                     {
-                        if (Enum.TryParse(entry.type, out UpgradeType type))
+                        foreach (var entry in loaded.upgrades)
                         {
-                            upgradeLevels[type] = entry.level;
+                            if (Enum.TryParse(entry.type, out UpgradeType type))
+                            {
+                                upgradeLevels[type] = entry.level;
+                            }
                         }
                     }
                     return;

@@ -11,6 +11,8 @@
 // 2025 bug fix: loading no longer throws when the "upgrades" array is missing
 // from a legacy save file. The loader now checks for null before iterating so
 // older saves continue to load correctly.
+// 2026 update: SaveDataToFile now catches IO exceptions and cleans up temporary
+// files to prevent crashes when the disk is unwritable.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -316,9 +318,27 @@ public class SaveGameManager : MonoBehaviour
         // Write to a temp file first, then replace the original. This guards
         // against partial writes leaving a corrupt save file.
         string tempPath = savePath + ".tmp";
-        File.WriteAllText(tempPath, json);
-        File.Copy(tempPath, savePath, true);
-        File.Delete(tempPath);
+        try
+        {
+            // Writing to a temporary file first reduces the chance of leaving a
+            // partially written save behind if the application closes or an
+            // exception occurs mid-write.
+            File.WriteAllText(tempPath, json);
+            File.Copy(tempPath, savePath, true);
+        }
+        catch (IOException ex)
+        {
+            Debug.LogWarning($"Failed to write save file: {ex.Message}");
+        }
+        finally
+        {
+            // Ensure any temp file is removed regardless of success so future
+            // attempts are not blocked.
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
     }
 
     /// <summary>

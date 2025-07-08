@@ -154,4 +154,47 @@ public class DailyChallengeManagerTests
         public long expires;
         public bool completed;
     }
+
+    /// <summary>
+    /// Progress for distance and coin challenges should be persisted every
+    /// frame so exiting the game does not reset progress.
+    /// </summary>
+    [Test]
+    public void Update_SavesProgressForDistanceAndCoins()
+    {
+        var state = new PrivateChallengeState
+        {
+            type = DailyChallengeManager.ChallengeType.Distance,
+            target = 10,
+            progress = 0,
+            powerUp = DailyChallengeManager.PowerUpType.Magnet,
+            expires = System.DateTime.UtcNow.AddDays(1).Ticks,
+            completed = false
+        };
+        PlayerPrefs.SetString("DailyChallengeData", JsonUtility.ToJson(state));
+
+        var gmObj = new GameObject("gm");
+        var gm = gmObj.AddComponent<GameManager>();
+        gm.StartGame();
+        typeof(GameManager).GetField("distance", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(gm, 4f);
+
+        var dcObj = new GameObject("dc");
+        var dc = dcObj.AddComponent<DailyChallengeManager>();
+
+        dc.Update();
+        var loaded = JsonUtility.FromJson<PrivateChallengeState>(PlayerPrefs.GetString("DailyChallengeData"));
+        Assert.AreEqual(4, loaded.progress, "Distance progress should be saved");
+
+        loaded.type = DailyChallengeManager.ChallengeType.Coins;
+        loaded.progress = 0;
+        PlayerPrefs.SetString("DailyChallengeData", JsonUtility.ToJson(loaded));
+        typeof(GameManager).GetField("coins", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(gm, 3);
+        dc.Update();
+
+        loaded = JsonUtility.FromJson<PrivateChallengeState>(PlayerPrefs.GetString("DailyChallengeData"));
+        Assert.AreEqual(3, loaded.progress, "Coin progress should be saved");
+
+        Object.DestroyImmediate(dcObj);
+        Object.DestroyImmediate(gmObj);
+    }
 }

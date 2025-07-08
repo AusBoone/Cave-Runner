@@ -13,6 +13,8 @@ using System.Collections;
 /// can also be queried through <see cref="GetHorizontal"/>. If the package is not
 /// present the manager falls back to legacy <see cref="KeyCode"/> queries.
 /// Key bindings are saved to <see cref="PlayerPrefs"/>.
+/// 2026 fix: static constructor now reuses an existing RumbleHost object so
+/// domain reloads in the Unity editor do not accumulate hidden hosts.
 /// </summary>
 public static class InputManager
 {
@@ -106,12 +108,26 @@ public static class InputManager
         // Load rumble preference (enabled by default).
         RumbleEnabled = PlayerPrefs.GetInt(RumblePref, 1) == 1;
 #if ENABLE_INPUT_SYSTEM
-        // Create a hidden object for coroutine execution so rumble can
-        // run without requiring a separate manager component.
-        var hostObj = new GameObject("InputManagerRumbleHost");
-        hostObj.hideFlags = HideFlags.HideAndDontSave;
-        Object.DontDestroyOnLoad(hostObj);
-        rumbleHost = hostObj.AddComponent<RumbleHost>();
+        // Locate an existing host object when scripts reload in the editor so
+        // duplicates are not created during domain reloads.
+        var existing = GameObject.Find("InputManagerRumbleHost");
+        if (existing != null)
+        {
+            rumbleHost = existing.GetComponent<RumbleHost>();
+            if (rumbleHost == null)
+            {
+                rumbleHost = existing.AddComponent<RumbleHost>();
+            }
+        }
+        else
+        {
+            // Create a hidden object for coroutine execution so rumble can run
+            // without requiring a separate manager component.
+            var hostObj = new GameObject("InputManagerRumbleHost");
+            hostObj.hideFlags = HideFlags.HideAndDontSave;
+            Object.DontDestroyOnLoad(hostObj);
+            rumbleHost = hostObj.AddComponent<RumbleHost>();
+        }
         // Setup actions so either keyboard or various gamepads can trigger them.
         jumpAction = new InputAction("Jump", InputActionType.Button);
         jumpAction.AddBinding(PlayerPrefs.GetString(JumpBindingPref, "<Keyboard>/space"));
@@ -657,6 +673,14 @@ public static class InputManager
     }
 
     // Lightweight MonoBehaviour used solely to run coroutines for rumble.
-    private class RumbleHost : MonoBehaviour {}
+    private class RumbleHost : MonoBehaviour
+    {
+        // Destroy the host when the application quits so a fresh instance is
+        // created on the next domain reload instead of accumulating objects.
+        void OnApplicationQuit()
+        {
+            Destroy(gameObject);
+        }
+    }
 #endif
 }

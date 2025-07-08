@@ -4,6 +4,8 @@ using UnityEngine;
 /// Component placed on the player that can temporarily attract nearby
 /// coins. When activated, all coins inside <see cref="magnetRadius"/>
 /// will move toward the player for the given duration.
+/// 2026 update: Awake now validates the collider buffer size to avoid
+/// zero-length arrays when the value is misconfigured in the inspector.
 /// </summary>
 public class CoinMagnet : MonoBehaviour
 {
@@ -25,6 +27,7 @@ public class CoinMagnet : MonoBehaviour
     /// <summary>
     /// How many colliders can be detected each frame.
     /// </summary>
+    [Tooltip("Number of colliders checked each frame. Value must be at least 1.")]
     [SerializeField]
     private int colliderBufferSize = 10;
     // Preallocated buffer to store detected colliders.
@@ -38,6 +41,11 @@ public class CoinMagnet : MonoBehaviour
     /// </summary>
     void Awake()
     {
+        if (colliderBufferSize <= 0)
+        {
+            Debug.LogWarning("colliderBufferSize must be positive. Defaulting to 1.", this);
+            colliderBufferSize = 1;
+        }
         _colliderBuffer = new Collider2D[colliderBufferSize];
     }
 

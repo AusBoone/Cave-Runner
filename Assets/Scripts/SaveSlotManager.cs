@@ -2,6 +2,14 @@ using System;
 using System.IO;
 using UnityEngine;
 
+// -----------------------------------------------------------------------------
+// SaveSlotManager
+// -----------------------------------------------------------------------------
+// Static helper used by SaveGameManager to determine where save files are
+// stored. Each slot corresponds to its own directory under the application's
+// persistent data path. The active slot index is persisted using PlayerPrefs so
+// profiles remain consistent across sessions.
+// -----------------------------------------------------------------------------
 /// <summary>
 /// Manages the currently selected save slot. Each slot stores game data in a
 /// separate folder under <see cref="Application.persistentDataPath"/> so multiple
@@ -42,7 +50,8 @@ public static class SaveSlotManager
 
     /// <summary>
     /// Returns a path inside the current slot's directory for the given file
-    /// name. The directory is created if it does not already exist.
+    /// name. The directory is created if it does not already exist. Callers are
+    /// expected to provide only a file name, not a full or relative path.
     /// </summary>
     public static string GetPath(string fileName)
     {

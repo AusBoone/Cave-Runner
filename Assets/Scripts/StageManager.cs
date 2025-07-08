@@ -100,6 +100,25 @@ public class StageManager : MonoBehaviour
     [Tooltip("Ordered list of data for each stage.")]
     public StageDataSO[] stages;
 
+    // List of addressable handles currently loaded so they can be released
+    // when the stage changes. Helps prevent memory leaks from dangling assets.
+    private readonly System.Collections.Generic.List<AsyncOperationHandle> loadedHandles =
+        new System.Collections.Generic.List<AsyncOperationHandle>();
+
+    // Releases all loaded addressable assets and clears the handle list. Called
+    // before loading a new stage and when this component is destroyed.
+    private void ReleaseLoadedAssets()
+    {
+        foreach (var handle in loadedHandles)
+        {
+            if (handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
+        }
+        loadedHandles.Clear();
+    }
+
     void Awake()
     {
         // Subscribe to stage unlock notifications from the GameManager.
@@ -130,6 +149,7 @@ public class StageManager : MonoBehaviour
         {
             GameManager.Instance.OnStageUnlocked -= ApplyStage;
         }
+        ReleaseLoadedAssets();
     }
 
     /// <summary>
@@ -143,6 +163,8 @@ public class StageManager : MonoBehaviour
         {
             StopCoroutine(loadRoutine);
         }
+        // Release assets from the previous stage before loading new ones.
+        ReleaseLoadedAssets();
         loadRoutine = StartCoroutine(LoadStageRoutine(stageIndex));
     }
 
@@ -173,12 +195,12 @@ public class StageManager : MonoBehaviour
             data.backgroundSprite.RuntimeKeyIsValid())
         {
             AsyncOperationHandle<Sprite> bgHandle = data.backgroundSprite.LoadAssetAsync<Sprite>();
+            loadedHandles.Add(bgHandle);
             yield return bgHandle;
             if (bgHandle.Status == AsyncOperationStatus.Succeeded)
             {
                 bgSprite = bgHandle.Result;
             }
-            Addressables.Release(bgHandle);
         }
 
         if (parallaxBackground != null && bgSprite != null)
@@ -245,7 +267,8 @@ public class StageManager : MonoBehaviour
     }
 
     // Utility coroutine to load a set of GameObject references via Addressables
-    // and invoke a callback with the resulting array.
+    // and invoke a callback with the resulting array. Handles are tracked so
+    // assets can be released when the stage changes.
     private IEnumerator LoadPrefabs(AssetReferenceGameObject[] refs, System.Action<GameObject[]> setter)
     {
         if (refs == null || refs.Length == 0)
@@ -260,12 +283,12 @@ public class StageManager : MonoBehaviour
             if (r == null || !r.RuntimeKeyIsValid())
                 continue;
             AsyncOperationHandle<GameObject> handle = r.LoadAssetAsync();
+            loadedHandles.Add(handle);
             yield return handle;
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
                 list.Add(handle.Result);
             }
-            Addressables.Release(handle);
         }
         setter?.Invoke(list.ToArray());
     }

@@ -321,6 +321,11 @@ public class PlayerController : MonoBehaviour
     void ApplyEnhancedGravity(float deltaTime, bool fastFall)
     {
         Vector2 gravity = Physics2D.gravity;
+        // Avoid NaN results when gravity is effectively zero by skipping
+        // enhanced calculations in that rare case.
+        if (gravity.sqrMagnitude < 0.0001f)
+            return;
+
         Vector2 gravityDir = gravity.normalized;
         float velAlongGravity = Vector2.Dot(rb.velocity, gravityDir);
 

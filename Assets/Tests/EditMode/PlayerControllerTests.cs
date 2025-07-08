@@ -182,6 +182,29 @@ public class PlayerControllerTests
         Object.DestroyImmediate(player);
     }
 
+    [Test]
+    public void EnhancedGravity_IgnoresZeroGravity()
+    {
+        // Physics2D.gravity.normalized returns NaN when gravity is zero. The
+        // method should early out to avoid corrupting the velocity vector.
+        var player = new GameObject("player");
+        var rb = player.AddComponent<Rigidbody2D>();
+        player.AddComponent<CapsuleCollider2D>();
+        var pc = player.AddComponent<PlayerController>();
+
+        rb.velocity = new Vector2(0f, 1f);
+        Physics2D.gravity = Vector2.zero;
+
+        typeof(PlayerController)
+            .GetMethod("ApplyEnhancedGravity", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, new object[] { 0.1f, false });
+
+        Assert.AreEqual(1f, rb.velocity.y, 0.001f, "Velocity should remain unchanged when gravity is zero");
+
+        Physics2D.gravity = new Vector2(0f, -9.81f);
+        Object.DestroyImmediate(player);
+    }
+
 #if ENABLE_INPUT_SYSTEM
     [Test]
     public void AttemptJump_TriggersRumble()

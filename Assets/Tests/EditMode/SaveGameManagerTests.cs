@@ -13,7 +13,15 @@ public class SaveGameManagerTests
     {
         // Ensure a clean file and PlayerPrefs state before each test
         PlayerPrefs.DeleteAll();
-        File.Delete(Path.Combine(Application.persistentDataPath, "savegame.json"));
+        for (int i = 0; i < SaveSlotManager.MaxSlots; i++)
+        {
+            string path = SaveSlotManager.GetPath("savegame.json").Replace($"slot_{SaveSlotManager.CurrentSlot}", $"slot_{i}");
+            if (File.Exists(path))
+                File.Delete(path);
+            string dir = Path.GetDirectoryName(path);
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
     }
 
     [Test]
@@ -144,5 +152,26 @@ public class SaveGameManagerTests
         Assert.AreEqual(0, save.GetUpgradeLevel(UpgradeType.MagnetDuration));
 
         Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void ChangeSlot_SwitchesSavePath()
+    {
+        // Write data to the initial slot then change to a new slot and verify
+        // values persist separately.
+        SaveSlotManager.SetSlot(0);
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SaveGameManager>();
+        mgr.Coins = 2;
+        mgr.ChangeSlot(1);
+        mgr.Coins = 5;
+        Object.DestroyImmediate(obj);
+
+        var obj2 = new GameObject("save2");
+        var mgr2 = obj2.AddComponent<SaveGameManager>();
+        Assert.AreEqual(5, mgr2.Coins, "Slot 1 should contain updated value");
+        mgr2.ChangeSlot(0);
+        Assert.AreEqual(2, mgr2.Coins, "Slot 0 should retain original value");
+        Object.DestroyImmediate(obj2);
     }
 }

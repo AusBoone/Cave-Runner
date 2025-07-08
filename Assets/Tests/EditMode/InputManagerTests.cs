@@ -72,5 +72,27 @@ public class InputManagerTests
         Assert.IsNotNull(field.GetValue(null), "TriggerRumble should start a coroutine when a gamepad is present");
         InputSystem.RemoveDevice(gamepad);
     }
+
+    /// <summary>
+    /// Rumble should end even when Time.timeScale is zero. WaitForSecondsRealtime
+    /// ensures the coroutine finishes while the game is paused.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator TriggerRumble_StopsWhilePaused()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        Time.timeScale = 0f;
+        InputManager.TriggerRumble(0.5f, 0.01f);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        while (field.GetValue(null) != null)
+            yield return null;
+
+        Assert.IsNull(field.GetValue(null), "Coroutine should complete even when paused");
+        Time.timeScale = 1f;
+        InputSystem.RemoveDevice(gamepad);
+    }
 }
 #endif

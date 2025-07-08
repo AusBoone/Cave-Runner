@@ -639,6 +639,9 @@ public static class InputManager
         if (rumbleRoutine != null)
             rumbleHost.StopCoroutine(rumbleRoutine);
 
+        // Begin the rumble coroutine which automatically resets after the
+        // specified realtime duration. If another rumble is already active it
+        // is stopped first to avoid overlapping motor control.
         rumbleRoutine = rumbleHost.StartCoroutine(RumbleRoutine(strength, duration));
     }
 
@@ -646,8 +649,11 @@ public static class InputManager
     private static IEnumerator RumbleRoutine(float strength, float duration)
     {
         Gamepad.current.SetMotorSpeeds(strength, strength);
-        yield return new WaitForSeconds(duration);
+        // Wait in realtime so pausing the game doesn't prolong vibration.
+        yield return new WaitForSecondsRealtime(duration);
         Gamepad.current.SetMotorSpeeds(0f, 0f);
+        // Mark the routine as finished so another rumble can start.
+        rumbleRoutine = null;
     }
 
     // Lightweight MonoBehaviour used solely to run coroutines for rumble.

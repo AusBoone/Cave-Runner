@@ -320,4 +320,25 @@ public class SaveGameManager : MonoBehaviour
         File.Copy(tempPath, savePath, true);
         File.Delete(tempPath);
     }
+
+    /// <summary>
+    /// Switches to a different save slot at runtime. The current data is
+    /// written to disk before swapping directories and reloading from the new
+    /// slot. Throws when an invalid index is provided.
+    /// </summary>
+    /// <param name="slot">Index of the slot to activate.</param>
+    public void ChangeSlot(int slot)
+    {
+        if (slot < 0 || slot >= SaveSlotManager.MaxSlots)
+            throw new ArgumentOutOfRangeException(nameof(slot), "Invalid save slot index");
+
+        if (slot == SaveSlotManager.CurrentSlot)
+            return; // already using this slot
+
+        // Persist current state before redirecting file paths.
+        SaveDataToFile();
+        SaveSlotManager.SetSlot(slot);
+        savePath = SaveSlotManager.GetPath("savegame.json");
+        LoadData();
+    }
 }

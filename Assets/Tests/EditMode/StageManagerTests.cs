@@ -167,6 +167,45 @@ public class StageManagerTests
         Object.DestroyImmediate(smObj);
     }
 
+    /// <summary>
+    /// Applying a new stage should release addressable handles from the
+    /// previous stage to prevent memory leaks.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ApplyStage_ReleasesOldHandles()
+    {
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.parallaxBackground = new GameObject("bg").AddComponent<ParallaxBackground>();
+        sm.obstacleSpawner = smObj.AddComponent<ObstacleSpawner>();
+        sm.hazardSpawner = smObj.AddComponent<HazardSpawner>();
+
+        var first = ScriptableObject.CreateInstance<StageDataSO>();
+        first.stage = new StageManager.StageData { backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000003") };
+        var second = ScriptableObject.CreateInstance<StageDataSO>();
+        second.stage = new StageManager.StageData { backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000004") };
+        sm.stages = new[] { first, second };
+
+        sm.ApplyStage(0);
+        FieldInfo routineField = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        FieldInfo handlesField = typeof(StageManager).GetField("loadedHandles", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (routineField.GetValue(sm) != null)
+            yield return null;
+        var handles = (System.Collections.Generic.List<AsyncOperationHandle>)handlesField.GetValue(sm);
+        AsyncOperationHandle oldHandle = handles.Count > 0 ? handles[0] : default;
+
+        sm.ApplyStage(1);
+        while (routineField.GetValue(sm) != null)
+            yield return null;
+        handles = (System.Collections.Generic.List<AsyncOperationHandle>)handlesField.GetValue(sm);
+        Assert.IsFalse(oldHandle.IsValid(), "Old handles should be released");
+        Assert.AreEqual(1, handles.Count, "Handle list should reflect only current stage");
+
+        Object.DestroyImmediate(smObj);
+        Object.DestroyImmediate(first);
+        Object.DestroyImmediate(second);
+    }
+
     [Test]
     public void Awake_RegistersSpawnersWithAdaptiveManager()
     {

@@ -1,9 +1,12 @@
-// CoinBonusIndicator.cs
-// -----------------------------------------------------------------------------
-// UI component that displays the remaining duration of the coin bonus effect
-// on screen. The text element is hidden whenever no bonus is active. Designed
-// to be attached to a UI GameObject with a Text child.
-// -----------------------------------------------------------------------------
+/*
+ * CoinBonusIndicator.cs
+ * -----------------------------------------------------------------------------
+ * UI helper that displays the remaining duration of the coin bonus effect on
+ * screen. When the bonus is inactive the label's GameObject is disabled so it
+ * does not occupy layout space. Attach this script to a UI GameObject that has
+ * a child Text component assigned to 'timerLabel'.
+ * -----------------------------------------------------------------------------
+ */
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,8 +18,17 @@ using UnityEngine.UI;
 public class CoinBonusIndicator : MonoBehaviour
 {
     [Tooltip("UI text displaying multiplier and remaining seconds.")]
+    /// <summary>
+    /// Label that shows the current multiplier and seconds left. When the
+    /// bonus expires this GameObject is disabled to collapse its layout.
+    /// </summary>
     public Text timerLabel;
 
+    /// <summary>
+    /// Refreshes the bonus timer display each frame and hides the label when
+    /// no bonus is active. The UI is enabled or disabled rather than merely
+    /// clearing the text so layout elements collapse cleanly.
+    /// </summary>
     void Update()
     {
         if (timerLabel == null) return;

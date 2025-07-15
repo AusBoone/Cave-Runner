@@ -1,6 +1,6 @@
 # Cave-Runner
 
-A 2D endless runner built with Unity. This repository contains basic scripts for a Jetpack Joyride–style game with jumping and sliding mechanics.
+A 2D endless runner built with Unity. This repository contains basic scripts for a Jetpack Joyride–style game with jumping and sliding mechanics. For an in-depth discussion of design decisions, see [`docs/Whitepaper.md`](docs/Whitepaper.md).
 
 Additional documentation describing gameplay systems lives in the [`docs`](docs/) folder.
 Key files include:
@@ -10,6 +10,8 @@ Key files include:
 - **Testing.md** – running the included edit mode tests.
 - **GraphicsSettings.md** – recommended quality and resolution options.
 - **AdaptiveDifficulty.md** – overview of the adaptive difficulty system.
+- **Whitepaper.md** – in-depth design paper analyzing the event-driven
+  architecture, spawn algorithms, and proposed areas of future research.
 
 ## Getting Started
 1. Install **Unity 2022.3 LTS** or newer using Unity Hub.

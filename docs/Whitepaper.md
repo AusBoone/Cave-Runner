@@ -1,9 +1,14 @@
 # Cave-Runner Whitepaper
 
-## 1. Introduction
-Cave-Runner is a 2D endless runner game built with **Unity 2022.3 LTS**. The project aims to provide a polished Jetpack Joyride–style experience with responsive controls, rich power-ups, and cross‑platform support. The repository contains C# scripts, basic project settings, and a suite of unit tests that can be imported into a new Unity project.
+## Abstract
+Cave-Runner is a cross-platform 2D endless runner developed with **Unity 2022.3 LTS**. This paper presents a formal analysis of the project's event-driven design, object pooling strategies, and analytics-based difficulty tuning. It documents the iterative methodology used to prototype each subsystem with automated EditMode tests and highlights lessons learned when optimizing for mobile and desktop performance. The goal is to provide a reference for developers and researchers exploring modular game architectures within Unity.
 
-This whitepaper summarizes the design goals, gameplay systems, technical architecture, and future directions for Cave-Runner. It consolidates information from the README and documentation folder, offering a single reference for developers and stakeholders. **The whitepaper is informational only** – features may evolve over time and nothing here constitutes a binding roadmap or guarantee of future releases. The game targets Windows, macOS, Linux, iOS, and Android, though platform availability ultimately depends on build resources and publishing constraints.
+## 1. Introduction
+Cave-Runner demonstrates a polished Jetpack Joyride–style experience with responsive controls, rich power-ups, and cross‑platform support. The repository packages C# scripts, minimal project settings, and a suite of unit tests that can be imported into a new Unity project. While not intended as a commercial product, the project serves as a reference implementation for exploring endless runner mechanics and extensible content pipelines.
+
+The remainder of this whitepaper is organized as follows. Section 2 outlines the project goals and guiding design principles. Section 3 explains the gameplay loop and core mechanics. Section 4 dives into the technical architecture with a focus on modular managers, object pooling, and data-driven configuration. Section 5 describes the testing methodology and continuous integration workflow. Section 6 discusses extensibility, Section 7 highlights potential avenues for future study, and Section 9 concludes the document.
+
+This paper consolidates the project's design goals, gameplay systems, technical architecture, and proposed research directions. It also draws on information from the README and documentation folder, offering a single reference for developers and stakeholders. **The whitepaper is informational only** – features may evolve over time and nothing here constitutes a binding roadmap or guarantee of future releases. The game targets Windows, macOS, Linux, iOS, and Android, though platform availability ultimately depends on build resources and publishing constraints.
 
 This document does not supersede the repository's license or changelog. It is intended purely for planning and discussion. Contributors should consult the issue tracker for up-to-date priorities and the [`LICENSE`](../LICENSE) file for usage terms.
 
@@ -207,6 +212,6 @@ Potential enhancements include:
 The project is released under a proprietary license. See [`LICENSE`](../LICENSE) for details. Redistribution or modification without permission is prohibited.
 
 ## 9. Conclusion
-Cave-Runner demonstrates how a tightly scoped endless runner can be built in Unity with extensible systems for movement, spawning, power‑ups, and progression. The codebase balances simplicity with flexibility so designers can iterate quickly while keeping performance in mind. We welcome contributions that add creative stages, enemies, and polish while preserving the responsive feel that defines Cave-Runner.
-Further documentation in the [`docs`](.) directory provides deeper dives into movement tuning, adaptive difficulty, stage configuration, graphics recommendations, and testing procedures. Reading those files alongside this whitepaper will help new contributors ramp up quickly and understand the project’s design philosophy.
+This study demonstrates the viability of constructing a tightly scoped endless runner in Unity while preserving modularity through event-driven systems and data-driven configuration. The codebase balances simplicity with flexibility so designers can iterate quickly without sacrificing performance. Community contributions are encouraged, particularly those that explore new stage layouts, enemy types, or power-up mechanics while maintaining the responsive feel that defines Cave-Runner.
+Further documentation in the [`docs`](.) directory provides deeper dives into movement tuning, adaptive difficulty, stage configuration, graphics recommendations, and testing procedures. Reviewing those files in tandem with this whitepaper will help new contributors ramp up quickly and appreciate the project’s architectural rationale.
 

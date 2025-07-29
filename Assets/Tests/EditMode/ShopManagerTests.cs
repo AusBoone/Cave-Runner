@@ -8,6 +8,17 @@ using System.Collections.Generic;
 /// </summary>
 public class ShopManagerTests
 {
+    // Local spy used to verify the number of times SaveGameManager writes data
+    // during SaveState calls.
+    private class SaveGameManagerSpy : SaveGameManager
+    {
+        public int Calls { get; private set; }
+        protected override void SaveDataToFile()
+        {
+            Calls++;
+            base.SaveDataToFile();
+        }
+    }
     [Test]
     public void AddCoins_PersistsTotal()
     {
@@ -206,6 +217,45 @@ public class ShopManagerTests
         Object.DestroyImmediate(powerObj);
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
+    }
+
+    /// <summary>
+    /// Saving multiple upgrades should result in only a single disk write from
+    /// <see cref="SaveGameManager.UpdateUpgradeLevels"/> instead of one per
+    /// upgrade entry.
+    /// </summary>
+    [Test]
+    public void SaveState_BatchesUpgradeWrites()
+    {
+        System.IO.File.Delete(System.IO.Path.Combine(
+            Application.persistentDataPath, "savegame.json"));
+
+        var saveObj = new GameObject("save");
+        var save = saveObj.AddComponent<SaveGameManagerSpy>();
+
+        var go = new GameObject("shop");
+        var sm = go.AddComponent<ShopManager>();
+        sm.availableUpgrades = new[]
+        {
+            new ShopManager.UpgradeData { type = UpgradeType.MagnetDuration, cost = 1, effect = 0 },
+            new ShopManager.UpgradeData { type = UpgradeType.SpeedBoostDuration, cost = 1, effect = 0 }
+        };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(sm, null);
+
+        // Simulate purchase by directly modifying the upgrade dictionary
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (Dictionary<UpgradeType, int>)dictField.GetValue(sm);
+        levels[UpgradeType.MagnetDuration] = 1;
+        levels[UpgradeType.SpeedBoostDuration] = 2;
+
+        typeof(ShopManager).GetMethod("SaveState", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(sm, null);
+
+        Assert.AreEqual(2, save.Calls); // one for coins, one for upgrades
+
+        Object.DestroyImmediate(go);
         Object.DestroyImmediate(saveObj);
     }
 }

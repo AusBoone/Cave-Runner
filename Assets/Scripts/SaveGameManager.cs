@@ -201,6 +201,26 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Updates multiple upgrade levels in a single operation. The provided
+    /// dictionary may contain any subset of <see cref="UpgradeType"/> values.
+    /// A single file write occurs after all levels are updated.
+    /// </summary>
+    /// <param name="levels">Mapping of upgrade types to their desired levels.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="levels"/> is null.</exception>
+    public void UpdateUpgradeLevels(Dictionary<UpgradeType, int> levels)
+    {
+        if (levels == null)
+            throw new ArgumentNullException(nameof(levels));
+
+        foreach (var kvp in levels)
+        {
+            upgradeLevels[kvp.Key] = Mathf.Max(0, kvp.Value);
+        }
+
+        SaveDataToFile();
+    }
+
+    /// <summary>
     /// Reads existing save data from disk or migrates old PlayerPrefs data when
     /// the save file does not yet exist.
     /// </summary>
@@ -298,7 +318,12 @@ public class SaveGameManager : MonoBehaviour
     /// file is used so the existing save is not corrupted if the application
     /// closes mid-write.
     /// </summary>
-    private void SaveDataToFile()
+    /// <summary>
+    /// Writes the current <see cref="SaveData"/> instance to disk. Marked as
+    /// protected so tests can override the method and record how many times a
+    /// save occurs without duplicating the serialization logic.
+    /// </summary>
+    protected virtual void SaveDataToFile()
     {
         data.version = CurrentVersion;
         data.musicVolume = Mathf.Clamp01(data.musicVolume);

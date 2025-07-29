@@ -138,9 +138,10 @@ public class ShopManager : MonoBehaviour
         if (save == null) return;
 
         save.Coins = Coins;
-        foreach (var kvp in upgradeLevels)
-        {
-            save.SetUpgradeLevel(kvp.Key, kvp.Value);
-        }
+
+        // Batch update all upgrade levels to minimise file writes. The
+        // individual setter triggers a disk write each call which scales
+        // poorly with many upgrades.
+        save.UpdateUpgradeLevels(new Dictionary<UpgradeType, int>(upgradeLevels));
     }
 }

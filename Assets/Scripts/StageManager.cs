@@ -107,6 +107,12 @@ public class StageManager : MonoBehaviour
     private readonly System.Collections.Generic.List<AsyncOperationHandle> loadedHandles =
         new System.Collections.Generic.List<AsyncOperationHandle>();
 
+    // Stores the gravity value present when this component awakens so it can be
+    // restored if the object is destroyed. Stage data may scale gravity for
+    // variety and forgetting to revert it would affect other scenes and the
+    // editor.
+    private Vector2 defaultGravity;
+
     // Releases all loaded addressable assets and clears the handle list. Called
     // before loading a new stage and when this component is destroyed.
     private void ReleaseLoadedAssets()
@@ -123,6 +129,11 @@ public class StageManager : MonoBehaviour
 
     void Awake()
     {
+        // Record the starting gravity so it can be restored when this manager
+        // is destroyed. Stage modifiers may adjust gravity and leaving the
+        // scaled value active would affect future scenes and the editor.
+        defaultGravity = Physics2D.gravity;
+
         // Subscribe to stage unlock notifications from the GameManager.
         if (GameManager.Instance != null)
         {
@@ -152,6 +163,10 @@ public class StageManager : MonoBehaviour
             GameManager.Instance.OnStageUnlocked -= ApplyStage;
         }
         ReleaseLoadedAssets();
+
+        // Restore the default gravity so other scenes are not affected by the
+        // stage's custom value.
+        Physics2D.gravity = defaultGravity;
     }
 
     /// <summary>

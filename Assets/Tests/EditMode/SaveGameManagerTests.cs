@@ -198,4 +198,38 @@ public class SaveGameManagerTests
 
         Object.DestroyImmediate(obj);
     }
+
+    // Spy subclass used to count save operations
+    private class SaveGameManagerSpy : SaveGameManager
+    {
+        public int Calls { get; private set; }
+        protected override void SaveDataToFile()
+        {
+            Calls++;
+            base.SaveDataToFile();
+        }
+    }
+
+    /// <summary>
+    /// Updating multiple upgrade levels should result in a single save to disk
+    /// regardless of how many entries are modified.
+    /// </summary>
+    [Test]
+    public void UpdateUpgradeLevels_BatchesWrites()
+    {
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SaveGameManagerSpy>();
+
+        var dict = new Dictionary<UpgradeType, int>
+        {
+            { UpgradeType.MagnetDuration, 1 },
+            { UpgradeType.SpeedBoostDuration, 2 }
+        };
+
+        mgr.UpdateUpgradeLevels(dict);
+
+        Assert.AreEqual(1, mgr.Calls);
+
+        Object.DestroyImmediate(obj);
+    }
 }

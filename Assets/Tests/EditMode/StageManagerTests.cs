@@ -259,5 +259,41 @@ public class StageManagerTests
 
         Object.DestroyImmediate(smObj);
     }
+
+    /// <summary>
+    /// Destroying the manager should reset any gravity modifications so later
+    /// scenes start with the default physics settings.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator OnDestroy_RestoresGravity()
+    {
+        // Record the engine's default gravity prior to creating the manager.
+        Vector2 startGravity = Physics2D.gravity;
+
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.parallaxBackground = new GameObject("bg").AddComponent<ParallaxBackground>();
+        sm.obstacleSpawner = smObj.AddComponent<ObstacleSpawner>();
+        sm.hazardSpawner = smObj.AddComponent<HazardSpawner>();
+
+        var stage = ScriptableObject.CreateInstance<StageDataSO>();
+        stage.stage = new StageManager.StageData
+        {
+            backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000005"),
+            groundObstacles = new AssetReferenceGameObject[0],
+            gravityScale = 0.5f
+        };
+        sm.stages = new[] { stage };
+
+        sm.ApplyStage(0);
+        FieldInfo routineField = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (routineField.GetValue(sm) != null)
+            yield return null;
+
+        Object.DestroyImmediate(smObj);
+        Assert.AreEqual(startGravity.y, Physics2D.gravity.y, 0.001f);
+
+        Object.DestroyImmediate(stage);
+    }
 }
 

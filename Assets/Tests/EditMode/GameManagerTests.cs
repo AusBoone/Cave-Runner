@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
+using System;
 using System.Reflection;
 
 /// <summary>
@@ -40,6 +41,36 @@ public class GameManagerTests
         gm.ActivateSpeedBoost(1f, 2f); // double the speed for one second
         // Verify the multiplier applied immediately
         Assert.AreEqual(baseSpeed * 2f, gm.GetSpeed());
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Ensure ActivateSpeedBoost validates its duration argument and rejects
+    /// zero or negative values to prevent unintended permanent boosts.
+    /// </summary>
+    [Test]
+    public void ActivateSpeedBoost_RejectsNonPositiveDuration()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+
+        // Expect an ArgumentException when duration is zero.
+        Assert.Throws<ArgumentException>(() => gm.ActivateSpeedBoost(0f, 1f));
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Ensure ActivateSpeedBoost validates its multiplier argument and rejects
+    /// zero or negative values to avoid stalling or reversing movement.
+    /// </summary>
+    [Test]
+    public void ActivateSpeedBoost_RejectsNonPositiveMultiplier()
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+
+        // Expect an ArgumentOutOfRangeException when multiplier is zero.
+        Assert.Throws<ArgumentOutOfRangeException>(() => gm.ActivateSpeedBoost(1f, 0f));
         Object.DestroyImmediate(go);
     }
 

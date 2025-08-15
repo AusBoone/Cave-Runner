@@ -9,9 +9,9 @@ using UnityEngine;
 /// </summary>
 /// <remarks>
 /// Updated to include explicit null checks before inspecting obstacle arrays
-/// in <see cref="Start"/>. This prevents <see cref="System.NullReferenceException"/>
-/// when obstacle collections are left unassigned in the Unity inspector or
-/// reset at runtime.
+/// in both <see cref="Start"/> and <see cref="Spawn"/>. This prevents
+/// <see cref="System.NullReferenceException"/> when obstacle collections are
+/// left unassigned in the Unity inspector or reset at runtime.
 /// </remarks>
 public class ObstacleSpawner : MonoBehaviour
 {
@@ -141,37 +141,53 @@ public class ObstacleSpawner : MonoBehaviour
 
     /// <summary>
     /// Spawns either a ground or ceiling obstacle at the configured
-    /// location using pooling when possible.
+    /// location using pooling when possible. Each obstacle array is
+    /// checked for null before accessing its length to guard against
+    /// unassigned references.
     /// </summary>
     void Spawn()
     {
+        // Lists accumulate eligible prefab arrays, their spawn heights and
+        // selection weights. Only non-null arrays with at least one element
+        // are considered valid.
         var prefabsList = new System.Collections.Generic.List<GameObject[]>();
         var yList = new System.Collections.Generic.List<float>();
         var chanceList = new System.Collections.Generic.List<float>();
-        if (groundObstacles.Length > 0 && groundChance > 0f)
+
+        // Ground obstacles: verify array exists before checking length to
+        // avoid NullReferenceException when groundObstacles is unassigned.
+        if (groundObstacles != null && groundObstacles.Length > 0 && groundChance > 0f)
         {
             prefabsList.Add(groundObstacles);
             yList.Add(groundY);
             chanceList.Add(groundChance);
         }
-        if (ceilingObstacles.Length > 0 && ceilingChance > 0f)
+
+        // Ceiling obstacles: same defensive null check pattern as above.
+        if (ceilingObstacles != null && ceilingObstacles.Length > 0 && ceilingChance > 0f)
         {
             prefabsList.Add(ceilingObstacles);
             yList.Add(ceilingY);
             chanceList.Add(ceilingChance);
         }
-        if (movingPlatforms.Length > 0 && platformChance > 0f)
+
+        // Moving platforms: ensure the array was provided before use.
+        if (movingPlatforms != null && movingPlatforms.Length > 0 && platformChance > 0f)
         {
             prefabsList.Add(movingPlatforms);
             yList.Add(middleY);
             chanceList.Add(platformChance);
         }
-        if (rotatingHazards.Length > 0 && rotatingChance > 0f)
+
+        // Rotating hazards: null check protects against missing assignments.
+        if (rotatingHazards != null && rotatingHazards.Length > 0 && rotatingChance > 0f)
         {
             prefabsList.Add(rotatingHazards);
             yList.Add(middleY);
             chanceList.Add(rotatingChance);
         }
+
+        // If no eligible arrays were found, do not attempt to spawn anything.
         if (prefabsList.Count == 0) return;
 
         float total = 0f;

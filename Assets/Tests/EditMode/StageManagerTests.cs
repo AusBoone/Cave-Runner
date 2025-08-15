@@ -295,5 +295,52 @@ public class StageManagerTests
 
         Object.DestroyImmediate(stage);
     }
+
+    /// <summary>
+    /// Applying a stage should scale only the vertical component of gravity
+    /// while leaving the horizontal component untouched. Games may set a
+    /// sideways force (e.g., wind) using Physics2D.gravity.x; losing that value
+    /// when stages modify gravity would lead to inconsistent gameplay.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ApplyStage_PreservesHorizontalGravity()
+    {
+        // Capture the engine's original gravity so it can be restored after the
+        // test to avoid contaminating other tests.
+        Vector2 originalGravity = Physics2D.gravity;
+
+        // Introduce a horizontal gravity component to verify it persists after
+        // stage application. The Y value is left at the engine default.
+        Physics2D.gravity = new Vector2(1f, originalGravity.y);
+
+        // Create a minimal StageManager with a single stage that doubles the
+        // gravity scale. No spawners or backgrounds are required for this check.
+        var stageManagerObject = new GameObject("stageManager");
+        var stageManager = stageManagerObject.AddComponent<StageManager>();
+        var stageAsset = ScriptableObject.CreateInstance<StageDataSO>();
+        stageAsset.stage = new StageManager.StageData { gravityScale = 2f };
+        stageManager.stages = new[] { stageAsset };
+
+        stageManager.ApplyStage(0);
+
+        // Wait for the asynchronous stage load to complete so gravity updates
+        // can be evaluated.
+        FieldInfo routineField = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (routineField.GetValue(stageManager) != null)
+        {
+            yield return null;
+        }
+
+        // Only the vertical component should change; horizontal gravity must
+        // remain exactly as configured prior to applying the stage.
+        Assert.AreEqual(1f, Physics2D.gravity.x);
+        Assert.AreEqual(originalGravity.y * 2f, Physics2D.gravity.y, 0.001f);
+
+        // Cleanup objects and restore original gravity so subsequent tests run
+        // with the expected physics environment.
+        Object.DestroyImmediate(stageManagerObject);
+        Object.DestroyImmediate(stageAsset);
+        Physics2D.gravity = originalGravity;
+    }
 }
 

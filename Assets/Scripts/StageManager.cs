@@ -11,6 +11,8 @@
 // when a new stage begins.
 // 2026 fix: LoadStageRoutine now clears its coroutine reference when exiting
 // early so callers don't hold on to a stale handle.
+// 2027 fix: Stage gravity scaling now preserves the existing horizontal
+// component so levels can apply sideways forces without them being reset.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -272,7 +274,11 @@ public class StageManager : MonoBehaviour
         {
             GameManager.Instance.SetStageSpeedMultiplier(data.speedMultiplier);
         }
-        Physics2D.gravity = new Vector2(0f, -9.81f * data.gravityScale);
+        // Preserve the existing horizontal gravity component while scaling only
+        // the vertical axis according to the stage's modifier. Some projects
+        // may use a non-zero X gravity for unique mechanics (e.g., sideways
+        // wind) and wiping it out here would cause subtle physics bugs.
+        Physics2D.gravity = new Vector2(defaultGravity.x, defaultGravity.y * data.gravityScale);
 
         // Choose a random music track for this stage and start a cross-fade
         if (data.stageMusic != null && data.stageMusic.Length > 0 && AudioManager.Instance != null)

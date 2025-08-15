@@ -5,8 +5,9 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Tests for <see cref="ObstacleSpawner"/> confirming that spawn
-/// rates respond to stage multipliers and that pooled objects are
-/// reused rather than instantiated each time.
+/// rates respond to stage multipliers, pooled objects are reused rather
+/// than instantiated each time, and null obstacle arrays are handled
+/// safely during initialization.
 /// </summary>
 public class ObstacleSpawnerTests
 {
@@ -83,5 +84,40 @@ public class ObstacleSpawnerTests
         Object.DestroyImmediate(prefab);
         Object.DestroyImmediate(spawnerObj);
         Object.DestroyImmediate(gmObj);
+    }
+
+    [Test]
+    public void Start_LoadsPrefabsOnlyWhenArraysNull()
+    {
+        // This test verifies that Start performs null checks before accessing
+        // obstacle arrays, preventing runtime errors when the arrays are
+        // uninitialized and only name lists are provided.
+
+        var spawnerObj = new GameObject("spawner");
+        var spawner = spawnerObj.AddComponent<ObstacleSpawner>();
+
+        // Arrays remain null while names are supplied to trigger the loading
+        // logic. LoadPrefabs will return empty arrays because the names do not
+        // exist in the test environment, which is sufficient for verifying
+        // the null-safe conditional logic.
+        spawner.groundObstacleNames = new[] { "nonexistent" };
+        spawner.ceilingObstacleNames = new[] { "nonexistent" };
+        spawner.movingPlatformNames = new[] { "nonexistent" };
+        spawner.rotatingHazardNames = new[] { "nonexistent" };
+
+        // Invoke Start via reflection and ensure it does not throw.
+        Assert.DoesNotThrow(() =>
+            typeof(ObstacleSpawner).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(spawner, null),
+            "Start should handle null obstacle arrays without raising exceptions");
+
+        // After Start runs the obstacle arrays should be instantiated (even if
+        // empty) because names were provided.
+        Assert.IsNotNull(spawner.groundObstacles, "Ground obstacles array should be initialized");
+        Assert.IsNotNull(spawner.ceilingObstacles, "Ceiling obstacles array should be initialized");
+        Assert.IsNotNull(spawner.movingPlatforms, "Moving platforms array should be initialized");
+        Assert.IsNotNull(spawner.rotatingHazards, "Rotating hazards array should be initialized");
+
+        Object.DestroyImmediate(spawnerObj);
     }
 }

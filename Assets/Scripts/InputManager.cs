@@ -4,6 +4,11 @@ using UnityEngine.InputSystem;
 #endif
 using System.Collections;
 
+// 2024 update: added a stubbed TriggerRumble method so projects using the
+// legacy input manager still compile. Calls to TriggerRumble simply do nothing
+// when the new Input System package is absent, clarifying that rumble support
+// requires the package.
+
 /// <summary>
 /// Centralised helper for reading player input. This file was expanded to
 /// support Unity's new Input System package while retaining the original
@@ -15,6 +20,8 @@ using System.Collections;
 /// Key bindings are saved to <see cref="PlayerPrefs"/>.
 /// 2026 fix: static constructor now reuses an existing RumbleHost object so
 /// domain reloads in the Unity editor do not accumulate hidden hosts.
+/// 2024 update: added a legacy-input stub for TriggerRumble so older builds
+/// compile without the Input System package.
 /// </summary>
 public static class InputManager
 {
@@ -644,6 +651,8 @@ public static class InputManager
     /// Triggers controller rumble using the current gamepad. The effect stops
     /// automatically after the supplied duration.
     /// </summary>
+    /// <param name="strength">Strength from 0 to 1 for the vibration motors.</param>
+    /// <param name="duration">Time in seconds the motors should run.</param>
     public static void TriggerRumble(float strength, float duration)
     {
         if (!RumbleEnabled || Gamepad.current == null)
@@ -681,6 +690,19 @@ public static class InputManager
         {
             Destroy(gameObject);
         }
+    }
+#else
+    /// <summary>
+    /// Legacy-input stub that ignores rumble requests when the new Input System
+    /// package is unavailable. The parameters mirror the full implementation so
+    /// calling code does not require conditional compilation.
+    /// </summary>
+    /// <param name="strength">Requested rumble strength in the range [0,1].</param>
+    /// <param name="duration">Requested vibration duration in seconds.</param>
+    public static void TriggerRumble(float strength, float duration)
+    {
+        // Rumble is unsupported without the Input System; this method intentionally
+        // performs no action to maintain compatibility on legacy builds.
     }
 #endif
 }

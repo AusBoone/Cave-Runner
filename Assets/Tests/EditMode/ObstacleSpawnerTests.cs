@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// Tests for <see cref="ObstacleSpawner"/> confirming that spawn
 /// rates respond to stage multipliers, pooled objects are reused rather
 /// than instantiated each time, and null obstacle arrays are handled
-/// safely during initialization.
+/// safely during initialization and spawning.
 /// </summary>
 public class ObstacleSpawnerTests
 {
@@ -118,6 +118,30 @@ public class ObstacleSpawnerTests
         Assert.IsNotNull(spawner.movingPlatforms, "Moving platforms array should be initialized");
         Assert.IsNotNull(spawner.rotatingHazards, "Rotating hazards array should be initialized");
 
+        Object.DestroyImmediate(spawnerObj);
+    }
+
+    [Test]
+    public void Spawn_IgnoresNullObstacleArrays()
+    {
+        // This test ensures that Spawn performs defensive null checks on each
+        // obstacle array. Only the ground obstacles list is populated while
+        // the others remain null. The method should spawn the available
+        // obstacle without throwing an exception.
+
+        var spawnerObj = new GameObject("spawner");
+        var spawner = spawnerObj.AddComponent<ObstacleSpawner>();
+        spawner.usePooling = false; // simplify by avoiding pool setup
+        spawner.groundObstacles = new[] { new GameObject("prefab") };
+
+        // ceilingObstacles, movingPlatforms, and rotatingHazards are left null
+        // intentionally to mimic unassigned arrays in the inspector.
+        Assert.DoesNotThrow(() =>
+            typeof(ObstacleSpawner).GetMethod("Spawn", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(spawner, null),
+            "Spawn should skip null obstacle arrays without raising exceptions");
+
+        Object.DestroyImmediate(spawner.groundObstacles[0]);
         Object.DestroyImmediate(spawnerObj);
     }
 }

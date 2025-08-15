@@ -199,6 +199,39 @@ public class SaveGameManagerTests
         Object.DestroyImmediate(obj);
     }
 
+    /// <summary>
+    /// When the save file contains invalid JSON the manager should discard it and
+    /// create a new save using default values. The default language must also be
+    /// reapplied so text remains readable.
+    /// </summary>
+    [Test]
+    public void LoadData_InvalidJson_CreatesDefaultSave()
+    {
+        // Force localization into a non-default state to ensure the reset path
+        // invokes LocalizationManager.SetLanguage.
+        LocalizationManager.SetLanguage("es");
+
+        // Write intentionally malformed JSON to simulate a corrupt save file.
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        File.WriteAllText(path, "{ invalid json }");
+
+        // Loading should detect the bad file and regenerate a default save.
+        var go = new GameObject("save");
+        var mgr = go.AddComponent<SaveGameManager>();
+
+        // All persistent values should revert to their defaults.
+        Assert.AreEqual(0, mgr.Coins, "Coins should reset when save is invalid");
+        Assert.AreEqual(0, mgr.HighScore, "High score should reset when save is invalid");
+        Assert.AreEqual("en", mgr.Language, "Language property should revert to default");
+        Assert.AreEqual("en", LocalizationManager.CurrentLanguage, "LocalizationManager should apply default language");
+
+        // File should now contain valid JSON describing the default save state.
+        string json = File.ReadAllText(path);
+        StringAssert.Contains("\"version\"", json);
+
+        Object.DestroyImmediate(go);
+    }
+
     // Spy subclass used to count save operations
     private class SaveGameManagerSpy : SaveGameManager
     {

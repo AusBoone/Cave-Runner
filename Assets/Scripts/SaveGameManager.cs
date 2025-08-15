@@ -13,6 +13,8 @@
 // older saves continue to load correctly.
 // 2026 update: SaveDataToFile now catches IO exceptions and cleans up temporary
 // files to prevent crashes when the disk is unwritable.
+// 2027 update: corrupt or unreadable saves trigger a reset to default values,
+// ensuring players are not stuck with invalid data.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -284,6 +286,8 @@ public class SaveGameManager : MonoBehaviour
             {
                 Debug.LogWarning("Failed to parse save file, starting fresh: " + ex.Message);
             }
+            // Parsing failed or produced null; fall back to a clean slate.
+            ResetToDefaultSave();
         }
         else
         {
@@ -311,6 +315,26 @@ public class SaveGameManager : MonoBehaviour
             SaveDataToFile();
             LocalizationManager.SetLanguage(data.language);
         }
+    }
+
+    /// <summary>
+    /// Resets all persisted values to their factory defaults, reapplies the
+    /// default language and immediately writes the clean state to disk. Used when
+    /// a save file exists but cannot be parsed.
+    /// </summary>
+    private void ResetToDefaultSave()
+    {
+        // Replace existing data with a fresh instance containing default field
+        // values defined in <see cref="SaveData"/>.
+        data = new SaveData();
+        // Any previously cached upgrade levels are cleared so no stale values
+        // remain after recovery from a corrupt file.
+        upgradeLevels.Clear();
+        // Apply the default language before persisting so both runtime state and
+        // the save file reflect the reset value.
+        LocalizationManager.SetLanguage(data.language);
+        // Persist defaults so future loads start from a valid JSON file.
+        SaveDataToFile();
     }
 
     /// <summary>

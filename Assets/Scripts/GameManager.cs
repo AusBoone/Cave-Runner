@@ -34,6 +34,11 @@ using System.Collections;
 /// 2025 update: achievements are now unlocked for high coin combos,
 /// boss defeats and clearing hardcore mode.
 /// </remarks>
+/// <remarks>
+/// 2025 update: adds validation to <see cref="ActivateSpeedBoost"/> so callers
+/// must provide positive durations and multipliers, preventing unintended
+/// slowdowns or permanent boosts from invalid arguments.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -484,10 +489,36 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Temporarily multiplies the game speed for a set duration.
+    /// Temporarily multiplies the game speed for a set <paramref name="duration"/>.
+    /// The <paramref name="duration"/> must be greater than <c>0</c> seconds and
+    /// <paramref name="multiplier"/> must be greater than <c>0</c> to avoid
+    /// unintended slowdowns or permanent boosts.
     /// </summary>
+    /// <param name="duration">How long in seconds the boost should last. Must be &gt; 0.</param>
+    /// <param name="multiplier">Factor applied to base speed. Must be &gt; 0.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="duration"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="multiplier"/> is not positive.</exception>
     public void ActivateSpeedBoost(float duration, float multiplier)
     {
+        // Validate input to prevent zero or negative values that could stall
+        // or permanently freeze game speed.
+        if (duration <= 0f)
+        {
+            // ArgumentException clarifies that duration must exceed zero seconds.
+            throw new ArgumentException("duration must be positive", nameof(duration));
+        }
+
+        // Ensure multiplier remains positive so speed is always scaled by a
+        // sensible factor; values less than or equal to zero would negate or
+        // reverse movement.
+        if (multiplier <= 0f)
+        {
+            // ArgumentOutOfRangeException communicates an invalid range.
+            throw new ArgumentOutOfRangeException(nameof(multiplier), "multiplier must be positive");
+        }
+
+        // Only after validation do we apply the multiplier and timer to keep
+        // internal state consistent.
         speedMultiplier = multiplier;
         speedBoostTimer = duration;
     }

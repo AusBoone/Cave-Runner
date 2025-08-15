@@ -7,6 +7,12 @@ using UnityEngine;
 /// probability weights and a spawn rate multiplier supplied by
 /// <see cref="StageManager"/>.
 /// </summary>
+/// <remarks>
+/// Updated to include explicit null checks before inspecting obstacle arrays
+/// in <see cref="Start"/>. This prevents <see cref="System.NullReferenceException"/>
+/// when obstacle collections are left unassigned in the Unity inspector or
+/// reset at runtime.
+/// </remarks>
 public class ObstacleSpawner : MonoBehaviour
 {
     public GameObject[] groundObstacles;
@@ -50,19 +56,32 @@ public class ObstacleSpawner : MonoBehaviour
     /// </summary>
     void Start()
     {
-        if (groundObstacles.Length == 0 && groundObstacleNames != null && groundObstacleNames.Length > 0)
+        // Load ground obstacle prefabs only when the array is null or empty
+        // and valid prefab names are provided. This defensive check prevents
+        // null reference errors when obstacles are not assigned in the
+        // inspector.
+        if ((groundObstacles == null || groundObstacles.Length == 0) &&
+            groundObstacleNames != null && groundObstacleNames.Length > 0)
         {
             groundObstacles = LoadPrefabs(groundObstacleNames);
         }
-        if (ceilingObstacles.Length == 0 && ceilingObstacleNames != null && ceilingObstacleNames.Length > 0)
+        // Repeat the same null-safe loading logic for ceiling obstacles.
+        if ((ceilingObstacles == null || ceilingObstacles.Length == 0) &&
+            ceilingObstacleNames != null && ceilingObstacleNames.Length > 0)
         {
             ceilingObstacles = LoadPrefabs(ceilingObstacleNames);
         }
-        if (movingPlatforms.Length == 0 && movingPlatformNames != null && movingPlatformNames.Length > 0)
+        // Apply null checks for moving platforms to avoid accessing an
+        // uninitialized array.
+        if ((movingPlatforms == null || movingPlatforms.Length == 0) &&
+            movingPlatformNames != null && movingPlatformNames.Length > 0)
         {
             movingPlatforms = LoadPrefabs(movingPlatformNames);
         }
-        if (rotatingHazards.Length == 0 && rotatingHazardNames != null && rotatingHazardNames.Length > 0)
+        // Ensure rotating hazards are loaded safely by verifying the array is
+        // not null before evaluating its length.
+        if ((rotatingHazards == null || rotatingHazards.Length == 0) &&
+            rotatingHazardNames != null && rotatingHazardNames.Length > 0)
         {
             rotatingHazards = LoadPrefabs(rotatingHazardNames);
         }

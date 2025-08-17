@@ -39,6 +39,13 @@ using System.Collections;
 /// must provide positive durations and multipliers, preventing unintended
 /// slowdowns or permanent boosts from invalid arguments.
 /// </remarks>
+/// <remarks>
+/// 2028 fix: duplicates detected in <see cref="Awake"/> now return immediately
+/// after calling <c>Destroy</c>. Skipping the remainder of initialization avoids
+/// running setup on an object that is about to be destroyed, which previously
+/// led to occasional null reference errors when supporting singletons were
+/// missing.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -161,10 +168,15 @@ public class GameManager : MonoBehaviour
     /// </summary>
     void Awake()
     {
+        // Enforce the singleton pattern so only one manager controls the game
+        // state. The first instance persists across scenes while subsequent
+        // instances self-destruct.
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            DontDestroyOnLoad(gameObject); // keep this manager alive between scenes
+
+            // Ensure required helper singletons exist before gameplay begins.
             if (AnalyticsManager.Instance == null)
             {
                 new GameObject("AnalyticsManager").AddComponent<AnalyticsManager>();
@@ -176,8 +188,15 @@ public class GameManager : MonoBehaviour
         }
         else
         {
+            // A GameManager already exists. Destroy this duplicate and exit
+            // immediately so the remaining initialization does not run on a
+            // soon-to-be destroyed object. Without this early return, later
+            // code could access missing dependencies and trigger
+            // NullReferenceException errors.
             Destroy(gameObject);
+            return;
         }
+
         // Load the persisted hardcore mode preference after ensuring
         // SaveGameManager exists. Default to false when no save is present.
         hardcoreMode = SaveGameManager.Instance != null && SaveGameManager.Instance.HardcoreMode;

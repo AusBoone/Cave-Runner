@@ -282,4 +282,39 @@ public class GameManagerTests
         Object.DestroyImmediate(gmObj2);
         Object.DestroyImmediate(saveObj2);
     }
+
+    /// <summary>
+    /// Verifies that a duplicate <see cref="GameManager"/> exits early after
+    /// destroying itself and therefore does not recreate missing singleton
+    /// dependencies. This prevents null reference errors that would occur if
+    /// initialization continued on the destroyed instance.
+    /// </summary>
+    [Test]
+    public void Awake_DuplicateDoesNotReinitializeDependencies()
+    {
+        // Establish the primary manager which also spawns a SaveGameManager.
+        var primaryObj = new GameObject("gmPrimary");
+        primaryObj.AddComponent<GameManager>();
+
+        // Simulate the supporting SaveGameManager being missing by destroying
+        // it and clearing the static Instance field via reflection.
+        if (SaveGameManager.Instance != null)
+        {
+            Object.DestroyImmediate(SaveGameManager.Instance.gameObject);
+            var instField = typeof(SaveGameManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            instField.SetValue(null, null);
+        }
+
+        // Create a second manager which should destroy itself and return
+        // before recreating the SaveGameManager dependency.
+        var duplicateObj = new GameObject("gmDuplicate");
+        duplicateObj.AddComponent<GameManager>();
+
+        // The dependency should remain absent, proving the duplicate aborted
+        // initialization after self-destruction.
+        Assert.IsNull(SaveGameManager.Instance);
+
+        Object.DestroyImmediate(primaryObj);
+        Object.DestroyImmediate(duplicateObj);
+    }
 }

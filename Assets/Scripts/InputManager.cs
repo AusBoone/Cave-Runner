@@ -22,6 +22,8 @@ using System.Collections;
 /// domain reloads in the Unity editor do not accumulate hidden hosts.
 /// 2024 update: added a legacy-input stub for TriggerRumble so older builds
 /// compile without the Input System package.
+/// 2028 update: added <c>Shutdown</c> to dispose <see cref="InputAction"/>s on
+/// application quit, preventing native memory leaks from lingering actions.
 /// </summary>
 public static class InputManager
 {
@@ -188,6 +190,49 @@ public static class InputManager
         moveAction.Enable();
 #endif
     }
+
+#if ENABLE_INPUT_SYSTEM
+    /// <summary>
+    /// Shuts down the input system integration by disabling and disposing all
+    /// <see cref="InputAction"/> instances. The Input System allocates native
+    /// resources for each action, so explicit disposal is required to prevent
+    /// memory leaks when the game or editor exits.
+    /// </summary>
+    public static void Shutdown()
+    {
+        // Disposing each action releases its unmanaged memory and ensures it
+        // no longer processes callbacks. Setting the fields to null afterwards
+        // allows the garbage collector to reclaim the managed wrappers.
+        DisposeAction(ref jumpAction);
+        DisposeAction(ref slideAction);
+        DisposeAction(ref pauseAction);
+        DisposeAction(ref downAction);
+        DisposeAction(ref moveAction);
+    }
+
+    /// <summary>
+    /// Helper that disables, disposes and clears a single action reference.
+    /// </summary>
+    /// <param name="action">Reference to the action to dispose.</param>
+    private static void DisposeAction(ref InputAction action)
+    {
+        if (action == null)
+            return;
+
+        // Disable first to stop ongoing input processing.
+        action.Disable();
+        // Explicit disposal frees native buffers allocated by the Input System;
+        // without it, those allocations would persist until a domain reload,
+        // leading to steadily increasing memory usage.
+        action.Dispose();
+        action = null;
+    }
+#else
+    /// <summary>
+    /// Stubbed shutdown for builds that rely solely on the legacy input manager.
+    /// </summary>
+    public static void Shutdown() { }
+#endif
 
     /// <summary>
     /// Loads a key binding from PlayerPrefs and falls back to the provided
@@ -688,6 +733,9 @@ public static class InputManager
         // created on the next domain reload instead of accumulating objects.
         void OnApplicationQuit()
         {
+            // Proactively release InputAction resources to avoid memory leaks
+            // from lingering unmanaged allocations retained by the Input System.
+            Shutdown();
             Destroy(gameObject);
         }
     }

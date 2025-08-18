@@ -6,9 +6,10 @@ using System.Reflection;
 /// <summary>
 /// Additional unit tests for <see cref="ObjectPool"/> covering less common
 /// scenarios. These tests verify that pools expand when depleted, reuse
-/// returned instances, reject foreign objects that do not belong to the pool
-/// and gracefully handle missing prefabs by emitting clear warnings instead
-/// of failing silently.
+/// returned instances, reject foreign objects that do not belong to the pool,
+/// gracefully handle missing prefabs by emitting clear warnings instead of
+/// failing silently, and respect PooledObject components already defined on
+/// prefabs without duplicating them.
 /// </summary>
 public class ObjectPoolEdgeTests
 {
@@ -128,5 +129,31 @@ public class ObjectPoolEdgeTests
         Object.DestroyImmediate(poolB.prefab);
         Object.DestroyImmediate(poolAGO);
         Object.DestroyImmediate(poolBGO);
+    }
+
+    [Test]
+    public void PrefabWithExistingPooledObject_IsNotDuplicated()
+    {
+        // Some prefabs may already carry a PooledObject component for custom
+        // initialisation or debugging. The pool should reuse this component
+        // instead of adding an extra one, which could corrupt bookkeeping.
+        var poolGO = new GameObject("pool");
+        var pool = poolGO.AddComponent<ObjectPool>();
+
+        var prefab = new GameObject("prefab");
+        prefab.AddComponent<PooledObject>();
+        pool.prefab = prefab;
+
+        // Request an object which will be created from the prefab carrying the
+        // PooledObject component.
+        var obj = pool.GetObject(Vector3.zero, Quaternion.identity);
+
+        // Ensure only a single PooledObject component exists on the instance.
+        Assert.AreEqual(1, obj.GetComponents<PooledObject>().Length,
+            "Prefab-defined PooledObject should be reused, not duplicated");
+
+        Object.DestroyImmediate(obj);
+        Object.DestroyImmediate(pool.prefab);
+        Object.DestroyImmediate(poolGO);
     }
 }

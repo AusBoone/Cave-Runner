@@ -9,6 +9,9 @@ using System.Collections.Generic;
  * without a prefab to prevent confusing null reference errors during gameplay.
  * ReturnObject now validates ownership of returned instances, warning and
  * destroying any foreign objects to prevent cross-pool corruption.
+ * CreateNew now reuses a prefab-defined PooledObject component when present,
+ * avoiding duplicate components and clarifying that prefabs may include the
+ * component for debugging or customised setup.
  */
 
 /// <summary>
@@ -33,6 +36,8 @@ public class ObjectPool : MonoBehaviour
 {
     /// <summary>
     /// Prefab that will be instantiated when the pool needs more objects.
+    /// Prefabs may include a <see cref="PooledObject"/> component for debugging
+    /// or custom initialisation; if so, it is reused rather than duplicated.
     /// </summary>
     public GameObject prefab;
 
@@ -72,6 +77,12 @@ public class ObjectPool : MonoBehaviour
     /// <summary>
     /// Creates a new pooled instance of the prefab and adds it to the
     /// internal queue.
+    ///
+    /// <para>Some prefabs may already include a <see cref="PooledObject"/>
+    /// component for debugging or custom setup. In that case the existing
+    /// component is reused rather than blindly adding another one, which
+    /// would result in duplicate tracking components and confusing pool
+    /// behaviour.</para>
     /// </summary>
     PooledObject CreateNew()
     {
@@ -79,7 +90,20 @@ public class ObjectPool : MonoBehaviour
         // hierarchy stays clean in the editor.
         GameObject obj = Instantiate(prefab, transform);
         obj.SetActive(false);
-        PooledObject po = obj.AddComponent<PooledObject>();
+
+        // Check if the instantiated object already contains a PooledObject
+        // component. Prefabs can define it ahead of time to perform custom
+        // setup or to aid debugging in the editor. Only add a new component
+        // when one is missing so we avoid duplicating components and
+        // corrupting the pool's bookkeeping.
+        PooledObject po = obj.GetComponent<PooledObject>();
+        if (po == null)
+        {
+            po = obj.AddComponent<PooledObject>();
+        }
+
+        // Record which pool this instance belongs to so it can be returned
+        // correctly after use.
         po.Pool = this;
         objects.Enqueue(po);
         return po;

@@ -9,6 +9,9 @@ using UnityEngine.Networking;
 //
 // Modification summary: default service URL is now empty and network operations
 // are guarded by a runtime HTTPS check to prevent accidental insecure traffic.
+// Additional revisions introduce request timeouts, automatic retries with
+// exponential backoff, and richer error reporting so callers can distinguish
+// between client and server failures.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -35,6 +38,11 @@ public class LeaderboardClient : MonoBehaviour
 
     [Tooltip("Name used when uploading scores. Defaults to 'Player'.")]
     public string playerName = "Player";
+
+    // Timeout in seconds applied to all leaderboard HTTP requests. Chosen to be
+    // short enough for responsive UI while still tolerating minor network
+    // hiccups.
+    private const int RequestTimeoutSeconds = 10;
 
     private void Awake()
     {
@@ -90,19 +98,36 @@ public class LeaderboardClient : MonoBehaviour
         string url = serviceUrl.TrimEnd('/') + "/scores";
         string json = JsonUtility.ToJson(new ScoreEntry { name = playerName, score = score });
 
-        using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+        // Retry the upload a few times with exponential backoff to handle
+        // transient network failures such as dropped connections or timeouts.
+        const int maxRetries = 3;
+        int attempt = 0;
+        bool success = false;
+        while (attempt < maxRetries && !success)
         {
-            byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
-            req.uploadHandler = new UploadHandlerRaw(body);
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
-
-            bool success = false;
-            yield return SendWebRequest(req, (ok, _unused) => success = ok);
-            if (!success)
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
             {
-                Debug.LogWarning("Failed to upload score to leaderboard");
+                byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = RequestTimeoutSeconds; // Seconds before the request automatically times out.
+
+                yield return SendWebRequest(req, (ok, _unused) => success = ok);
             }
+
+            // Exponential backoff: 1s, 2s, 4s delays between attempts.
+            if (!success && ++attempt < maxRetries)
+            {
+                float delay = Mathf.Pow(2, attempt);
+                Debug.LogWarning($"Retrying score upload in {delay:F0}s (attempt {attempt + 1}/{maxRetries})");
+                yield return new WaitForSeconds(delay);
+            }
+        }
+
+        if (!success)
+        {
+            Debug.LogWarning("Failed to upload score to leaderboard");
         }
     }
 
@@ -121,16 +146,30 @@ public class LeaderboardClient : MonoBehaviour
         if (IsServiceUrlSecure())
         {
             string url = serviceUrl.TrimEnd('/') + "/scores";
-            using (UnityWebRequest req = UnityWebRequest.Get(url))
+            const int maxRetries = 3;
+            int attempt = 0;
+            bool success = false;
+            string text = null;
+            while (attempt < maxRetries && !success)
             {
-                req.downloadHandler = new DownloadHandlerBuffer();
-                bool success = false;
-                string text = null;
-                yield return SendWebRequest(req, (ok, data) => { success = ok; text = data; });
-                if (success)
+                using (UnityWebRequest req = UnityWebRequest.Get(url))
                 {
-                    result = ParseScores(text);
+                    req.downloadHandler = new DownloadHandlerBuffer();
+                    req.timeout = RequestTimeoutSeconds; // Seconds before the request automatically times out.
+                    yield return SendWebRequest(req, (ok, data) => { success = ok; text = data; });
                 }
+
+                if (!success && ++attempt < maxRetries)
+                {
+                    float delay = Mathf.Pow(2, attempt);
+                    Debug.LogWarning($"Retrying score download in {delay:F0}s (attempt {attempt + 1}/{maxRetries})");
+                    yield return new WaitForSeconds(delay);
+                }
+            }
+
+            if (success)
+            {
+                result = ParseScores(text);
             }
         }
 
@@ -160,6 +199,22 @@ public class LeaderboardClient : MonoBehaviour
             {
                 text = req.downloadHandler.text;
                 success = true;
+            }
+            else
+            {
+                long code = req.responseCode;
+                if (code >= 400 && code < 500)
+                {
+                    Debug.LogWarning($"Client error {code} during leaderboard request: {req.error}");
+                }
+                else if (code >= 500)
+                {
+                    Debug.LogWarning($"Server error {code} during leaderboard request: {req.error}");
+                }
+                else
+                {
+                    Debug.LogWarning("Leaderboard request failed: " + req.error);
+                }
             }
         }
         catch (System.Exception ex)

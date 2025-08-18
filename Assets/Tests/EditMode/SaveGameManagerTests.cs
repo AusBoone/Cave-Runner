@@ -4,6 +4,8 @@ using UnityEngine.TestTools;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 /// <summary>
 /// Tests covering the JSON serialization and migration behaviour of
@@ -76,9 +78,11 @@ public class SaveGameManagerTests
 
         save.Coins = 1; // triggers SaveDataToFile
 
+        // Wait for asynchronous saving to finish before checking for cleanup.
+        Object.DestroyImmediate(go);
+
         string temp = Path.Combine(Application.persistentDataPath, "savegame.json.tmp");
         Assert.IsFalse(File.Exists(temp));
-        Object.DestroyImmediate(go);
     }
 
     [Test]
@@ -244,6 +248,18 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
+    /// Subclass used to simulate a slow disk by delaying the asynchronous write.
+    /// </summary>
+    private class SlowSaveGameManager : SaveGameManager
+    {
+        protected override async Task WriteFileAsync(string tempPath, string finalPath, string json)
+        {
+            await Task.Delay(200); // emulate sluggish IO
+            await base.WriteFileAsync(tempPath, finalPath, json);
+        }
+    }
+
+    /// <summary>
     /// Updating multiple upgrade levels should result in a single save to disk
     /// regardless of how many entries are modified.
     /// </summary>
@@ -262,6 +278,25 @@ public class SaveGameManagerTests
         mgr.UpdateUpgradeLevels(dict);
 
         Assert.AreEqual(1, mgr.Calls);
+
+        Object.DestroyImmediate(obj);
+    }
+
+    /// <summary>
+    /// Verifies that saving does not block the main thread even if the disk is
+    /// extremely slow.
+    /// </summary>
+    [Test]
+    public void SlowDisk_DoesNotBlockMainThread()
+    {
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SlowSaveGameManager>();
+
+        var timer = Stopwatch.StartNew();
+        mgr.Coins = 3; // triggers asynchronous save
+        timer.Stop();
+
+        Assert.Less(timer.ElapsedMilliseconds, 100, "Setter should return before slow write completes");
 
         Object.DestroyImmediate(obj);
     }

@@ -6,6 +6,9 @@ using UnityEngine.Networking;
 // LocalizationManager is used to fetch translated strings for fallback labels.
 // This revision reads the local-player label and entry format from the
 // localization tables so leaderboard text updates when the language changes.
+//
+// Modification summary: default service URL is now empty and network operations
+// are guarded by a runtime HTTPS check to prevent accidental insecure traffic.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -16,14 +19,19 @@ using UnityEngine.Networking;
 /// <pre>{"name":"Player","score":123}</pre>
 /// All requests are sent using <see cref="UnityWebRequest"/> and any network
 /// failures result in the caller receiving the local high score instead.
+/// <para>
+/// <b>Security:</b> the leaderboard service must be hosted on a secure HTTPS
+/// endpoint. An empty or non-HTTPS <see cref="serviceUrl"/> will cause all
+/// network operations to be skipped at runtime.
+/// </para>
 /// </summary>
 public class LeaderboardClient : MonoBehaviour
 {
     /// <summary>Global singleton instance.</summary>
     public static LeaderboardClient Instance { get; private set; }
 
-    [Tooltip("Base URL of the leaderboard service e.g. https://example.com/api")]
-    public string serviceUrl = "http://localhost:8080";
+    [Tooltip("Base URL of the leaderboard service (must be HTTPS)")]
+    public string serviceUrl = "";
 
     [Tooltip("Name used when uploading scores. Defaults to 'Player'.")]
     public string playerName = "Player";
@@ -71,6 +79,14 @@ public class LeaderboardClient : MonoBehaviour
     /// </summary>
     public IEnumerator UploadScore(int score)
     {
+        // Ensure serviceUrl is configured and uses HTTPS before attempting
+        // to communicate with the leaderboard. Failing to validate here would
+        // allow insecure plaintext traffic or null requests.
+        if (!IsServiceUrlSecure())
+        {
+            yield break;
+        }
+
         string url = serviceUrl.TrimEnd('/') + "/scores";
         string json = JsonUtility.ToJson(new ScoreEntry { name = playerName, score = score });
 
@@ -97,21 +113,29 @@ public class LeaderboardClient : MonoBehaviour
     /// </summary>
     public IEnumerator GetTopScores(System.Action<List<ScoreEntry>> callback)
     {
-        string url = serviceUrl.TrimEnd('/') + "/scores";
         List<ScoreEntry> result = null;
 
-        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        // Validate serviceUrl to enforce secure communication. If invalid,
+        // immediately return the local high score without issuing any web
+        // requests.
+        if (IsServiceUrlSecure())
         {
-            req.downloadHandler = new DownloadHandlerBuffer();
-            bool success = false;
-            string text = null;
-            yield return SendWebRequest(req, (ok, data) => { success = ok; text = data; });
-            if (success)
+            string url = serviceUrl.TrimEnd('/') + "/scores";
+            using (UnityWebRequest req = UnityWebRequest.Get(url))
             {
-                result = ParseScores(text);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                bool success = false;
+                string text = null;
+                yield return SendWebRequest(req, (ok, data) => { success = ok; text = data; });
+                if (success)
+                {
+                    result = ParseScores(text);
+                }
             }
         }
 
+        // Fallback when the serviceUrl is invalid, the request fails, or the
+        // response is empty/invalid.
         if (result == null || result.Count == 0)
         {
             int local = SaveGameManager.Instance != null ? SaveGameManager.Instance.HighScore : 0;
@@ -167,6 +191,33 @@ public class LeaderboardClient : MonoBehaviour
             Debug.LogWarning("Failed to parse leaderboard JSON: " + ex.Message);
         }
         return new List<ScoreEntry>();
+    }
+
+    /// <summary>
+    /// Validates that <see cref="serviceUrl"/> is a non-empty HTTPS URL.
+    /// Enforcing HTTPS prevents accidental transmission of sensitive data over
+    /// insecure channels and ensures that developers explicitly configure a
+    /// secure endpoint in builds.
+    /// </summary>
+    /// <returns>True when <see cref="serviceUrl"/> is a valid HTTPS URL.</returns>
+    private bool IsServiceUrlSecure()
+    {
+        // Reject missing URLs so the game cannot attempt to communicate with
+        // an undefined service endpoint.
+        if (string.IsNullOrWhiteSpace(serviceUrl))
+        {
+            Debug.LogError("Leaderboard serviceUrl must be a HTTPS URL but is empty.");
+            return false;
+        }
+
+        // Only allow HTTPS to avoid insecure HTTP traffic.
+        if (!serviceUrl.TrimStart().StartsWith("https://"))
+        {
+            Debug.LogError("Leaderboard serviceUrl must use HTTPS: " + serviceUrl);
+            return false;
+        }
+
+        return true;
     }
 }
 

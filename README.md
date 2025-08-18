@@ -129,9 +129,11 @@ UI's leaderboard panel queries this ID when downloading and uploading scores.
 
 For non-Steam versions of the game a lightweight HTTP leaderboard service is
 available via the new `LeaderboardClient` component. Configure its `serviceUrl`
-and reference it from `UIManager` to display scores retrieved from a REST
-endpoint. If the service cannot be reached the local high score is shown
-instead.
+with an **HTTPS** endpoint and reference it from `UIManager` to display scores
+retrieved from a REST endpoint. The field is empty by default, preventing
+insecure or accidental requests. If the service cannot be reached the local high
+score is shown instead. See [docs/LeaderboardSetup.md](docs/LeaderboardSetup.md)
+for deployment guidance.
 
 ### Workshop Content
 The included `WorkshopManager` script uses Steamworks.NET's UGC API so you can

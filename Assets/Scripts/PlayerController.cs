@@ -14,6 +14,10 @@ using UnityEngine;
 /// the player crisp mid-air control. Support for <see cref="DoubleJumpPowerUp"/>
 /// adds a temporary extra jump timer handled by this controller.
 /// </summary>
+// 2025 update: Ground detection now derives ray length from the player's
+// collider bounds instead of a fixed constant. This makes the controller
+// resilient to very small or oversized colliders and continues to operate
+// correctly if game modes invert gravity.
 public class PlayerController : MonoBehaviour
 {
     // Force applied when jumping.
@@ -211,8 +215,24 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     void CheckGrounded()
     {
-        Vector2 origin = transform.position;
-        float distance = 0.1f; // short ray in the direction of gravity
+        // Align the raycast with the collider's center to correctly handle
+        // offsets. Using bounds ensures we measure from the true center even if
+        // the collider is resized for sliding.
+        Vector2 origin = coll.bounds.center;
+
+        // Calculate the ray length dynamically based on the collider's vertical
+        // extents. This allows ground detection to scale with both very small
+        // and very large colliders. A small skin width avoids floating-point
+        // precision issues that could otherwise report false negatives. Using
+        // <c>bounds.extents</c> instead of a fixed constant also means the logic
+        // remains correct if gravity is inverted (positive Y), since the ray is
+        // cast from the center in the direction of gravity and always reaches
+        // beyond the collider's edge.
+        float distance = coll.bounds.extents.y + 0.1f;
+
+        // Choose the ray direction based on the sign of gravity. When gravity is
+        // flipped upward, the raycast travels upward so the player can still
+        // detect "ground" above them.
         Vector2 rayDir = Physics2D.gravity.y > 0f ? Vector2.up : Vector2.down;
         RaycastHit2D hit = Physics2D.Raycast(origin, rayDir, distance, groundLayer);
         bool wasGrounded = isGrounded;

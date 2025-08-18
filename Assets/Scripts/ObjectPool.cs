@@ -1,10 +1,31 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+/*
+ * MODIFICATION SUMMARY:
+ * Added explicit validation and developer-facing warnings for missing prefabs.
+ * Start now emits a warning instead of failing silently, leaving the pool empty
+ * when no prefab is configured. GetObject also warns and returns null if invoked
+ * without a prefab to prevent confusing null reference errors during gameplay.
+ */
+
 /// <summary>
-/// Simple object pooling component that reuses inactive instances of a
-/// prefab. Pools help avoid expensive Instantiate/Destroy calls during
-/// gameplay.
+/// Simple object pooling component that reuses inactive instances of a prefab
+/// to avoid expensive <c>Instantiate</c>/<c>Destroy</c> calls. A prefab must be
+/// assigned; otherwise the pool remains empty and will warn when misconfigured.
+///
+/// <para>Example usage:</para>
+/// <code>
+/// var projectile = projectilePool.GetObject(position, rotation);
+/// // ... use projectile ...
+/// projectilePool.ReturnObject(projectile);
+/// </code>
+///
+/// <para>Assumptions:</para>
+/// <list type="bullet">
+/// <item>The assigned prefab contains all required components for spawned objects.</item>
+/// <item>Consumers handle a <c>null</c> return from <see cref="GetObject"/> when the pool is misconfigured.</item>
+/// </list>
 /// </summary>
 public class ObjectPool : MonoBehaviour
 {
@@ -29,10 +50,20 @@ public class ObjectPool : MonoBehaviour
     /// </summary>
     void Start()
     {
-        if (prefab == null) return;
-        for (int i = 0; i < initialSize; i++)
+        // Validate pool configuration before preloading objects. If no prefab is
+        // supplied the pool cannot create instances. Rather than failing silently,
+        // warn the developer so the misconfiguration is obvious and the pool
+        // remains empty until fixed.
+        if (prefab == null)
         {
-            CreateNew();
+            Debug.LogWarning($"{nameof(ObjectPool)} on {name} has no prefab assigned; no objects were preloaded.");
+        }
+        else
+        {
+            for (int i = 0; i < initialSize; i++)
+            {
+                CreateNew();
+            }
         }
     }
 
@@ -58,11 +89,20 @@ public class ObjectPool : MonoBehaviour
     /// </summary>
     public GameObject GetObject(Vector3 position, Quaternion rotation)
     {
-        if (prefab == null) return null;
+        // Guard against requests when the pool lacks a configured prefab. Logging
+        // a warning and returning null clearly communicates the issue and avoids
+        // a potential null reference exception in callers.
+        if (prefab == null)
+        {
+            Debug.LogWarning($"{nameof(ObjectPool)} on {name} cannot spawn because prefab is not assigned.");
+            return null;
+        }
+
         if (objects.Count == 0)
         {
             CreateNew();
         }
+
         PooledObject po = objects.Dequeue();
         GameObject obj = po.gameObject;
         obj.transform.SetPositionAndRotation(position, rotation);

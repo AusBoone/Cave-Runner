@@ -1,12 +1,13 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using System.Reflection;
-using System.Collections.Generic;
 
 /// <summary>
 /// Additional unit tests for <see cref="ObjectPool"/> covering less common
 /// scenarios. These tests verify that pools expand when depleted, reuse
-/// returned instances and gracefully handle missing prefabs.
+/// returned instances and gracefully handle missing prefabs by emitting
+/// clear warnings instead of failing silently.
 /// </summary>
 public class ObjectPoolEdgeTests
 {
@@ -39,16 +40,39 @@ public class ObjectPoolEdgeTests
     }
 
     [Test]
-    public void GetObject_ReturnsNullWhenPrefabMissing()
+    public void GetObject_ReturnsNullAndWarnsWhenPrefabMissing()
     {
-        // Without a prefab assigned, the pool cannot create objects and
-        // should simply return null.
+        // Without a prefab assigned, the pool cannot create objects and should
+        // warn developers so the configuration issue is obvious.
         var poolGO = new GameObject("pool");
         var pool = poolGO.AddComponent<ObjectPool>();
+
+        // Expect the warning emitted by GetObject's validation.
+        LogAssert.Expect(LogType.Warning,
+            "ObjectPool on pool cannot spawn because prefab is not assigned.");
 
         var obj = pool.GetObject(Vector3.zero, Quaternion.identity);
 
         Assert.IsNull(obj, "GetObject should yield null when no prefab is set");
+        Object.DestroyImmediate(poolGO);
+    }
+
+    [Test]
+    public void Start_WarnsWhenPrefabMissing()
+    {
+        // Start should log a warning if the pool is initialized without a
+        // prefab so developers catch the misconfiguration during setup.
+        var poolGO = new GameObject("pool");
+        var pool = poolGO.AddComponent<ObjectPool>();
+
+        LogAssert.Expect(LogType.Warning,
+            "ObjectPool on pool has no prefab assigned; no objects were preloaded.");
+
+        // Invoke Start manually because EditMode tests do not automatically
+        // run Unity lifecycle methods.
+        typeof(ObjectPool).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pool, null);
+
         Object.DestroyImmediate(poolGO);
     }
 

@@ -13,6 +13,8 @@
 // early so callers don't hold on to a stale handle.
 // 2027 fix: Stage gravity scaling now preserves the existing horizontal
 // component so levels can apply sideways forces without them being reset.
+// 2028 diagnostic: addressable load failures now log detailed error information
+// to aid in debugging missing or misconfigured assets.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -225,7 +227,19 @@ public class StageManager : MonoBehaviour
             yield return bgHandle;
             if (bgHandle.Status == AsyncOperationStatus.Succeeded)
             {
+                // Background asset loaded successfully; cache it for assignment
+                // after all asynchronous work completes.
                 bgSprite = bgHandle.Result;
+            }
+            else
+            {
+                // Log detailed information about the failure so designers can
+                // resolve misconfigured or missing addressable references. The
+                // OperationException provides stack details when available while
+                // Status offers a fallback enum value if no exception is set.
+                Debug.LogError(bgHandle.OperationException != null
+                    ? bgHandle.OperationException
+                    : (object)bgHandle.Status);
             }
         }
 
@@ -317,7 +331,19 @@ public class StageManager : MonoBehaviour
             yield return handle;
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
+                // Prefab loaded correctly; store the resulting object so the
+                // spawner can instantiate it later.
                 list.Add(handle.Result);
+            }
+            else
+            {
+                // Log the operation exception if provided, otherwise log the
+                // status enum so failures are visible during development and
+                // automated tests. This makes diagnosis of missing assets
+                // considerably easier.
+                Debug.LogError(handle.OperationException != null
+                    ? handle.OperationException
+                    : (object)handle.Status);
             }
         }
         setter?.Invoke(list.ToArray());

@@ -9,6 +9,8 @@ using System.Reflection;
 /// Unit tests for the StageManager component verifying stage application and
 /// event-driven updates from the GameManager.
 /// </summary>
+// 2028 update: validates that failed addressable loads surface useful error
+// messages, preventing silent failures in test environments.
 public class StageManagerTests
 {
     [UnityTest]
@@ -52,6 +54,13 @@ public class StageManagerTests
             gravityScale = 0.5f
         };
         sm.stages = new[] { stageAsset };
+
+        // Invalid addressable references should trigger error logs during
+        // loading. Expect two errors: one for the background sprite and one
+        // for the ground obstacle prefab list.
+        var failurePattern = new System.Text.RegularExpressions.Regex("(Failed|Exception)");
+        LogAssert.Expect(LogType.Error, failurePattern);
+        LogAssert.Expect(LogType.Error, failurePattern);
 
         sm.ApplyStage(0);
         // Wait for the async coroutine to complete

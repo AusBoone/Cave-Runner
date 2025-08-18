@@ -6,6 +6,15 @@ using System.Diagnostics;
 using System.Threading;
 
 // -----------------------------------------------------------------------------
+// 2026 update summary
+// -----------------------------------------------------------------------------
+// Introduces a configurable cap on stored run data to prevent unbounded memory
+// and PlayerPrefs usage. The manager now trims the oldest entries once the
+// limit (default 100 runs) is exceeded, ensuring analytics storage remains
+// bounded. Unit tests verify that the trimming behavior works as expected.
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
 // 2025 update summary
 // -----------------------------------------------------------------------------
 // This revision introduces a persistent upload coroutine that runs in the
@@ -26,9 +35,11 @@ using System.Threading;
 /// <summary>
 /// Collects basic run statistics and optionally sends them to a remote
 /// analytics endpoint. Data is stored locally using PlayerPrefs and
-/// transmitted after each run or when the application quits. When
-/// <see cref="remoteEndpoint"/> is left blank, no data leaves the
-/// player's machine. Upload operations run in a background coroutine and
+/// transmitted after each run or when the application quits. To prevent
+/// unbounded growth, the manager retains only a configurable number of the
+/// most recent runs (default 100), discarding the oldest entries when the cap
+/// is exceeded. When <see cref="remoteEndpoint"/> is left blank, no data leaves
+/// the player's machine. Upload operations run in a background coroutine and
 /// fire <see cref="UploadProgress"/> and <see cref="UploadFinished"/> events so
 /// UI can reflect status.
 /// </summary>
@@ -47,6 +58,13 @@ public class AnalyticsManager : MonoBehaviour
 
     [Tooltip("Base backoff in seconds for retries; each attempt doubles the wait.")]
     public float retryBackoff = 2f;
+
+    /// <summary>
+    /// Maximum number of recent runs to retain. Older entries are discarded when
+    /// this cap is exceeded to keep memory and PlayerPrefs usage bounded.
+    /// </summary>
+    [Tooltip("Maximum number of recent runs to retain for analytics.")]
+    public int maxStoredRuns = 100;
 
     // Flag prevents multiple simultaneous send operations
     private bool isSending;
@@ -126,6 +144,26 @@ public class AnalyticsManager : MonoBehaviour
     private List<RunData> runs = new List<RunData>();
 
     /// <summary>
+    /// Ensures <see cref="runs"/> does not exceed <see cref="maxStoredRuns"/>.
+    /// Oldest entries are removed first. Throws if the configured cap is less
+    /// than one to avoid silent misconfiguration.
+    /// </summary>
+    private void EnforceRunLimit()
+    {
+        if (maxStoredRuns < 1)
+        {
+            throw new System.ArgumentOutOfRangeException(
+                nameof(maxStoredRuns),
+                "Maximum stored runs must be at least one.");
+        }
+
+        while (runs.Count > maxStoredRuns)
+        {
+            runs.RemoveAt(0);
+        }
+    }
+
+    /// <summary>
     /// Calculates the average distance of the most recent runs.
     /// Returns zero when no history is available or <paramref name="count"/>
     /// is less than one.
@@ -186,6 +224,7 @@ public class AnalyticsManager : MonoBehaviour
     public void LogRun(float distance, int coins, bool death)
     {
         runs.Add(new RunData(distance, coins, death));
+        EnforceRunLimit(); // keep history within configured cap
         SaveLocal();
         BeginUploadsIfNeeded();
     }
@@ -212,6 +251,7 @@ public class AnalyticsManager : MonoBehaviour
             if (col != null && col.runs != null)
             {
                 runs = new List<RunData>(col.runs);
+                EnforceRunLimit(); // trim any excess from previous sessions
             }
         }
     }

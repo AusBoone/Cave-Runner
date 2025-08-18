@@ -5,6 +5,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
+// -----------------------------------------------------------------------------
+// 2026 addition summary
+// -----------------------------------------------------------------------------
+// Introduces tests verifying that the AnalyticsManager enforces the configurable
+// run history cap by trimming the oldest entries when the limit is exceeded.
+// -----------------------------------------------------------------------------
+
 /// <summary>
 /// Tests for the AnalyticsManager ensuring failed network requests
 /// keep data queued locally and that the retry system triggers.
@@ -123,6 +130,35 @@ public class AnalyticsManagerTests
         var am = go.AddComponent<AnalyticsManager>();
 
         Assert.AreEqual(0f, am.GetAverageDistance(5));
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void RunHistory_DoesNotExceedConfiguredCap()
+    {
+        // Verify that adding more runs than the configured limit discards
+        // the oldest entries so the list never grows unbounded.
+        var go = new GameObject("am");
+        var am = go.AddComponent<AnalyticsManager>();
+        am.maxStoredRuns = 3; // small limit for test clarity
+
+        // Log five runs; only the last three should remain after trimming.
+        for (int i = 1; i <= 5; i++)
+        {
+            am.LogRun(i, 0, false);
+        }
+
+        // Access private run list via reflection to inspect internal state.
+        var field = typeof(AnalyticsManager).GetField("runs", BindingFlags.NonPublic | BindingFlags.Instance);
+        var list = (System.Collections.IList)field.GetValue(am);
+
+        Assert.AreEqual(3, list.Count, "Run list exceeded configured cap");
+
+        // Oldest entry should be distance 3 after trimming 1 and 2.
+        var firstRun = list[0];
+        var distanceField = firstRun.GetType().GetField("distance", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+        Assert.AreEqual(3f, (float)distanceField.GetValue(firstRun));
+
         Object.DestroyImmediate(go);
     }
 }

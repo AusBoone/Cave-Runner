@@ -3,12 +3,15 @@ using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
 
 /// <summary>
 /// Tests related to InputManager's controller bindings. Ensures that both
 /// PlayStation and Xbox mappings are present when using the new Input System.
 /// 2028 addition: verifies that <see cref="InputManager.Shutdown"/> correctly
 /// releases actions to prevent memory leaks between play sessions.
+/// 2029 addition: verifies that invalid binding paths stored in
+/// <see cref="PlayerPrefs"/> are logged and replaced with safe defaults.
 /// </summary>
 public class InputManagerTests
 {
@@ -60,6 +63,41 @@ public class InputManagerTests
         }
 
         Assert.IsTrue(hasComposite, "Move action should use a 1DAxis composite for keyboard input");
+    }
+
+    /// <summary>
+    /// Corrupted binding strings in PlayerPrefs should not break input
+    /// initialization. Each case seeds an invalid path and verifies that the
+    /// static constructor logs a warning and falls back to the documented
+    /// default binding.
+    /// </summary>
+    [TestCase("JumpBinding", "<Keyboard>/space", "jumpAction", 0)]
+    [TestCase("SlideBinding", "<Keyboard>/leftCtrl", "slideAction", 0)]
+    [TestCase("DownBinding", "<Keyboard>/s", "downAction", 0)]
+    [TestCase("PauseBinding", "<Keyboard>/escape", "pauseAction", 0)]
+    [TestCase("MoveLeftBinding", "<Keyboard>/a", "moveAction", 1)]
+    [TestCase("MoveRightBinding", "<Keyboard>/d", "moveAction", 2)]
+    public void InvalidSavedBinding_FallsBackToDefault(string prefKey, string defaultPath, string actionField, int bindingIndex)
+    {
+        // Seed an invalid binding to simulate corrupt or tampered PlayerPrefs.
+        PlayerPrefs.SetString(prefKey, "invalid_path");
+
+        // Ensure a clean slate before forcing the static constructor to run.
+        InputManager.Shutdown();
+
+        // The constructor should warn about the invalid binding and use the
+        // default path so the game remains controllable.
+        LogAssert.Expect(LogType.Warning, $"Invalid binding for {prefKey}. Falling back to default '{defaultPath}'.");
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(InputManager).TypeHandle);
+
+        FieldInfo field = typeof(InputManager).GetField(actionField, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field, $"{actionField} field missing");
+        InputAction action = (InputAction)field.GetValue(null);
+        Assert.AreEqual(defaultPath, action.bindings[bindingIndex].path, "Expected fallback to default binding");
+
+        // Clean up preferences and action state for subsequent tests.
+        InputManager.Shutdown();
+        PlayerPrefs.DeleteKey(prefKey);
     }
 
     /// <summary>

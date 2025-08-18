@@ -24,6 +24,8 @@ using System.Collections;
 /// compile without the Input System package.
 /// 2028 update: added <c>Shutdown</c> to dispose <see cref="InputAction"/>s on
 /// application quit, preventing native memory leaks from lingering actions.
+/// 2029 fix: corrupted PlayerPrefs bindings now log warnings and revert to
+/// defaults, ensuring invalid data cannot break input initialization.
 /// </summary>
 public static class InputManager
 {
@@ -139,7 +141,18 @@ public static class InputManager
         }
         // Setup actions so either keyboard or various gamepads can trigger them.
         jumpAction = new InputAction("Jump", InputActionType.Button);
-        jumpAction.AddBinding(PlayerPrefs.GetString(JumpBindingPref, "<Keyboard>/space"));
+        try
+        {
+            // Attempt to apply the player's saved jump binding. If it is
+            // invalid, we fall back to the default path so input remains
+            // responsive.
+            jumpAction.AddBinding(PlayerPrefs.GetString(JumpBindingPref, "<Keyboard>/space"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {JumpBindingPref}. Falling back to default '<Keyboard>/space'.");
+            jumpAction.AddBinding("<Keyboard>/space");
+        }
         // Generic path covers any gamepad type.
         jumpAction.AddBinding("<Gamepad>/buttonSouth");
         // Explicit bindings ensure PlayStation and Xbox controllers work when
@@ -150,7 +163,17 @@ public static class InputManager
         jumpAction.Enable();
 
         slideAction = new InputAction("Slide", InputActionType.Button);
-        slideAction.AddBinding(PlayerPrefs.GetString(SlideBindingPref, "<Keyboard>/leftCtrl"));
+        try
+        {
+            // Restore the player's slide binding; revert to the default when the
+            // saved path cannot be parsed.
+            slideAction.AddBinding(PlayerPrefs.GetString(SlideBindingPref, "<Keyboard>/leftCtrl"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {SlideBindingPref}. Falling back to default '<Keyboard>/leftCtrl'.");
+            slideAction.AddBinding("<Keyboard>/leftCtrl");
+        }
         slideAction.AddBinding("<Gamepad>/buttonEast");
         slideAction.AddBinding("<DualShockGamepad>/circle");
         slideAction.AddBinding("<DualSenseGamepad>/circle");
@@ -158,7 +181,17 @@ public static class InputManager
         slideAction.Enable();
 
         downAction = new InputAction("Down", InputActionType.Button);
-        downAction.AddBinding(PlayerPrefs.GetString(DownBindingPref, "<Keyboard>/s"));
+        try
+        {
+            // Saved fast-fall binding may be corrupt; use the default if
+            // AddBinding throws an exception.
+            downAction.AddBinding(PlayerPrefs.GetString(DownBindingPref, "<Keyboard>/s"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {DownBindingPref}. Falling back to default '<Keyboard>/s'.");
+            downAction.AddBinding("<Keyboard>/s");
+        }
         downAction.AddBinding("<Gamepad>/leftStick/down");
         downAction.AddBinding("<Gamepad>/dpad/down");
         downAction.AddBinding("<DualShockGamepad>/dpad/down");
@@ -167,7 +200,17 @@ public static class InputManager
         downAction.Enable();
 
         pauseAction = new InputAction("Pause", InputActionType.Button);
-        pauseAction.AddBinding(PlayerPrefs.GetString(PauseBindingPref, "<Keyboard>/escape"));
+        try
+        {
+            // Pause binding also loads from PlayerPrefs; invalid values are
+            // replaced with the Escape key.
+            pauseAction.AddBinding(PlayerPrefs.GetString(PauseBindingPref, "<Keyboard>/escape"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {PauseBindingPref}. Falling back to default '<Keyboard>/escape'.");
+            pauseAction.AddBinding("<Keyboard>/escape");
+        }
         pauseAction.AddBinding("<Gamepad>/start");
         pauseAction.AddBinding("<DualShockGamepad>/options");
         pauseAction.AddBinding("<DualSenseGamepad>/options");
@@ -177,8 +220,27 @@ public static class InputManager
         // Axis for horizontal movement with configurable keyboard bindings.
         moveAction = new InputAction("Move", InputActionType.Value);
         var wasd = moveAction.AddCompositeBinding("1DAxis");
-        wasd.With("Negative", PlayerPrefs.GetString(MoveLeftBindingPref, "<Keyboard>/a"));
-        wasd.With("Positive", PlayerPrefs.GetString(MoveRightBindingPref, "<Keyboard>/d"));
+        try
+        {
+            // Load left movement binding; invalid entries revert to the default
+            // "A" key so players are never left without movement input.
+            wasd.With("Negative", PlayerPrefs.GetString(MoveLeftBindingPref, "<Keyboard>/a"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {MoveLeftBindingPref}. Falling back to default '<Keyboard>/a'.");
+            wasd.With("Negative", "<Keyboard>/a");
+        }
+        try
+        {
+            // Load right movement binding with similar fallback behaviour.
+            wasd.With("Positive", PlayerPrefs.GetString(MoveRightBindingPref, "<Keyboard>/d"));
+        }
+        catch (System.Exception)
+        {
+            Debug.LogWarning($"Invalid binding for {MoveRightBindingPref}. Falling back to default '<Keyboard>/d'.");
+            wasd.With("Positive", "<Keyboard>/d");
+        }
         var arrows = moveAction.AddCompositeBinding("1DAxis");
         arrows.With("Negative", "<Keyboard>/leftArrow");
         arrows.With("Positive", "<Keyboard>/rightArrow");

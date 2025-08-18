@@ -183,6 +183,40 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
+    /// Switching slots while a save is still pending should wait for the write
+    /// to complete so data ends up in the original slot rather than the new
+    /// one. Uses <see cref="SlowSaveGameManager"/> to simulate sluggish IO.
+    /// </summary>
+    [Test]
+    public void ChangeSlot_WaitsForPendingWrites()
+    {
+        // Begin in slot 0 and queue a save that will complete slowly.
+        SaveSlotManager.SetSlot(0);
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SlowSaveGameManager>();
+        mgr.Coins = 1; // queue save for slot 0
+
+        // Immediately switch to slot 1. ChangeSlot should block until the first
+        // save finishes so the data lands in slot 0.
+        mgr.ChangeSlot(1);
+        mgr.Coins = 2; // save to slot 1
+        Object.DestroyImmediate(obj);
+
+        // Verify slot 0 contains the first value and slot 1 the second.
+        SaveSlotManager.SetSlot(0);
+        var check0 = new GameObject("check0");
+        var mgr0 = check0.AddComponent<SaveGameManager>();
+        Assert.AreEqual(1, mgr0.Coins, "Slot 0 should persist initial value");
+        Object.DestroyImmediate(check0);
+
+        SaveSlotManager.SetSlot(1);
+        var check1 = new GameObject("check1");
+        var mgr1 = check1.AddComponent<SaveGameManager>();
+        Assert.AreEqual(2, mgr1.Coins, "Slot 1 should contain updated value");
+        Object.DestroyImmediate(check1);
+    }
+
+    /// <summary>
     /// Saving to an invalid path should log a warning rather than throwing an
     /// exception so the game can continue running.
     /// </summary>

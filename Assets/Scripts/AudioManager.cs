@@ -8,9 +8,16 @@
  *
  * Volume levels are saved via <see cref="SaveGameManager"/> so they persist
  * between sessions. The manager persists across scene loads.
+ *
+ * 2024 maintenance:
+ *   - Added clip caching so sound effects loaded by name are fetched from
+ *     disk only once. Cached clips persist for the lifetime of the manager
+ *     because the project uses a small audio set. Call <see cref="ClearClipCache"/>
+ *     if manual cleanup is required.
  */
 #endregion
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// Manages music and sound effect playback. This component is implemented
@@ -30,7 +37,14 @@ public class AudioManager : MonoBehaviour
     public AudioSource musicSourceSecondary;
     public AudioSource effectsSource;
 
-// Name of the music clip located under Assets/Audio/Resources.
+    // Cache storing AudioClips loaded via PlaySound(string). This avoids
+    // repeated Resources.Load calls for frequently used effects. Entries are
+    // retained for the lifetime of the manager; no automatic eviction strategy
+    // is implemented because the sound library is small. Tests or callers can
+    // invoke ClearClipCache() to release references when needed.
+    private readonly Dictionary<string, AudioClip> clipCache = new Dictionary<string, AudioClip>();
+
+    // Name of the music clip located under Assets/Audio/Resources.
     public string backgroundMusicName = "Background";
     private AudioClip backgroundMusic;
 
@@ -122,6 +136,28 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Clears all cached sound effect clips. Because clips are cached for the
+    /// lifetime of the manager, this method provides manual eviction when tests
+    /// or gameplay need to reclaim memory.
+    /// </summary>
+    public void ClearClipCache()
+    {
+        clipCache.Clear();
+    }
+
+    /// <summary>
+    /// Loads an AudioClip from the Resources/Audio folder. This indirection
+    /// exists so unit tests can override the loading mechanism without relying
+    /// on actual asset files.
+    /// </summary>
+    /// <param name="clipName">Name of the clip to load.</param>
+    /// <returns>The loaded clip or null if not found.</returns>
+    protected virtual AudioClip LoadClip(string clipName)
+    {
+        return Resources.Load<AudioClip>("Audio/" + clipName);
+    }
+
+    /// <summary>
     /// Plays a one-shot sound effect through the effects AudioSource.
     /// </summary>
     public void PlaySound(AudioClip clip, float pitch = 1f)
@@ -137,11 +173,26 @@ public class AudioManager : MonoBehaviour
 
     /// <summary>
     /// Convenience overload that loads a clip from Resources/Audio by name.
+    /// To reduce disk access, clips are cached after their first load and
+    /// reused for subsequent calls. No automatic eviction is performed because
+    /// the expected number of unique effects is small; call
+    /// <see cref="ClearClipCache"/> if manual cleanup is required.
     /// </summary>
+    /// <param name="clipName">Clip located under Resources/Audio.</param>
+    /// <param name="pitch">Optional pitch adjustment passed to PlaySound.</param>
     public void PlaySound(string clipName, float pitch = 1f)
     {
         if (string.IsNullOrEmpty(clipName) || effectsSource == null) return;
-        AudioClip clip = Resources.Load<AudioClip>("Audio/" + clipName);
+
+        if (!clipCache.TryGetValue(clipName, out AudioClip clip) || clip == null)
+        {
+            clip = LoadClip(clipName);
+            if (clip != null)
+            {
+                clipCache[clipName] = clip;
+            }
+        }
+
         if (clip != null)
         {
             PlaySound(clip, pitch);

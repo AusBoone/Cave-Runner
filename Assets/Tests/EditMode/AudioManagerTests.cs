@@ -2,10 +2,12 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 
 /// <summary>
-/// Tests covering AudioManager's cross-fading logic and stage music selection.
+/// Tests covering AudioManager's cross-fading logic, stage music selection,
+/// and sound effect clip caching behavior.
 /// </summary>
 public class AudioManagerTests
 {
@@ -33,6 +35,24 @@ public class AudioManagerTests
             var clip = AudioClip.Create(clipName, 441, 1, 44100, false);
             clip.name = clipName;
             return clip;
+        }
+    }
+
+    /// <summary>
+    /// AudioManager subclass used to track how many times a clip is loaded.
+    /// The overridden <see cref="AudioManager.LoadClip"/> method returns a
+    /// reusable stub clip and increments a counter for verification.
+    /// </summary>
+    private class CachingAudioManager : AudioManager
+    {
+        public int loadCount;
+        public AudioClip stubClip = AudioClip.Create("stub", 441, 1, 44100, false);
+
+        protected override AudioClip LoadClip(string clipName)
+        {
+            loadCount++;
+            stubClip.name = clipName;
+            return stubClip;
         }
     }
 
@@ -117,5 +137,38 @@ public class AudioManagerTests
         Object.DestroyImmediate(amObj);
         Object.DestroyImmediate(smObj);
         Object.DestroyImmediate(asset);
+    }
+
+    /// <summary>
+    /// Ensures that <see cref="AudioManager.PlaySound(string, float)"/> caches
+    /// loaded clips and reuses them on subsequent calls rather than reloading
+    /// from disk.
+    /// </summary>
+    [Test]
+    public void PlaySound_ReusesCachedClip()
+    {
+        var obj = new GameObject("am");
+        var am = obj.AddComponent<CachingAudioManager>();
+        am.effectsSource = obj.AddComponent<AudioSource>();
+
+        // Awake is normally called by Unity; invoke manually so the singleton
+        // instance and internal fields initialize for the test environment.
+        typeof(AudioManager).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(am, null);
+
+        am.PlaySound("beep");
+        am.PlaySound("beep");
+
+        // The overridden loader should have been called only once because the
+        // second call retrieves the clip from cache.
+        Assert.AreEqual(1, am.loadCount, "Clip should be loaded once and then reused");
+
+        // Access the private cache via reflection to verify the stored instance.
+        var cacheField = typeof(AudioManager).GetField("clipCache", BindingFlags.NonPublic | BindingFlags.Instance);
+        var cache = (Dictionary<string, AudioClip>)cacheField.GetValue(am);
+        Assert.IsTrue(cache.ContainsKey("beep"), "Cache should contain the loaded clip");
+        Assert.AreSame(am.stubClip, cache["beep"], "Cached clip should match the loaded instance");
+
+        Object.DestroyImmediate(obj);
     }
 }

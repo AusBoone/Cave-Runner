@@ -122,6 +122,53 @@ public class StageManagerTests
         Object.DestroyImmediate(asset);
     }
 
+    /// <summary>
+    /// Loading only stage music should still run over multiple frames because
+    /// audio clips are fetched via Addressables rather than synchronously from
+    /// Resources. This ensures the new music loading path is truly asynchronous
+    /// and integrates with the stage coroutine.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ApplyStage_MusicLoadsAsynchronously()
+    {
+        // Ensure no global AudioManager interferes with the test environment.
+        if (AudioManager.Instance != null)
+        {
+            Object.DestroyImmediate(AudioManager.Instance.gameObject);
+        }
+
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+
+        var asset = ScriptableObject.CreateInstance<StageDataSO>();
+        asset.stage = new StageManager.StageData
+        {
+            // Invalid key forces the Addressables request to fail but still
+            // exercise the asynchronous loading path.
+            stageMusic = new[] { "00000000000000000000000000000006" }
+        };
+        sm.stages = new[] { asset };
+
+        // Expect an error log due to the invalid addressable key.
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("(Failed|Exception)"));
+
+        sm.ApplyStage(0);
+        FieldInfo routineField = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        // Coroutine should begin immediately and persist across frames until the
+        // Addressables request completes.
+        Assert.IsNotNull(routineField.GetValue(sm));
+        yield return null;
+        Assert.IsNotNull(routineField.GetValue(sm));
+        while (routineField.GetValue(sm) != null)
+        {
+            yield return null;
+        }
+
+        Object.DestroyImmediate(smObj);
+        Object.DestroyImmediate(asset);
+    }
+
     [UnityTest]
     public IEnumerator Event_TriggersStageChange()
     {

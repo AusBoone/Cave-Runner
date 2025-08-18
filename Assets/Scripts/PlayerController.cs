@@ -18,6 +18,8 @@ using UnityEngine;
 // collider bounds instead of a fixed constant. This makes the controller
 // resilient to very small or oversized colliders and continues to operate
 // correctly if game modes invert gravity.
+// 2026 fix: Air-dive logic now guards against zero gravity to prevent
+// undefined velocity when Physics2D.gravity is a zero vector.
 public class PlayerController : MonoBehaviour
 {
     // Force applied when jumping.
@@ -167,7 +169,15 @@ public class PlayerController : MonoBehaviour
                     // Otherwise buffer the slide for landing and dive downward.
                     slideBufferTimer = slideBufferTime;
                     airDivePending = true;
-                    rb.velocity += Physics2D.gravity.normalized * airDiveForce;
+                    // Compute gravity magnitude before normalizing so a zero
+                    // vector does not produce NaN when normalized. When gravity
+                    // is zero (e.g. during editor tests or special game modes)
+                    // default to Vector2.down so the player still dives toward
+                    // the ground instead of corrupting velocity.
+                    Vector2 gravity = Physics2D.gravity;
+                    float gravityMag = gravity.magnitude;
+                    Vector2 diveDir = gravityMag > 0f ? gravity / gravityMag : Vector2.down;
+                    rb.velocity += diveDir * airDiveForce;
                 }
             }
         }

@@ -10,7 +10,9 @@ using UnityEngine.InputSystem;
 /// buffered jump and slide behaviours, these tests now exercise the dynamic
 /// ground detection logic. Ray lengths are derived from the collider bounds, so
 /// we confirm ground contact works with both very small and very large player
-/// colliders.
+/// colliders. 2026 update: adds a regression test ensuring the air-dive
+/// defaults to <see cref="Vector2.down"/> when gravity is zero, preventing NaN
+/// velocities.
 /// </summary>
 public class PlayerControllerTests
 {
@@ -252,6 +254,47 @@ public class PlayerControllerTests
 
         Physics2D.gravity = new Vector2(0f, -9.81f);
         Object.DestroyImmediate(player);
+    }
+
+    [Test]
+    public void AirDive_DefaultsDownWhenGravityZero()
+    {
+        // The air-dive uses the gravity vector's direction. When gravity has
+        // zero magnitude the controller should fall back to Vector2.down so the
+        // dive still behaves sensibly and does not introduce NaN velocity.
+
+        // Ensure a GameManager exists and is running so PlayerController.Update
+        // processes input and movement logic.
+        var gmObj = new GameObject("gm");
+        var gm = gmObj.AddComponent<GameManager>();
+        typeof(GameManager).GetField("isRunning", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, true);
+
+        var player = new GameObject("player");
+        var rb = player.AddComponent<Rigidbody2D>();
+        player.AddComponent<CapsuleCollider2D>();
+        var pc = player.AddComponent<PlayerController>();
+
+        // Start airborne with zero gravity so the dive direction must default
+        // to Vector2.down.
+        typeof(PlayerController).GetField("isGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(pc, false);
+        rb.velocity = Vector2.zero;
+        Physics2D.gravity = Vector2.zero;
+
+        // Trigger the slide input to initiate the dive.
+        InputManager.TouchSlideDown();
+        pc.Update();
+        InputManager.TouchSlideUp();
+        InputManager.GetSlideUp();
+
+        Assert.AreEqual(-pc.airDiveForce, rb.velocity.y, 0.001f,
+            "Air-dive should push the player downward when gravity is zero");
+
+        // Restore global state to avoid affecting other tests.
+        Physics2D.gravity = new Vector2(0f, -9.81f);
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(gmObj);
     }
 
 #if ENABLE_INPUT_SYSTEM

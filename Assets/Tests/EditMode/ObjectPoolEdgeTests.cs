@@ -6,8 +6,9 @@ using System.Reflection;
 /// <summary>
 /// Additional unit tests for <see cref="ObjectPool"/> covering less common
 /// scenarios. These tests verify that pools expand when depleted, reuse
-/// returned instances and gracefully handle missing prefabs by emitting
-/// clear warnings instead of failing silently.
+/// returned instances, reject foreign objects that do not belong to the pool
+/// and gracefully handle missing prefabs by emitting clear warnings instead
+/// of failing silently.
 /// </summary>
 public class ObjectPoolEdgeTests
 {
@@ -93,5 +94,39 @@ public class ObjectPoolEdgeTests
         Object.DestroyImmediate(first);
         Object.DestroyImmediate(pool.prefab);
         Object.DestroyImmediate(poolGO);
+    }
+
+    [Test]
+    public void ReturnObject_ForeignInstanceIsDestroyed()
+    {
+        // Returning an object from a different pool should log a warning and
+        // destroy the object so the pool remains free of unexpected entries.
+        var poolAGO = new GameObject("poolA");
+        var poolA = poolAGO.AddComponent<ObjectPool>();
+        poolA.prefab = new GameObject("prefabA");
+
+        var foreign = poolA.GetObject(Vector3.zero, Quaternion.identity);
+
+        var poolBGO = new GameObject("poolB");
+        var poolB = poolBGO.AddComponent<ObjectPool>();
+        poolB.prefab = new GameObject("prefabB");
+
+        // Expect a warning indicating the object did not originate from poolB.
+        LogAssert.Expect(LogType.Warning,
+            "ObjectPool on poolB received an object that does not belong to this pool; destroying to maintain integrity.");
+
+        poolB.ReturnObject(foreign);
+
+        // PoolB should spawn its own instance rather than reusing the foreign one.
+        var own = poolB.GetObject(Vector3.zero, Quaternion.identity);
+        Assert.AreNotSame(foreign, own, "Foreign objects must not be enqueued");
+
+        // Clean up all created objects to avoid polluting subsequent tests.
+        Object.DestroyImmediate(foreign);
+        Object.DestroyImmediate(own);
+        Object.DestroyImmediate(poolA.prefab);
+        Object.DestroyImmediate(poolB.prefab);
+        Object.DestroyImmediate(poolAGO);
+        Object.DestroyImmediate(poolBGO);
     }
 }

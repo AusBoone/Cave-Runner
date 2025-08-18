@@ -7,6 +7,8 @@ using System.Collections.Generic;
  * Start now emits a warning instead of failing silently, leaving the pool empty
  * when no prefab is configured. GetObject also warns and returns null if invoked
  * without a prefab to prevent confusing null reference errors during gameplay.
+ * ReturnObject now validates ownership of returned instances, warning and
+ * destroying any foreign objects to prevent cross-pool corruption.
  */
 
 /// <summary>
@@ -111,22 +113,36 @@ public class ObjectPool : MonoBehaviour
     }
 
     /// <summary>
-    /// Deactivates an object and puts it back into the pool for later
-    /// reuse.
+    /// Deactivates an object and attempts to put it back into the pool for
+    /// later reuse. Only objects originally spawned by this pool are
+    /// accepted; foreign objects are destroyed to avoid corrupting the pool's
+    /// queue with unexpected instances.
     /// </summary>
     public void ReturnObject(GameObject obj)
     {
-        // Disable the object and parent it back under this pool so
-        // inactive instances remain organized.
+        // Disable the object before any further processing so behaviour
+        // scripts cease immediately.
         obj.SetActive(false);
-        obj.transform.SetParent(transform);
+
         PooledObject po = obj.GetComponent<PooledObject>();
-        if (po != null)
+
+        // Ensure the object actually belongs to this pool before enqueuing it.
+        // Without this ownership check, a stray object from another pool could
+        // be added, leading to double-use or destruction of the wrong instance
+        // when the queue is later serviced.
+        if (po != null && po.Pool == this)
         {
+            // Safe to reparent and queue because the object originated from this
+            // pool. Reparenting keeps inactive instances organised under the pool
+            // in the hierarchy view.
+            obj.transform.SetParent(transform);
             objects.Enqueue(po);
         }
         else
         {
+            // Warn developers about the misuse and destroy the object to keep
+            // the pool's internal state consistent and free of foreign entries.
+            Debug.LogWarning($"{nameof(ObjectPool)} on {name} received an object that does not belong to this pool; destroying to maintain integrity.");
             Destroy(obj);
         }
     }

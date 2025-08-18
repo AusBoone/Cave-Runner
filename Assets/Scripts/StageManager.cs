@@ -15,11 +15,13 @@
 // component so levels can apply sideways forces without them being reset.
 // 2028 diagnostic: addressable load failures now log detailed error information
 // to aid in debugging missing or misconfigured assets.
+// 2029 update: stage music now streams via Addressables asynchronously.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using System.Collections;
 
 /// <summary>
 /// Coordinates stage-related visuals and hazards as the player travels further.
@@ -58,7 +60,7 @@ public class StageManager : MonoBehaviour
         public AssetReferenceGameObject[] shooterEnemies;
 
         [Header("Audio")]
-        [Tooltip("Names of music clips under Resources/Audio played during this stage.")]
+        [Tooltip("Addressable keys for music clips played during this stage.")]
         public string[] stageMusic;
 
         [Header("Spawn Rate Multipliers")]
@@ -294,16 +296,27 @@ public class StageManager : MonoBehaviour
         // wind) and wiping it out here would cause subtle physics bugs.
         Physics2D.gravity = new Vector2(defaultGravity.x, defaultGravity.y * data.gravityScale);
 
-        // Choose a random music track for this stage and start a cross-fade
-        if (data.stageMusic != null && data.stageMusic.Length > 0 && AudioManager.Instance != null)
+        // Choose a random music track for this stage and start a cross-fade.
+        // The clip is loaded asynchronously so large files do not stall the
+        // main thread. The coroutine yields until the Addressables request
+        // completes, then invokes the callback with the resulting clip. The
+        // asset handle is cached so ReleaseLoadedAssets can free memory when
+        // switching stages.
+        if (data.stageMusic != null && data.stageMusic.Length > 0)
         {
             int idx = Random.Range(0, data.stageMusic.Length);
-            string clipName = data.stageMusic[idx];
-            AudioClip clip = LoadStageMusic(clipName);
-            if (clip != null)
+            string clipKey = data.stageMusic[idx];
+            yield return LoadStageMusic(clipKey, clip =>
             {
-                AudioManager.Instance.CrossfadeTo(clip);
-            }
+                // Only cross-fade once a valid clip has loaded and the global
+                // AudioManager exists. The callback isolates audio-specific
+                // behaviour from the loading logic so tests can provide a
+                // minimal environment without audio sources.
+                if (clip != null && AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.CrossfadeTo(clip);
+                }
+            });
         }
 
         UIManager.Instance?.HideLoadingIndicator();
@@ -350,12 +363,42 @@ public class StageManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Loads a music clip by name from the Resources/Audio folder. Exposed as
-    /// virtual so tests can provide lightweight clips without asset files.
+    /// Asynchronously loads an audio clip for stage music using the Unity
+    /// Addressables system. Handles are cached to <see cref="loadedHandles"/> so
+    /// <see cref="ReleaseLoadedAssets"/> can free the clip when a new stage is
+    /// applied, preventing memory leaks from accumulating as the player
+    /// progresses. Callers provide a callback to receive the clip once loading
+    /// completes; null is supplied if the load fails or the key is invalid.
     /// </summary>
-    /// <param name="clipName">Filename of the clip without path.</param>
-    protected virtual AudioClip LoadStageMusic(string clipName)
+    /// <param name="clipKey">Addressable key for the desired music clip.</param>
+    /// <param name="onLoaded">Invoked with the loaded clip or null.</param>
+    /// <returns>Coroutine enumerator that yields until the clip finishes loading.</returns>
+    protected virtual IEnumerator LoadStageMusic(string clipKey, System.Action<AudioClip> onLoaded)
     {
-        return Resources.Load<AudioClip>("Audio/" + clipName);
+        // Abort early if no key is provided to avoid issuing unnecessary
+        // Addressables requests during testing or in misconfigured stages.
+        if (string.IsNullOrEmpty(clipKey))
+        {
+            onLoaded?.Invoke(null);
+            yield break;
+        }
+
+        AsyncOperationHandle<AudioClip> handle = Addressables.LoadAssetAsync<AudioClip>(clipKey);
+        loadedHandles.Add(handle);
+        yield return handle; // wait for the clip to load without blocking the frame
+
+        if (handle.Status == AsyncOperationStatus.Succeeded)
+        {
+            onLoaded?.Invoke(handle.Result);
+        }
+        else
+        {
+            // Surface the exception or status so developers notice missing or
+            // misconfigured audio assets during testing and development.
+            Debug.LogError(handle.OperationException != null
+                ? handle.OperationException
+                : (object)handle.Status);
+            onLoaded?.Invoke(null);
+        }
     }
 }

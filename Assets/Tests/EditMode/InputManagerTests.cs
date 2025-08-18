@@ -12,6 +12,9 @@ using UnityEngine.TestTools;
 /// releases actions to prevent memory leaks between play sessions.
 /// 2029 addition: verifies that invalid binding paths stored in
 /// <see cref="PlayerPrefs"/> are logged and replaced with safe defaults.
+/// 2030 addition: ensures the <see cref="GameManager"/> triggers
+/// <see cref="InputManager.Shutdown"/> during teardown so native input resources
+/// are released automatically.
 /// </summary>
 public class InputManagerTests
 {
@@ -148,6 +151,45 @@ public class InputManagerTests
 
         // Reinitialize InputManager so subsequent tests have fresh actions.
         System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(InputManager).TypeHandle);
+    }
+
+    /// <summary>
+    /// Destroying the primary <see cref="GameManager"/> should automatically
+    /// invoke <see cref="InputManager.Shutdown"/>. This ensures that native
+    /// <see cref="UnityEngine.InputSystem.InputAction"/> resources are released
+    /// during application teardown without requiring manual calls.
+    /// </summary>
+    [Test]
+    public void GameManagerDestroy_TriggersInputShutdown()
+    {
+        // Initialize actions so there is something for Shutdown to release.
+        InputManager.GetJumpDown();
+
+        FieldInfo jumpField = typeof(InputManager).GetField(
+            "jumpAction", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(jumpField.GetValue(null),
+            "jumpAction should exist before the GameManager is destroyed");
+
+        // Create and immediately destroy a GameManager to simulate application
+        // teardown. The OnDestroy handler should call InputManager.Shutdown.
+        var gmObj = new GameObject();
+        gmObj.AddComponent<GameManager>();
+        Object.DestroyImmediate(gmObj);
+
+        // InputManager.Shutdown should have cleared the action reference.
+        Assert.IsNull(jumpField.GetValue(null),
+            "GameManager destruction should shut down InputManager");
+
+        // Clean up helper singletons created by GameManager so other tests start
+        // with a predictable environment.
+        if (SaveGameManager.Instance != null)
+            Object.DestroyImmediate(SaveGameManager.Instance.gameObject);
+        if (AnalyticsManager.Instance != null)
+            Object.DestroyImmediate(AnalyticsManager.Instance.gameObject);
+
+        // Reinitialize InputManager for subsequent tests.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
     }
 
     [Test]

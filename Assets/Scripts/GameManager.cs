@@ -46,6 +46,12 @@ using System.Collections;
 /// led to occasional null reference errors when supporting singletons were
 /// missing.
 /// </remarks>
+/// <remarks>
+/// 2030 update: registers for <c>Application.quitting</c> so
+/// <see cref="InputManager.Shutdown"/> executes on exit. This explicit cleanup
+/// releases native <c>InputAction</c> resources, preventing memory leaks in
+/// player builds and during editor sessions.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -175,6 +181,12 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject); // keep this manager alive between scenes
+
+            // Subscribe to the quitting event so we can dispose input actions
+            // even if the GameManager is not explicitly destroyed before exit.
+            // This release prevents native memory leaks from lingering
+            // InputAction allocations in player builds and the editor.
+            Application.quitting += OnApplicationQuitting;
 
             // Ensure required helper singletons exist before gameplay begins.
             if (AnalyticsManager.Instance == null)
@@ -771,13 +783,31 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clears the static instance when the manager is destroyed.
+    /// Clears the static instance when the manager is destroyed and ensures the
+    /// input system releases its unmanaged resources. This method runs both when
+    /// exiting play mode and when duplicate managers self-destruct.
     /// </summary>
     void OnDestroy()
     {
         if (Instance == this)
         {
+            // Unsubscribe from the application quitting event to avoid dangling
+            // delegates if the manager is rebuilt. Calling Shutdown here frees
+            // native InputAction buffers so they do not leak after the game
+            // exits or the manager is torn down.
+            Application.quitting -= OnApplicationQuitting;
+            InputManager.Shutdown();
             Instance = null;
         }
+    }
+
+    /// <summary>
+    /// Invoked when the application is closing. Ensures <see cref="InputManager"/>
+    /// disposes its <see cref="UnityEngine.InputSystem.InputAction"/> instances,
+    /// releasing native memory and preventing leaks on shutdown.
+    /// </summary>
+    private static void OnApplicationQuitting()
+    {
+        InputManager.Shutdown();
     }
 }

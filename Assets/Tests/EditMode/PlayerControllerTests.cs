@@ -6,9 +6,11 @@ using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
-/// Tests for PlayerController. Specifically verifies that the new
-/// jump buffering logic executes a jump if the player lands while
-/// the buffer timer is active.
+/// Tests for <see cref="PlayerController"/>. In addition to verifying the
+/// buffered jump and slide behaviours, these tests now exercise the dynamic
+/// ground detection logic. Ray lengths are derived from the collider bounds, so
+/// we confirm ground contact works with both very small and very large player
+/// colliders.
 /// </summary>
 public class PlayerControllerTests
 {
@@ -180,6 +182,53 @@ public class PlayerControllerTests
         Assert.Greater(rb.velocity.x, 0f, "Air dash should add positive X velocity");
 
         Object.DestroyImmediate(player);
+    }
+
+    [Test]
+    public void GroundCheck_DetectsGroundWithSmallCollider()
+    {
+        // Ensure dynamic ray length still detects ground when the collider is very short.
+        VerifyGroundedDetection(0.2f, -0.15f);
+    }
+
+    [Test]
+    public void GroundCheck_DetectsGroundWithLargeCollider()
+    {
+        // A tall collider used to exceed the fixed ray length. Dynamic sizing should now hit the ground.
+        VerifyGroundedDetection(3f, -1.6f);
+    }
+
+    /// <summary>
+    /// Helper that constructs a player with a collider of the specified height and
+    /// verifies that <see cref="PlayerController"/>'s ground raycast registers the
+    /// nearby surface.
+    /// </summary>
+    /// <param name="colliderHeight">Height assigned to the capsule collider.</param>
+    /// <param name="groundY">Y position for the ground object.</param>
+    private static void VerifyGroundedDetection(float colliderHeight, float groundY)
+    {
+        var player = new GameObject("player");
+        player.AddComponent<Rigidbody2D>();
+        var col = player.AddComponent<CapsuleCollider2D>();
+        col.size = new Vector2(1f, colliderHeight);
+        var pc = player.AddComponent<PlayerController>();
+        pc.groundLayer = LayerMask.GetMask("Default");
+
+        var ground = new GameObject("ground");
+        ground.AddComponent<BoxCollider2D>();
+        ground.transform.position = new Vector3(0f, groundY, 0f);
+
+        typeof(PlayerController)
+            .GetMethod("CheckGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
+
+        bool grounded = (bool)typeof(PlayerController)
+            .GetField("isGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(pc);
+        Assert.IsTrue(grounded, "Ray length based on collider bounds should register the ground");
+
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(ground);
     }
 
     [Test]

@@ -17,6 +17,8 @@
 // ensuring players are not stuck with invalid data.
 // 2028 update: SaveDataToFile performs asynchronous writes via a background
 // task and request queue so slow disks do not stall gameplay.
+// 2029 update: save requests now capture the target path to avoid cross-slot
+// writes and ChangeSlot waits for pending saves before switching profiles.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -75,11 +77,27 @@ public class SaveGameManager : MonoBehaviour
     private readonly Dictionary<UpgradeType, int> upgradeLevels = new Dictionary<UpgradeType, int>();
     private string savePath;
 
+    // Data packet used for queued save operations. Each request stores both the
+    // serialized JSON payload and the path it should be written to so that
+    // pending saves are not redirected if <see cref="savePath"/> changes
+    // mid-flight.
+    private readonly struct SaveRequest
+    {
+        public readonly string Json; // Serialized SaveData content
+        public readonly string Path; // Destination file path for this request
+
+        public SaveRequest(string json, string path)
+        {
+            Json = json;
+            Path = path;
+        }
+    }
+
     // Fields used for asynchronous, thread-safe file saving. Requests are
     // queued so only one write happens at a time and the main thread remains
     // responsive even on slow disks.
     private readonly object queueLock = new object();
-    private readonly Queue<string> saveQueue = new Queue<string>();
+    private readonly Queue<SaveRequest> saveQueue = new Queue<SaveRequest>();
     private Task processingTask = Task.CompletedTask;
     private readonly ConcurrentQueue<Action> completionActions = new ConcurrentQueue<Action>();
 
@@ -375,13 +393,14 @@ public class SaveGameManager : MonoBehaviour
 
         string json = JsonUtility.ToJson(data);
 
-        // Queue the JSON for asynchronous saving. If no background task is
-        // running, start one using Task.Run so file IO occurs off the main
-        // thread. Asynchronous saving avoids frame hitches when the disk is busy
-        // or slow.
+        // Queue the JSON and its target path for asynchronous saving. Storing
+        // the path with the payload ensures pending writes are not redirected if
+        // <see cref="savePath"/> changes before the background task runs. If no
+        // background task is active, start one using Task.Run so file IO occurs
+        // off the main thread and gameplay remains responsive on slow disks.
         lock (queueLock)
         {
-            saveQueue.Enqueue(json);
+            saveQueue.Enqueue(new SaveRequest(json, savePath));
             if (processingTask == null || processingTask.IsCompleted)
             {
                 processingTask = Task.Run(ProcessQueueAsync);
@@ -399,18 +418,21 @@ public class SaveGameManager : MonoBehaviour
     {
         while (true)
         {
-            string json;
+            SaveRequest request;
             lock (queueLock)
             {
                 if (saveQueue.Count == 0)
                     return; // no more work
-                json = saveQueue.Dequeue();
+                request = saveQueue.Dequeue();
             }
 
-            string tempPath = savePath + ".tmp";
+            // Use the path captured with the request so writes target the
+            // correct slot even if ChangeSlot has modified savePath since the
+            // request was queued.
+            string tempPath = request.Path + ".tmp";
             try
             {
-                await WriteFileAsync(tempPath, savePath, json);
+                await WriteFileAsync(tempPath, request.Path, request.Json);
             }
             catch (IOException ex)
             {
@@ -494,6 +516,17 @@ public class SaveGameManager : MonoBehaviour
 
         // Persist current state before redirecting file paths.
         SaveDataToFile();
+
+        // Ensure all queued writes complete so the previous slot is fully saved
+        // before switching. Waiting outside the lock avoids deadlocks while
+        // still guaranteeing the queue is drained.
+        Task toWait;
+        lock (queueLock)
+        {
+            toWait = processingTask;
+        }
+        toWait?.Wait();
+
         SaveSlotManager.SetSlot(slot);
         savePath = SaveSlotManager.GetPath("savegame.json");
         LoadData();

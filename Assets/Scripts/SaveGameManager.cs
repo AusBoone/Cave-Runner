@@ -15,11 +15,17 @@
 // files to prevent crashes when the disk is unwritable.
 // 2027 update: corrupt or unreadable saves trigger a reset to default values,
 // ensuring players are not stuck with invalid data.
+// 2028 update: SaveDataToFile performs asynchronous writes via a background
+// task and request queue so slow disks do not stall gameplay.
 // -----------------------------------------------------------------------------
 
 using System;
 using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using UnityEngine;
 
 /// <summary>
@@ -68,6 +74,14 @@ public class SaveGameManager : MonoBehaviour
     private SaveData data = new SaveData();
     private readonly Dictionary<UpgradeType, int> upgradeLevels = new Dictionary<UpgradeType, int>();
     private string savePath;
+
+    // Fields used for asynchronous, thread-safe file saving. Requests are
+    // queued so only one write happens at a time and the main thread remains
+    // responsive even on slow disks.
+    private readonly object queueLock = new object();
+    private readonly Queue<string> saveQueue = new Queue<string>();
+    private Task processingTask = Task.CompletedTask;
+    private readonly ConcurrentQueue<Action> completionActions = new ConcurrentQueue<Action>();
 
     void Awake()
     {
@@ -338,14 +352,11 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Converts the current state into JSON and writes it to disk. A temporary
-    /// file is used so the existing save is not corrupted if the application
-    /// closes mid-write.
-    /// </summary>
-    /// <summary>
-    /// Writes the current <see cref="SaveData"/> instance to disk. Marked as
-    /// protected so tests can override the method and record how many times a
-    /// save occurs without duplicating the serialization logic.
+    /// Serializes the current <see cref="SaveData"/> and queues it for an
+    /// asynchronous disk write. Using a queue prevents multiple concurrent
+    /// writes and keeps the main Unity thread responsive. This method returns
+    /// immediately; completion or errors are marshalled back to the main thread
+    /// via <see cref="completionActions"/>.
     /// </summary>
     protected virtual void SaveDataToFile()
     {
@@ -364,29 +375,106 @@ public class SaveGameManager : MonoBehaviour
 
         string json = JsonUtility.ToJson(data);
 
-        // Write to a temp file first, then replace the original. This guards
-        // against partial writes leaving a corrupt save file.
-        string tempPath = savePath + ".tmp";
-        try
+        // Queue the JSON for asynchronous saving. If no background task is
+        // running, start one using Task.Run so file IO occurs off the main
+        // thread. Asynchronous saving avoids frame hitches when the disk is busy
+        // or slow.
+        lock (queueLock)
         {
-            // Writing to a temporary file first reduces the chance of leaving a
-            // partially written save behind if the application closes or an
-            // exception occurs mid-write.
-            File.WriteAllText(tempPath, json);
-            File.Copy(tempPath, savePath, true);
-        }
-        catch (IOException ex)
-        {
-            Debug.LogWarning($"Failed to write save file: {ex.Message}");
-        }
-        finally
-        {
-            // Ensure any temp file is removed regardless of success so future
-            // attempts are not blocked.
-            if (File.Exists(tempPath))
+            saveQueue.Enqueue(json);
+            if (processingTask == null || processingTask.IsCompleted)
             {
-                File.Delete(tempPath);
+                processingTask = Task.Run(ProcessQueueAsync);
             }
+        }
+    }
+
+    /// <summary>
+    /// Background loop that processes queued save requests one at a time. Each
+    /// JSON payload is written to disk using async <see cref="FileStream"/>
+    /// APIs. Any errors are enqueued so they can be reported on the main thread
+    /// during <see cref="Update"/>.
+    /// </summary>
+    private async Task ProcessQueueAsync()
+    {
+        while (true)
+        {
+            string json;
+            lock (queueLock)
+            {
+                if (saveQueue.Count == 0)
+                    return; // no more work
+                json = saveQueue.Dequeue();
+            }
+
+            string tempPath = savePath + ".tmp";
+            try
+            {
+                await WriteFileAsync(tempPath, savePath, json);
+            }
+            catch (IOException ex)
+            {
+                // Errors are marshalled back to the main thread so callers are
+                // informed without touching Unity APIs off-thread.
+                completionActions.Enqueue(() => Debug.LogWarning($"Failed to write save file: {ex.Message}"));
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Performs the actual disk IO using asynchronous <see cref="FileStream"/>
+    /// operations. Separated into its own method so tests can override the
+    /// behaviour and simulate slow disks or failures.
+    /// </summary>
+    /// <param name="tempPath">Path to a temporary file used for atomic writes.</param>
+    /// <param name="finalPath">Destination path of the save file.</param>
+    /// <param name="json">Serialized save data.</param>
+    protected virtual async Task WriteFileAsync(string tempPath, string finalPath, string json)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(json);
+        using (var tempStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        {
+            await tempStream.WriteAsync(bytes, 0, bytes.Length);
+        }
+
+        using (var sourceStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true))
+        using (var destStream = new FileStream(finalPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        {
+            await sourceStream.CopyToAsync(destStream);
+        }
+    }
+
+    /// <summary>
+    /// Executes any completion callbacks that were queued by background save
+    /// operations. This method runs on the Unity main thread and therefore may
+    /// safely interact with Unity APIs such as <see cref="Debug.Log"/>.
+    /// </summary>
+    void Update()
+    {
+        while (completionActions.TryDequeue(out var action))
+        {
+            action?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Ensures all queued save operations finish before the manager is
+    /// destroyed, preventing data loss during shutdown or scene unload.
+    /// </summary>
+    void OnDestroy()
+    {
+        // Block until any outstanding background save completes so no data is
+        // lost on shutdown. Afterwards flush any queued completion actions so
+        // warnings are still surfaced even if Update was never called again.
+        processingTask?.Wait();
+        while (completionActions.TryDequeue(out var action))
+        {
+            action?.Invoke();
         }
     }
 

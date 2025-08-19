@@ -1,3 +1,10 @@
+// PlayerControllerTests.cs
+// -----------------------
+// Contains EditMode unit tests validating the behaviour of PlayerController.
+// 2028 update: Adds verification that RequireComponent automatically appends
+// Rigidbody2D, CapsuleCollider2D, and Animator when the controller is added to
+// a GameObject lacking those dependencies.
+
 using NUnit.Framework;
 using UnityEngine;
 using System.Reflection;
@@ -16,6 +23,25 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class PlayerControllerTests
 {
+    [Test]
+    public void RequiredComponents_AutoAddedByAttribute()
+    {
+        // Creating a GameObject and adding PlayerController alone should
+        // automatically populate essential components via the RequireComponent
+        // attribute. This guards against null reference errors at runtime.
+        var player = new GameObject("player");
+        player.AddComponent<PlayerController>();
+
+        Assert.IsNotNull(player.GetComponent<Rigidbody2D>(),
+            "Rigidbody2D should be auto-added by RequireComponent");
+        Assert.IsNotNull(player.GetComponent<CapsuleCollider2D>(),
+            "CapsuleCollider2D should be auto-added by RequireComponent");
+        Assert.IsNotNull(player.GetComponent<Animator>(),
+            "Animator should be auto-added by RequireComponent");
+
+        Object.DestroyImmediate(player);
+    }
+
     [Test]
     public void BufferedJump_TriggersAfterLanding()
     {

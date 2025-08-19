@@ -1,3 +1,10 @@
+// PlayerController.cs
+// --------------------
+// Manages all aspects of player movement and state within the game.
+// 2028 update: Added RequireComponent attribute to guarantee Rigidbody2D,
+// CapsuleCollider2D, and Animator components are present. This prevents null
+// reference errors when the script is placed on new prefabs.
+
 using UnityEngine;
 
 /// <summary>
@@ -20,6 +27,7 @@ using UnityEngine;
 // correctly if game modes invert gravity.
 // 2026 fix: Air-dive logic now guards against zero gravity to prevent
 // undefined velocity when Physics2D.gravity is a zero vector.
+[RequireComponent(typeof(Rigidbody2D), typeof(CapsuleCollider2D), typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
     // Force applied when jumping.

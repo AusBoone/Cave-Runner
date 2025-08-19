@@ -4,6 +4,8 @@
 // 2028 update: Adds verification that RequireComponent automatically appends
 // Rigidbody2D, CapsuleCollider2D, and Animator when the controller is added to
 // a GameObject lacking those dependencies.
+// 2029 update: Physics behaviour moved to FixedUpdate; tests call it explicitly
+// to exercise queued forces and velocity changes.
 
 using NUnit.Framework;
 using UnityEngine;
@@ -19,7 +21,8 @@ using UnityEngine.InputSystem;
 /// we confirm ground contact works with both very small and very large player
 /// colliders. 2026 update: adds a regression test ensuring the air-dive
 /// defaults to <see cref="Vector2.down"/> when gravity is zero, preventing NaN
-/// velocities.
+/// velocities. 2029 update: physics-affecting tests explicitly invoke
+/// <c>FixedUpdate</c> to process queued forces.
 /// </summary>
 public class PlayerControllerTests
 {
@@ -71,10 +74,17 @@ public class PlayerControllerTests
         pc.Update();
         Assert.IsFalse((bool)typeof(PlayerController).GetField("isJumping", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(pc));
 
-        // Land on the ground and update again - buffered jump should fire
+        // Land on the ground and update again - buffered jump should queue a jump
         player.transform.position = Vector3.zero;
         pc.Update();
-        Assert.IsTrue((bool)typeof(PlayerController).GetField("isJumping", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(pc));
+        // Jump state should be armed prior to the physics step.
+        Assert.IsTrue((bool)typeof(PlayerController).GetField("isJumping", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(pc));
+        // Run physics to apply the queued jump force.
+        typeof(PlayerController).GetMethod("FixedUpdate", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
+        Assert.IsTrue(rb.velocity.y > 0f,
+            "Jump force should be applied during FixedUpdate");
 
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(ground);
@@ -206,6 +216,9 @@ public class PlayerControllerTests
         typeof(PlayerController)
             .GetMethod("TryAirDash", BindingFlags.NonPublic | BindingFlags.Instance)
             .Invoke(pc, new object[] { 1f });
+        // Physics step applies the queued dash impulse.
+        typeof(PlayerController).GetMethod("FixedUpdate", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
 
         Assert.Greater(rb.velocity.x, 0f, "Air dash should add positive X velocity");
 
@@ -311,6 +324,9 @@ public class PlayerControllerTests
         // Trigger the slide input to initiate the dive.
         InputManager.TouchSlideDown();
         pc.Update();
+        // Apply the queued downward velocity.
+        typeof(PlayerController).GetMethod("FixedUpdate", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
         InputManager.TouchSlideUp();
         InputManager.GetSlideUp();
 

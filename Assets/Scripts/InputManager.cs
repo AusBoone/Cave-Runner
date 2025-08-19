@@ -18,8 +18,6 @@ using System.Collections;
 /// can also be queried through <see cref="GetHorizontal"/>. If the package is not
 /// present the manager falls back to legacy <see cref="KeyCode"/> queries.
 /// Key bindings are saved to <see cref="PlayerPrefs"/>.
-/// 2026 fix: static constructor now reuses an existing RumbleHost object so
-/// domain reloads in the Unity editor do not accumulate hidden hosts.
 /// 2024 update: added a legacy-input stub for TriggerRumble so older builds
 /// compile without the Input System package.
 /// 2028 update: added <c>Shutdown</c> to dispose <see cref="InputAction"/>s on
@@ -29,6 +27,9 @@ using System.Collections;
 /// 2031 update: added safety checks around controller rumble; shutdown now
 /// cancels active rumble and clears the host reference so destroyed objects are
 /// not dereferenced, preventing stray vibration and null reference errors.
+/// 2032 refactor: rumble host creation moved out of the static constructor and
+/// into a lazy <see cref="EnsureRumbleHost"/> helper so projects that never
+/// trigger vibration do not accumulate hidden GameObjects.
 /// </summary>
 public static class InputManager
 {
@@ -122,26 +123,6 @@ public static class InputManager
         // Load rumble preference (enabled by default).
         RumbleEnabled = PlayerPrefs.GetInt(RumblePref, 1) == 1;
 #if ENABLE_INPUT_SYSTEM
-        // Locate an existing host object when scripts reload in the editor so
-        // duplicates are not created during domain reloads.
-        var existing = GameObject.Find("InputManagerRumbleHost");
-        if (existing != null)
-        {
-            rumbleHost = existing.GetComponent<RumbleHost>();
-            if (rumbleHost == null)
-            {
-                rumbleHost = existing.AddComponent<RumbleHost>();
-            }
-        }
-        else
-        {
-            // Create a hidden object for coroutine execution so rumble can run
-            // without requiring a separate manager component.
-            var hostObj = new GameObject("InputManagerRumbleHost");
-            hostObj.hideFlags = HideFlags.HideAndDontSave;
-            Object.DontDestroyOnLoad(hostObj);
-            rumbleHost = hostObj.AddComponent<RumbleHost>();
-        }
         // Setup actions so either keyboard or various gamepads can trigger them.
         jumpAction = new InputAction("Jump", InputActionType.Button);
         try
@@ -787,28 +768,62 @@ public static class InputManager
     /// <param name="duration">Time in seconds the motors should run.</param>
     public static void TriggerRumble(float strength, float duration)
     {
-        if (!RumbleEnabled || Gamepad.current == null)
+        // Respect the player's preference: skip rumble entirely when disabled.
+        if (!RumbleEnabled)
             return;
 
-        // A coroutine host is required to drive the timed rumble effect. If the
-        // host is unexpectedly missing (for example, destroyed during teardown),
-        // warn the caller and skip activating rumble to avoid a null reference.
-        if (rumbleHost == null)
-        {
-            Debug.LogWarning("TriggerRumble called but no RumbleHost instance is available. Rumble request ignored.");
-            return;
-        }
+        // Lazily create the coroutine host so hidden GameObjects are only
+        // spawned if vibration is actually requested.
+        EnsureRumbleHost();
 
+        // Abort if no compatible gamepad is connected or the host could not be
+        // created (for example, in headless test environments).
+        if (Gamepad.current == null || rumbleHost == null)
+            return;
+
+        // Clamp parameters to safe ranges to avoid unexpected behaviour from
+        // negative durations or out-of-range strengths.
         strength = Mathf.Clamp01(strength);
         duration = Mathf.Max(0f, duration);
 
+        // Stop any existing rumble so motor control doesn't overlap between
+        // multiple requests.
         if (rumbleRoutine != null)
             rumbleHost.StopCoroutine(rumbleRoutine);
 
         // Begin the rumble coroutine which automatically resets after the
-        // specified realtime duration. If another rumble is already active it
-        // is stopped first to avoid overlapping motor control.
+        // specified realtime duration.
         rumbleRoutine = rumbleHost.StartCoroutine(RumbleRoutine(strength, duration));
+    }
+
+    /// <summary>
+    /// Ensures a persistent <see cref="RumbleHost"/> exists to run rumble
+    /// coroutines. The host is created on demand when a gamepad is connected,
+    /// preventing unused hidden objects in scenes that never request rumble.
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void EnsureRumbleHost()
+    {
+        // Skip if a host already exists or no controller is available.
+        if (rumbleHost != null || Gamepad.current == null)
+            return;
+
+        // Reuse a surviving host from a previous play session when possible so
+        // domain reloads do not accumulate additional objects.
+        var existing = Object.FindObjectOfType<RumbleHost>();
+        if (existing != null)
+        {
+            rumbleHost = existing;
+            return;
+        }
+
+        // Otherwise create a new hidden object dedicated to running rumble
+        // coroutines. HideAndDontSave ensures the object persists across scenes
+        // but remains invisible in the hierarchy.
+        var hostObj = new GameObject("InputManagerRumbleHost");
+        hostObj.hideFlags = HideFlags.HideAndDontSave;
+        Object.DontDestroyOnLoad(hostObj);
+        rumbleHost = hostObj.AddComponent<RumbleHost>();
     }
 
     // Coroutine that applies rumble then resets the motor speeds.

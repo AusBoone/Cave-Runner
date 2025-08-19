@@ -15,8 +15,9 @@ using UnityEngine.TestTools;
 /// 2030 addition: ensures the <see cref="GameManager"/> triggers
 /// <see cref="InputManager.Shutdown"/> during teardown so native input resources
 /// are released automatically.
-/// 2031 addition: covers rumble shutdown behaviour and validates that missing
-/// rumble hosts generate warnings instead of null reference errors.
+/// 2031 addition: covers rumble shutdown behaviour.
+/// 2032 addition: verifies that the rumble host is created lazily only when
+/// rumble is requested, keeping scenes free of unnecessary hidden objects.
 /// </summary>
 public class InputManagerTests
 {
@@ -209,37 +210,6 @@ public class InputManagerTests
     }
 
     /// <summary>
-    /// TriggerRumble should gracefully handle the absence of a rumble host by
-    /// logging a warning and avoiding a null reference exception.
-    /// </summary>
-    [Test]
-    public void TriggerRumble_NoHost_WarnsAndReturns()
-    {
-        var gamepad = InputSystem.AddDevice<Gamepad>();
-        InputManager.SetRumbleEnabled(true);
-
-        // Simulate a missing host by clearing the private field via reflection.
-        typeof(InputManager).GetField("rumbleHost", BindingFlags.NonPublic | BindingFlags.Static)
-            .SetValue(null, null);
-
-        FieldInfo routineField = typeof(InputManager).GetField(
-            "rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
-
-        // Expect a warning indicating that rumble cannot start without a host.
-        LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("RumbleHost"));
-        InputManager.TriggerRumble(0.5f, 0.01f);
-
-        // Without a host the coroutine should never be assigned.
-        Assert.IsNull(routineField.GetValue(null),
-            "Rumble routine should remain null when host is missing");
-
-        // Reinitialize the manager so later tests have a valid host again.
-        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
-            typeof(InputManager).TypeHandle);
-        InputSystem.RemoveDevice(gamepad);
-    }
-
-    /// <summary>
     /// Rumble should end even when Time.timeScale is zero. WaitForSecondsRealtime
     /// ensures the coroutine finishes while the game is paused.
     /// </summary>
@@ -297,32 +267,34 @@ public class InputManagerTests
     }
 
     /// <summary>
-    /// Reinitializing InputManager should not spawn multiple rumble hosts.
+    /// The rumble host should be created only when rumble is actually requested,
+    /// keeping the scene free of hidden objects in projects that never vibrate.
     /// </summary>
-    [UnityTest]
-    public IEnumerator StaticConstructor_ReusesRumbleHost()
+    [Test]
+    public void RumbleHostCreated_OnDemand()
     {
-        InputManager.GetJumpDown();
-        yield return null;
-        int before = 0;
-        foreach (var go in Object.FindObjectsOfType<GameObject>())
-        {
-            if (go.name == "InputManagerRumbleHost")
-                before++;
-        }
+        // Remove any existing host and reset the manager so the test starts
+        // from a clean state without hidden objects.
+        var existingHost = GameObject.Find("InputManagerRumbleHost");
+        if (existingHost != null)
+            Object.DestroyImmediate(existingHost);
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
 
-        typeof(InputManager).GetField("rumbleHost", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
-        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(InputManager).TypeHandle);
-        yield return null;
+        // Static initialization alone should not create the host.
+        Assert.IsNull(GameObject.Find("InputManagerRumbleHost"),
+            "Rumble host should not exist before any rumble requests");
 
-        int after = 0;
-        foreach (var go in Object.FindObjectsOfType<GameObject>())
-        {
-            if (go.name == "InputManagerRumbleHost")
-                after++;
-        }
+        // Provide a gamepad and request rumble; this should spawn the host.
+        var pad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+        InputManager.TriggerRumble(0.1f, 0.01f);
 
-        Assert.AreEqual(before, after, "Only one rumble host should exist after reinit");
+        Assert.IsNotNull(GameObject.Find("InputManagerRumbleHost"),
+            "Rumble host should be created when rumble is triggered");
+
+        InputSystem.RemoveDevice(pad);
     }
 }
 #endif

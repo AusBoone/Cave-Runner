@@ -11,7 +11,9 @@ using UnityEngine.Networking;
 // are guarded by a runtime HTTPS check to prevent accidental insecure traffic.
 // Additional revisions introduce request timeouts, automatic retries with
 // exponential backoff, and richer error reporting so callers can distinguish
-// between client and server failures.
+// between client and server failures. The latest update exposes explicit
+// success flags from upload and download operations so the UI can present
+// meaningful error messages when network communication fails.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -84,14 +86,19 @@ public class LeaderboardClient : MonoBehaviour
     /// <summary>
     /// Uploads <paramref name="score"/> associated with <see cref="playerName"/>.
     /// The request body is JSON of the form {"name":"Player","score":100}.
+    /// A callback reports whether the upload ultimately succeeded so callers
+    /// can react to network failures.
     /// </summary>
-    public IEnumerator UploadScore(int score)
+    /// <param name="score">Score value to submit.</param>
+    /// <param name="onComplete">Optional callback receiving a success flag.</param>
+    public IEnumerator UploadScore(int score, System.Action<bool> onComplete = null)
     {
         // Ensure serviceUrl is configured and uses HTTPS before attempting
         // to communicate with the leaderboard. Failing to validate here would
         // allow insecure plaintext traffic or null requests.
         if (!IsServiceUrlSecure())
         {
+            onComplete?.Invoke(false);
             yield break;
         }
 
@@ -129,16 +136,23 @@ public class LeaderboardClient : MonoBehaviour
         {
             Debug.LogWarning("Failed to upload score to leaderboard");
         }
+        // Notify caller of the final outcome. This enables UI elements to
+        // display error messages or retry options.
+        onComplete?.Invoke(success);
     }
 
     /// <summary>
     /// Retrieves the top scores from the service. If the request fails or
     /// returns invalid data, the local high score from
-    /// <see cref="SaveGameManager"/> is provided instead.
+    /// <see cref="SaveGameManager"/> is provided instead. The callback also
+    /// receives a success flag indicating whether remote communication
+    /// succeeded so callers can present error messages.
     /// </summary>
-    public IEnumerator GetTopScores(System.Action<List<ScoreEntry>> callback)
+    /// <param name="callback">Invoked with the retrieved scores and a success flag.</param>
+    public virtual IEnumerator GetTopScores(System.Action<List<ScoreEntry>, bool> callback)
     {
-        List<ScoreEntry> result = null;
+        List<ScoreEntry> result = null; // Final list of scores to return
+        bool success = false;           // Tracks whether the remote request succeeded
 
         // Validate serviceUrl to enforce secure communication. If invalid,
         // immediately return the local high score without issuing any web
@@ -148,7 +162,6 @@ public class LeaderboardClient : MonoBehaviour
             string url = serviceUrl.TrimEnd('/') + "/scores";
             const int maxRetries = 3;
             int attempt = 0;
-            bool success = false;
             string text = null;
             while (attempt < maxRetries && !success)
             {
@@ -174,14 +187,19 @@ public class LeaderboardClient : MonoBehaviour
         }
 
         // Fallback when the serviceUrl is invalid, the request fails, or the
-        // response is empty/invalid.
+        // response is empty/invalid. In these scenarios the operation is
+        // considered unsuccessful even though a list is still returned.
         if (result == null || result.Count == 0)
         {
             int local = SaveGameManager.Instance != null ? SaveGameManager.Instance.HighScore : 0;
             string name = LocalizationManager.Get("leaderboard_local_player");
             result = new List<ScoreEntry> { new ScoreEntry { name = name, score = local } };
+            success = false;
         }
-        callback?.Invoke(result);
+
+        // Callback receives both the scores to display and whether they came
+        // from the remote service (true) or a local fallback (false).
+        callback?.Invoke(result, success);
     }
 
     /// <summary>

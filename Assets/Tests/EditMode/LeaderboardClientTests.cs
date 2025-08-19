@@ -90,12 +90,14 @@ public class LeaderboardClientTests
         client.succeed = false; // simulate failure
 
         List<LeaderboardClient.ScoreEntry> result = null;
-        var routine = client.GetTopScores(list => result = list);
+        bool success = true;
+        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
         while (routine.MoveNext()) { }
 
         Assert.IsNotNull(result);
         Assert.AreEqual(1, result.Count);
         Assert.AreEqual(5, result[0].score);
+        Assert.IsFalse(success, "Callback should report failure when falling back to local scores");
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(saveObj);
     }
@@ -119,12 +121,39 @@ public class LeaderboardClientTests
 
         LocalizationManager.SetLanguage("es");
         List<LeaderboardClient.ScoreEntry> result = null;
-        var routine = client.GetTopScores(list => result = list);
+        bool success = true;
+        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
         while (routine.MoveNext()) { }
 
         Assert.AreEqual("Local ES", result[0].name);
+        Assert.IsFalse(success, "Localized fallback should still report failure");
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(saveObj);
+    }
+
+    /// <summary>
+    /// Successful web requests should report a positive status through the
+    /// callback so callers know remote data was used.
+    /// </summary>
+    [Test]
+    public void GetTopScores_ReportsSuccess()
+    {
+        var go = new GameObject("lbOk");
+        var client = go.AddComponent<DummyClient>();
+        client.serviceUrl = "https://example.com";
+        client.succeed = true;
+        client.payload = "[{\"name\":\"A\",\"score\":1}]"; // valid JSON array
+
+        List<LeaderboardClient.ScoreEntry> result = null;
+        bool success = false;
+        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
+        while (routine.MoveNext()) { }
+
+        Assert.IsTrue(success, "Callback should report success when request completes");
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Count);
+
+        Object.DestroyImmediate(go);
     }
 
     /// <summary>
@@ -162,12 +191,42 @@ public class LeaderboardClientTests
         var client = go.AddComponent<RetryClient>();
         client.serviceUrl = "https://example.com"; // pass HTTPS validation
         client.succeedOn = 2; // Fail first attempt, succeed on second
+        bool result = false;
 
-        var routine = client.UploadScore(10);
+        var routine = client.UploadScore(10, ok => result = ok);
         while (routine.MoveNext()) { }
 
         Assert.AreEqual(2, client.calls, "Upload should retry once before succeeding");
         Assert.AreEqual(10, client.lastTimeout, "Request timeout should be applied");
+        Assert.IsTrue(result, "Callback should report success after retries");
+
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// UploadScore should surface failure through its callback so callers can
+    /// react appropriately (e.g., display an error message).
+    /// </summary>
+    [Test]
+    public void UploadScore_ReportsStatus()
+    {
+        var go = new GameObject("lbStatus");
+        var client = go.AddComponent<DummyClient>();
+        client.serviceUrl = "https://example.com";
+
+        // Simulate successful upload
+        client.succeed = true;
+        bool success = false;
+        var routine = client.UploadScore(1, ok => success = ok);
+        while (routine.MoveNext()) { }
+        Assert.IsTrue(success, "Callback should report success when request succeeds");
+
+        // Simulate failure
+        client.succeed = false;
+        success = true;
+        routine = client.UploadScore(1, ok => success = ok);
+        while (routine.MoveNext()) { }
+        Assert.IsFalse(success, "Callback should report failure when request fails");
 
         Object.DestroyImmediate(go);
     }

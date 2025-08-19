@@ -26,13 +26,18 @@ public class AchievementTriggerTests
         var gmObj = new GameObject("gm");
         var gm = gmObj.AddComponent<GameManager>();
 
-        // Quickly collect coins to raise the combo multiplier to ten
-        for (int i = 0; i < 10; i++)
+        // Determine the cap so the test remains valid if designers adjust it.
+        int max = (int)typeof(GameManager).GetField("maxComboMultiplier", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(gm);
+
+        // Quickly collect coins to raise the combo multiplier to the cap.
+        for (int i = 0; i < max; i++)
         {
             gm.AddCoins(1);
         }
 
-        Assert.Contains("ACH_COMBO_10", steam.unlocked);
+        Assert.Contains("ACH_COMBO_10", steam.unlocked,
+            "Reaching the maximum combo multiplier should unlock the achievement");
 
         Object.DestroyImmediate(gmObj);
         Object.DestroyImmediate(steamObj);

@@ -4,12 +4,21 @@ using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine.TestTools; // For LogAssert to verify logging
 
 // -----------------------------------------------------------------------------
 // 2026 addition summary
 // -----------------------------------------------------------------------------
 // Introduces tests verifying that the AnalyticsManager enforces the configurable
 // run history cap by trimming the oldest entries when the limit is exceeded.
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// 2027 addition summary
+// -----------------------------------------------------------------------------
+// Extends coverage by asserting that failed uploads log through the centralized
+// LoggingHelper, guaranteeing that diagnostic warnings remain testable and
+// controllable via a single flag.
 // -----------------------------------------------------------------------------
 
 /// <summary>
@@ -72,6 +81,9 @@ public class AnalyticsManagerTests
         am.remoteEndpoint = "http://example.com";
         am.maxRetries = 0;
         am.mockResults.Enqueue(UnityWebRequest.Result.ProtocolError); // fail once
+
+        // Expect a warning log about the failed send through LoggingHelper.
+        LogAssert.Expect(LogType.Warning, "Failed to send analytics attempt 1: error");
 
         am.LogRun(5f, 10, true);
 

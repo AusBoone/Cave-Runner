@@ -6,6 +6,14 @@ using System.Diagnostics;
 using System.Threading;
 
 // -----------------------------------------------------------------------------
+// 2027 update summary
+// -----------------------------------------------------------------------------
+// Routes all analytics logging through LoggingHelper so verbose network
+// diagnostics can be suppressed in production builds while still exposing
+// critical errors to developers.
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
 // 2026 update summary
 // -----------------------------------------------------------------------------
 // Introduces a configurable cap on stored run data to prevent unbounded memory
@@ -295,7 +303,9 @@ public class AnalyticsManager : MonoBehaviour
             string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
             if (string.IsNullOrEmpty(remoteEndpoint))
             {
-                Debug.Log("Analytics data: " + json);
+                // Output collected analytics data during development for
+                // troubleshooting but omit in production builds.
+                LoggingHelper.Log("Analytics data: " + json);
                 runs.Clear();
                 PlayerPrefs.DeleteKey("AnalyticsData");
                 break;
@@ -320,10 +330,12 @@ public class AnalyticsManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
+                // Warnings surface transient network issues without spamming
+                // release builds.
+                LoggingHelper.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
                 if (attempt++ >= maxRetries)
                 {
-                    Debug.LogWarning("Giving up on analytics send until next attempt");
+                    LoggingHelper.LogWarning("Giving up on analytics send until next attempt");
                     break;
                 }
 
@@ -367,7 +379,7 @@ public class AnalyticsManager : MonoBehaviour
             string json = JsonUtility.ToJson(new RunCollection { runs = runs.ToArray() });
             if (string.IsNullOrEmpty(remoteEndpoint))
             {
-                Debug.Log("Analytics data: " + json);
+                LoggingHelper.Log("Analytics data: " + json);
                 runs.Clear();
                 PlayerPrefs.DeleteKey("AnalyticsData");
                 break;
@@ -384,7 +396,7 @@ public class AnalyticsManager : MonoBehaviour
 
             if (!req.IsDone)
             {
-                Debug.LogWarning("Analytics send timed out");
+                LoggingHelper.LogWarning("Analytics send timed out");
             }
 
             if (req.Result == UnityWebRequest.Result.Success)
@@ -395,7 +407,7 @@ public class AnalyticsManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
+                LoggingHelper.LogWarning($"Failed to send analytics attempt {attempt + 1}: {req.Error}");
                 if (attempt++ >= maxRetries)
                     break;
             }

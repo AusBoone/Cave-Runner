@@ -68,6 +68,11 @@ using System.Collections;
 /// now validates this reference and logs an error when it is absent to help
 /// developers catch misconfigured scenes early.
 /// </remarks>
+/// <remarks>
+/// 2026 update: redirects error logs through <see cref="LoggingHelper"/> so
+/// build configurations can suppress verbose output while still surfacing
+/// critical issues.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -515,7 +520,9 @@ public class GameManager : MonoBehaviour
         if (playerObject == null)
         {
             // Without this reference, we cannot spawn power-ups or perform player-based logic.
-            Debug.LogError("StartGame: Player object reference not set. Skipping starting power-up spawn.");
+            // Even when verbose logging is disabled this critical error is
+            // surfaced so misconfigured scenes can be diagnosed.
+            LoggingHelper.LogError("StartGame: Player object reference not set. Skipping starting power-up spawn.");
         }
         else if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
         {

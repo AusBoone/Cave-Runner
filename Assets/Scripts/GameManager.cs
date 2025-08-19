@@ -62,6 +62,12 @@ using System.Collections;
 /// costly repeated <c>FindGameObjectWithTag</c> calls and prevents spawns when the
 /// player is missing, eliminating potential null reference errors.
 /// </remarks>
+/// <remarks>
+/// 2039 update: removes runtime player searches in favor of a serialized
+/// reference that must be assigned in the inspector. <see cref="StartGame"/>
+/// now validates this reference and logs an error when it is absent to help
+/// developers catch misconfigured scenes early.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -88,7 +94,8 @@ public class GameManager : MonoBehaviour
     private float coinComboTimer;             // countdown for maintaining a coin combo
     private int coinComboMultiplier = 1;      // current coin multiplier from the combo
 
-    private GameObject playerObject;          // cached reference to the player GameObject
+    [SerializeField]
+    private GameObject playerObject;          // cached reference to the player GameObject; assign via inspector
 
     // Coin bonus power-up variables
     private float coinBonusTimer;             // remaining time coins are multiplied
@@ -452,10 +459,16 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Resets all runtime variables and begins a new run.
+    /// Validates that the serialized player reference is assigned before
+    /// attempting any player-dependent logic such as spawning power-ups.
     /// </summary>
     /// <remarks>
     /// 2038 update: verifies the player exists before spawning starting
     /// power-ups and caches the reference to avoid redundant searches.
+    /// </remarks>
+    /// <remarks>
+    /// 2039 update: requires the player reference to be set in the inspector
+    /// and emits an error if it is missing, removing runtime tag lookups.
     /// </remarks>
     public void StartGame()
     {
@@ -491,34 +504,27 @@ public class GameManager : MonoBehaviour
         slowMotionTimer = 0f;
         Time.timeScale = 1f;
 
-        // Spawn starting power-ups if the player purchased the upgrade.
+        // Validate required references and spawn starting power-ups if configured.
         int startingCount = 0;
         if (ShopManager.Instance != null)
         {
             startingCount = Mathf.RoundToInt(ShopManager.Instance.GetUpgradeEffect(UpgradeType.StartingPowerUp));
         }
-        if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
-        {
-            // Cache the player reference on first use to avoid repeated lookups.
-            if (playerObject == null)
-            {
-                playerObject = GameObject.FindGameObjectWithTag("Player");
-            }
 
-            if (playerObject == null)
+        // Ensure the player reference exists so dependent logic operates safely.
+        if (playerObject == null)
+        {
+            // Without this reference, we cannot spawn power-ups or perform player-based logic.
+            Debug.LogError("StartGame: Player object reference not set. Skipping starting power-up spawn.");
+        }
+        else if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
+        {
+            // Spawn the configured power-up prefabs adjacent to the player.
+            Vector3 spawnPosition = playerObject.transform.position;
+            for (int i = 0; i < startingCount; i++)
             {
-                // Without a player we cannot determine a spawn position for the power-ups.
-                // Log a warning so designers know the upgrade could not be applied.
-                Debug.LogWarning("StartGame: Player object not found. Skipping starting power-up spawn.");
-            }
-            else
-            {
-                Vector3 spawnPosition = playerObject.transform.position;
-                for (int i = 0; i < startingCount; i++)
-                {
-                    GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
-                    Instantiate(prefab, spawnPosition + Vector3.right * (i + 1), Quaternion.identity);
-                }
+                GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
+                Instantiate(prefab, spawnPosition + Vector3.right * (i + 1), Quaternion.identity);
             }
         }
 

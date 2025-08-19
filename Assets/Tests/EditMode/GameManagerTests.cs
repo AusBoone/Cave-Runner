@@ -9,6 +9,11 @@ using System.Text.RegularExpressions;
 /// Tests for core GameManager functionality such as coin counting and
 /// speed boosts. Executed through Unity's EditMode Test Runner.
 /// </summary>
+/// <remarks>
+/// 2039 update: tests explicitly assign the serialized player reference
+/// before invoking <see cref="GameManager.StartGame"/> to satisfy new
+/// validation requirements.
+/// </remarks>
 
 // EditMode tests can be run through Unity's Test Runner window.
 // Create this file under Assets/Tests/EditMode and open Window > General > Test Runner.
@@ -37,6 +42,12 @@ public class GameManagerTests
         // GameManager must be running for speed boosts to apply
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Assign a dummy player reference to satisfy GameManager's runtime validation.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         var baseSpeed = gm.GetSpeed();
@@ -44,6 +55,7 @@ public class GameManagerTests
         // Verify the multiplier applied immediately
         Assert.AreEqual(baseSpeed * 2f, gm.GetSpeed());
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     /// <summary>
@@ -156,6 +168,12 @@ public class GameManagerTests
     {
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Provide the required player reference for StartGame.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         gm.ActivateCoinBonus(1f, 2f);
@@ -168,6 +186,7 @@ public class GameManagerTests
         Assert.AreEqual(3, gm.GetCoins());
 
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     /// <summary>
@@ -179,6 +198,12 @@ public class GameManagerTests
     {
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Supply player reference so combo bonus logic can run safely.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         gm.ActivateCoinBonus(1f, 2f);
@@ -194,6 +219,7 @@ public class GameManagerTests
         Assert.AreEqual(3f, multiplier);
 
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     /// <summary>
@@ -204,6 +230,12 @@ public class GameManagerTests
     {
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Assign player reference for StartGame validation.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         gm.ActivateCoinBonus(1f, 2f);
@@ -212,6 +244,7 @@ public class GameManagerTests
         Assert.AreEqual(2f, gm.GetCoinBonusMultiplier());
 
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     [Test]
@@ -219,6 +252,12 @@ public class GameManagerTests
     {
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Create a dummy player object required by StartGame.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         gm.ActivateSlowMotion(0.5f, 0.5f);
@@ -232,6 +271,7 @@ public class GameManagerTests
 
         Assert.AreEqual(1f, Time.timeScale);
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     /// <summary>
@@ -246,6 +286,12 @@ public class GameManagerTests
 
         var go = new GameObject("gm");
         var gm = go.AddComponent<GameManager>();
+
+        // Provide player reference so StartGame does not log errors.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
         gm.StartGame();
 
         float normal = gm.GetSpeed();
@@ -255,6 +301,7 @@ public class GameManagerTests
         Assert.AreEqual(normal * gm.hardcoreSpeedMultiplier, hardcore, 0.001f);
 
         Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
         Object.DestroyImmediate(saveObj);
     }
 
@@ -321,7 +368,7 @@ public class GameManagerTests
     }
 
     /// <summary>
-    /// Ensures <see cref="GameManager.StartGame"/> warns and skips spawning
+    /// Ensures <see cref="GameManager.StartGame"/> logs an error and skips spawning
     /// starting power-ups when no player object exists in the scene.
     /// </summary>
     [Test]
@@ -354,8 +401,8 @@ public class GameManagerTests
         var gm = go.AddComponent<GameManager>();
         gm.startingPowerUps = new[] { new GameObject("PowerUp") };
 
-        // Expect a warning about the missing player.
-        LogAssert.Expect(LogType.Warning, new Regex("Player object not found"));
+        // Expect an error about the missing player reference.
+        LogAssert.Expect(LogType.Error, new Regex("Player object reference not set"));
 
         gm.StartGame();
 

@@ -1,11 +1,15 @@
 using NUnit.Framework;
 using UnityEngine;
 using System.Reflection;
+using System.Linq;
 
 /// <summary>
 /// Tests for the new touch input helpers exposed through InputManager.
 /// They ensure the flags set by TouchInputManager are consumed correctly
-/// by the existing Get* methods.
+/// by the existing Get* methods. A regression test also verifies that the
+/// mobile‑specific canvas created by <see cref="UIManager"/> does not
+/// duplicate itself when scenes change, which would otherwise clutter the
+/// hierarchy with redundant UI objects.
 /// </summary>
 public class TouchInputManagerTests
 {
@@ -103,5 +107,49 @@ public class TouchInputManagerTests
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(ground);
         Object.DestroyImmediate(gmObj);
+    }
+
+    [Test]
+    public void MobileCanvas_DoesNotDuplicateAcrossScenes()
+    {
+        // Instantiate the first UIManager to simulate the initial scene.
+        var uiObj1 = new GameObject("ui1");
+        var ui1 = uiObj1.AddComponent<UIManager>();
+
+        // Manually create and register a mobile canvas as if Awake() had run
+        // on a mobile platform. Tests execute in the editor where
+        // Application.isMobilePlatform is false, so we inject the canvas via
+        // reflection to exercise the cleanup logic.
+        var prefab = Resources.Load<GameObject>("UI/MobileUI");
+        var canvas1 = Object.Instantiate(prefab);
+        typeof(UIManager)
+            .GetField("mobileCanvas", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(ui1, canvas1);
+        Object.DontDestroyOnLoad(canvas1);
+
+        // Destroy the first manager to mimic a scene transition. Without a
+        // cleanup method this would leave the mobile canvas behind.
+        Object.DestroyImmediate(uiObj1);
+
+        // Create a second manager as would happen when a new scene loads.
+        var uiObj2 = new GameObject("ui2");
+        var ui2 = uiObj2.AddComponent<UIManager>();
+        var canvas2 = Object.Instantiate(prefab);
+        typeof(UIManager)
+            .GetField("mobileCanvas", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(ui2, canvas2);
+        Object.DontDestroyOnLoad(canvas2);
+
+        // Count the mobile canvases that survived the transition. Only the
+        // second one should remain because OnDestroy should remove the first.
+        var mobileCanvases = Object.FindObjectsOfType<Canvas>()
+            .Where(c => c.gameObject.name.Contains("MobileUI"));
+        Assert.AreEqual(1, mobileCanvases.Count(),
+            "Only one mobile canvas should exist after recreating UIManager");
+
+        // Clean up objects created during the test to keep the editor state
+        // pristine for subsequent tests.
+        Object.DestroyImmediate(canvas2);
+        Object.DestroyImmediate(uiObj2);
     }
 }

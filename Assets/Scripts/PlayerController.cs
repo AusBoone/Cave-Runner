@@ -4,6 +4,8 @@
 // 2028 update: Added RequireComponent attribute to guarantee Rigidbody2D,
 // CapsuleCollider2D, and Animator components are present. This prevents null
 // reference errors when the script is placed on new prefabs.
+// 2029 refactor: Physics forces and velocity changes now occur within
+// FixedUpdate using Time.fixedDeltaTime for frame-rate-independent behaviour.
 
 using UnityEngine;
 
@@ -85,6 +87,16 @@ public class PlayerController : MonoBehaviour
     private float doubleJumpTimer;
     // Base number of air jumps normally allowed.
     private const int BaseAirJumps = 1;
+    // Queued jump to be processed in FixedUpdate.
+    private bool jumpQueued;
+    // Accumulated velocity changes (e.g., air dive) applied in FixedUpdate.
+    private Vector2 pendingVelocity;
+    // Direction of a queued air dash: -1 for left, 1 for right, 0 for none.
+    private float pendingAirDashDir;
+    // Whether the jump button is currently held.
+    private bool jumpHeld;
+    // Whether the down input is held, triggering a fast fall.
+    private bool fastFallInput;
 
     /// <summary>
     /// Caches component references used for controlling the character.
@@ -101,6 +113,11 @@ public class PlayerController : MonoBehaviour
         airDivePending = false;
         dashTimer = 0f;
         doubleJumpTimer = 0f;
+        jumpQueued = false;
+        pendingVelocity = Vector2.zero;
+        pendingAirDashDir = 0f;
+        jumpHeld = false;
+        fastFallInput = false;
     }
 
     /// <summary>
@@ -124,6 +141,10 @@ public class PlayerController : MonoBehaviour
             doubleJumpTimer -= Time.deltaTime;
         }
 
+        // Track current button states for use in FixedUpdate
+        jumpHeld = InputManager.GetJump();
+        fastFallInput = InputManager.GetDown();
+
         // Handle jump input and variable jump height using custom bindings
         if (InputManager.GetJumpDown())
         {
@@ -144,15 +165,7 @@ public class PlayerController : MonoBehaviour
                 jumpBufferTimer -= Time.deltaTime;
             }
         }
-        if (InputManager.GetJump() && isJumping)
-        {
-            // Apply extra upward force while the jump button is held
-            if (variableJumpTimer > 0f)
-            {
-                rb.AddForce(Vector2.up * jumpForce * Time.deltaTime);
-                variableJumpTimer -= Time.deltaTime;
-            }
-        }
+        // Variable jump force is now applied in FixedUpdate where physics runs.
         if (InputManager.GetJumpUp())
         {
             isJumping = false;
@@ -185,7 +198,7 @@ public class PlayerController : MonoBehaviour
                     Vector2 gravity = Physics2D.gravity;
                     float gravityMag = gravity.magnitude;
                     Vector2 diveDir = gravityMag > 0f ? gravity / gravityMag : Vector2.down;
-                    rb.velocity += diveDir * airDiveForce;
+                    pendingVelocity += diveDir * airDiveForce;
                 }
             }
         }
@@ -220,10 +233,48 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+        // Physics adjustments now occur during FixedUpdate to keep them in sync
+        // with the physics timestep.
+    }
+
+    /// <summary>
+    /// Executes queued physics operations at a fixed timestep. This ensures
+    /// forces and velocity changes remain consistent regardless of frame rate.
+    /// </summary>
+    void FixedUpdate()
+    {
+        if (jumpQueued)
+        {
+            // Zero vertical speed then apply the jump impulse.
+            rb.velocity = new Vector2(rb.velocity.x, 0f);
+            rb.AddForce(Vector2.up * jumpForce);
+            jumpQueued = false;
+        }
+
+        if (pendingAirDashDir != 0f)
+        {
+            // Clear existing horizontal speed before dashing.
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+            rb.AddForce(new Vector2(pendingAirDashDir * dashForce, 0f), ForceMode2D.Impulse);
+            pendingAirDashDir = 0f;
+        }
+
+        if (pendingVelocity != Vector2.zero)
+        {
+            rb.velocity += pendingVelocity;
+            pendingVelocity = Vector2.zero;
+        }
+
+        if (isJumping && jumpHeld && variableJumpTimer > 0f)
+        {
+            rb.AddForce(Vector2.up * jumpForce * Time.fixedDeltaTime);
+            variableJumpTimer -= Time.fixedDeltaTime;
+        }
+
         // Apply additional gravity so falling feels responsive and short hops
         // are immediately affected when the jump key is released. Holding the
         // down input increases the effect for a fast fall.
-        ApplyEnhancedGravity(Time.deltaTime, InputManager.GetDown());
+        ApplyEnhancedGravity(Time.fixedDeltaTime, fastFallInput);
     }
 
     /// <summary>
@@ -282,8 +333,8 @@ public class PlayerController : MonoBehaviour
         if (isGrounded || coyoteTimer > 0f || jumpsRemaining > 0)
         {
             TutorialManager.Instance?.RegisterJump();
-            rb.velocity = new Vector2(rb.velocity.x, 0f);
-            rb.AddForce(Vector2.up * jumpForce);
+            // Queue the physics portion so it executes during FixedUpdate.
+            jumpQueued = true;
             isJumping = true;
             variableJumpTimer = variableJumpTime;
             anim?.SetTrigger("Jump");
@@ -342,8 +393,8 @@ public class PlayerController : MonoBehaviour
         if (dashTimer > 0f)
             return;
 
-        rb.velocity = new Vector2(0f, rb.velocity.y); // clear existing x speed
-        rb.AddForce(new Vector2(direction * dashForce, 0f), ForceMode2D.Impulse);
+        // Queue the dash so force is applied during the next physics step.
+        pendingAirDashDir = direction;
         dashTimer = dashCooldown;
     }
 
@@ -351,7 +402,7 @@ public class PlayerController : MonoBehaviour
     /// Applies additional gravity for better jump feel. When moving in the
     /// direction of gravity the fall multiplier speeds up descent. If the jump
     /// button is released while rising, the low jump multiplier shortens the
-    /// hop. Called from <see cref="Update"/>.
+    /// hop. Called from <see cref="FixedUpdate"/>.
     /// </summary>
     /// <param name="deltaTime">Frame time step.</param>
     /// <param name="fastFall">When true the down input is held and additional

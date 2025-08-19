@@ -4,6 +4,11 @@
 // manager now includes a progress reporting API so loading screens can display
 // combined progress while assets stream asynchronously. This complements the
 // existing show/hide indicator previously added for addressable loading.
+//
+// 2026 addition summary
+// Added LoggingHelper usage to gate nonessential Debug output behind a global
+// flag so production builds can remain silent while developers retain verbose
+// information inside the editor.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -91,7 +96,9 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("MobileUI prefab not found in Resources/UI");
+                // Verbose logging alerts developers if the expected mobile
+                // prefab is missing but remains silent in production builds.
+                LoggingHelper.LogWarning("MobileUI prefab not found in Resources/UI");
             }
         }
     }
@@ -499,14 +506,18 @@ public class UIManager : MonoBehaviour
 #if UNITY_STANDALONE
         if (downloadedPacks == null || downloadedPacks.Count == 0)
         {
-            Debug.LogWarning("No downloaded workshop items available.");
+            // Inform developers when no workshop items were discovered while
+            // keeping release builds free of noise.
+            LoggingHelper.LogWarning("No downloaded workshop items available.");
             return;
         }
 
         string packPath = downloadedPacks[0];
         if (!Directory.Exists(packPath))
         {
-            Debug.LogError("Workshop path not found: " + packPath);
+            // Critical error logs still surface even when verbose logging is
+            // disabled to ensure player issues are reported.
+            LoggingHelper.LogError("Workshop path not found: " + packPath);
             return;
         }
 
@@ -525,7 +536,7 @@ public class UIManager : MonoBehaviour
                 var bundle = AssetBundle.LoadFromFile(bundlePath);
                 if (bundle == null)
                 {
-                    Debug.LogError("Failed to load AssetBundle: " + bundlePath);
+                    LoggingHelper.LogError("Failed to load AssetBundle: " + bundlePath);
                     return;
                 }
 
@@ -540,13 +551,15 @@ public class UIManager : MonoBehaviour
                         if (sr != null)
                         {
                             sr.sprite = bg;
-                            Debug.Log("Applied background sprite from bundle.");
+                            // This message helps during development to verify
+                            // the correct assets are applied.
+                            LoggingHelper.Log("Applied background sprite from bundle.");
                         }
                     }
                 }
                 else
                 {
-                    Debug.LogWarning("BackgroundSprite not found in bundle.");
+                    LoggingHelper.LogWarning("BackgroundSprite not found in bundle.");
                 }
 
                 // Example prefab instantiation
@@ -554,7 +567,7 @@ public class UIManager : MonoBehaviour
                 if (prefab != null)
                 {
                     Instantiate(prefab, Vector3.zero, Quaternion.identity);
-                    Debug.Log("Instantiated prefab from bundle.");
+                    LoggingHelper.Log("Instantiated prefab from bundle.");
                 }
 
                 bundle.Unload(false);
@@ -577,24 +590,24 @@ public class UIManager : MonoBehaviour
                             if (sr != null)
                             {
                                 sr.sprite = sprite;
-                                Debug.Log("Applied background sprite from file: " + Path.GetFileName(pngPath));
+                                LoggingHelper.Log("Applied background sprite from file: " + Path.GetFileName(pngPath));
                             }
                         }
                     }
                     else
                     {
-                        Debug.LogError("Failed to load texture from " + pngPath);
+                        LoggingHelper.LogError("Failed to load texture from " + pngPath);
                     }
                 }
                 else
                 {
-                    Debug.LogWarning("No asset bundle or supported files found in " + packPath);
+                    LoggingHelper.LogWarning("No asset bundle or supported files found in " + packPath);
                 }
             }
         }
         catch (System.Exception ex)
         {
-            Debug.LogError("Error applying workshop item: " + ex.Message);
+            LoggingHelper.LogError("Error applying workshop item: " + ex.Message);
         }
 #endif
     }

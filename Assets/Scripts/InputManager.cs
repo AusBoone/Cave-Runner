@@ -26,6 +26,9 @@ using System.Collections;
 /// application quit, preventing native memory leaks from lingering actions.
 /// 2029 fix: corrupted PlayerPrefs bindings now log warnings and revert to
 /// defaults, ensuring invalid data cannot break input initialization.
+/// 2031 update: added safety checks around controller rumble; shutdown now
+/// cancels active rumble and clears the host reference so destroyed objects are
+/// not dereferenced, preventing stray vibration and null reference errors.
 /// </summary>
 public static class InputManager
 {
@@ -270,6 +273,28 @@ public static class InputManager
         DisposeAction(ref pauseAction);
         DisposeAction(ref downAction);
         DisposeAction(ref moveAction);
+
+        // If a rumble coroutine is active, stop it so the gamepad does not
+        // continue vibrating after the input system shuts down. Stopping the
+        // coroutine also prevents a dangling reference to the routine object.
+        if (rumbleRoutine != null)
+        {
+            // The host may be missing during teardown. Guard against null to
+            // avoid a <see cref="NullReferenceException"/> while still clearing
+            // the routine reference.
+            if (rumbleHost != null)
+            {
+                rumbleHost.StopCoroutine(rumbleRoutine);
+            }
+            rumbleRoutine = null;
+        }
+
+        // Explicitly reset any motor speeds to zero so a connected controller
+        // does not remain in a vibrating state after the game exits.
+        if (Gamepad.current != null)
+        {
+            Gamepad.current.SetMotorSpeeds(0f, 0f);
+        }
     }
 
     /// <summary>
@@ -765,6 +790,15 @@ public static class InputManager
         if (!RumbleEnabled || Gamepad.current == null)
             return;
 
+        // A coroutine host is required to drive the timed rumble effect. If the
+        // host is unexpectedly missing (for example, destroyed during teardown),
+        // warn the caller and skip activating rumble to avoid a null reference.
+        if (rumbleHost == null)
+        {
+            Debug.LogWarning("TriggerRumble called but no RumbleHost instance is available. Rumble request ignored.");
+            return;
+        }
+
         strength = Mathf.Clamp01(strength);
         duration = Mathf.Max(0f, duration);
 
@@ -799,6 +833,10 @@ public static class InputManager
             // from lingering unmanaged allocations retained by the Input System.
             Shutdown();
             Destroy(gameObject);
+            // Clear the static host reference so subsequent rumble requests
+            // can detect that the host no longer exists and avoid
+            // dereferencing a destroyed component.
+            rumbleHost = null;
         }
     }
 #else

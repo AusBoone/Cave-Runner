@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 /*
@@ -12,6 +13,12 @@ using System.Collections.Generic;
  * CreateNew now reuses a prefab-defined PooledObject component when present,
  * avoiding duplicate components and clarifying that prefabs may include the
  * component for debugging or customised setup.
+ *
+ * NEW IN THIS REVISION:
+ * - Introduced a configurable maxSize limit to cap total pooled instances and
+ *   emit warnings when expansion is requested beyond the cap.
+ * - Replaced Start's synchronous preloading loop with an asynchronous coroutine
+ *   that spreads instantiation across multiple frames to avoid hitches.
  */
 
 /// <summary>
@@ -47,13 +54,22 @@ public class ObjectPool : MonoBehaviour
     /// </summary>
     public int initialSize = 5;
 
+    /// <summary>
+    /// Maximum number of objects the pool is allowed to create. A value of
+    /// <c>0</c> disables the limit and allows unbounded growth. When the cap is
+    /// reached, requests for additional objects will log a warning and return
+    /// <c>null</c>.
+    /// </summary>
+    public int maxSize = 0;
+
     private Queue<PooledObject> objects = new Queue<PooledObject>();
 
     // Delay initialization until Start so prefab can be assigned by spawners
     // before the pool creates its initial objects.
     /// <summary>
     /// Instantiates a set number of objects at start so the pool has
-    /// instances ready for immediate use.
+    /// instances ready for immediate use. Objects are created over multiple
+    /// frames to avoid long hitches during scene load.
     /// </summary>
     void Start()
     {
@@ -64,13 +80,40 @@ public class ObjectPool : MonoBehaviour
         if (prefab == null)
         {
             Debug.LogWarning($"{nameof(ObjectPool)} on {name} has no prefab assigned; no objects were preloaded.");
+            return;
         }
-        else
+
+        // Kick off asynchronous preloading. The coroutine yields after each
+        // instantiation so that heavy creation work is spread across frames and
+        // does not stall gameplay or editor responsiveness.
+        StartCoroutine(PreloadCoroutine());
+    }
+
+    /// <summary>
+    /// Coroutine responsible for lazily creating the initial pool objects. It
+    /// yields after each instantiation so the work is amortised across frames.
+    /// </summary>
+    IEnumerator PreloadCoroutine()
+    {
+        // Determine how many objects we are allowed to preload. Honour the
+        // maxSize limit if one is set; otherwise fall back to initialSize.
+        int target = initialSize;
+        if (maxSize > 0)
         {
-            for (int i = 0; i < initialSize; i++)
+            target = Mathf.Min(initialSize, maxSize);
+        }
+
+        for (int i = 0; i < target; i++)
+        {
+            // Stop preloading early if CreateNew refuses due to size limits.
+            if (CreateNew() == null)
             {
-                CreateNew();
+                yield break;
             }
+
+            // Wait a frame before creating the next object so we avoid frame
+            // spikes from bulk instantiation.
+            yield return null;
         }
     }
 
@@ -86,6 +129,15 @@ public class ObjectPool : MonoBehaviour
     /// </summary>
     PooledObject CreateNew()
     {
+        // Enforce the optional maxSize limit to prevent runaway growth. When
+        // the limit is reached, log a warning and refuse to create more
+        // instances so callers can react appropriately.
+        if (maxSize > 0 && transform.childCount >= maxSize)
+        {
+            Debug.LogWarning($"{nameof(ObjectPool)} on {name} cannot expand beyond max size of {maxSize}.");
+            return null;
+        }
+
         // Instantiate a new object and parent it under the pool so the
         // hierarchy stays clean in the editor.
         GameObject obj = Instantiate(prefab, transform);
@@ -124,12 +176,22 @@ public class ObjectPool : MonoBehaviour
             return null;
         }
 
+        PooledObject po;
         if (objects.Count == 0)
         {
-            CreateNew();
+            // Attempt to expand the pool if all instances are in use. When
+            // maxSize is reached CreateNew will return null, signalling to the
+            // caller that no object is available.
+            po = CreateNew();
+            if (po == null)
+            {
+                return null;
+            }
         }
-
-        PooledObject po = objects.Dequeue();
+        else
+        {
+            po = objects.Dequeue();
+        }
         GameObject obj = po.gameObject;
         obj.transform.SetPositionAndRotation(position, rotation);
         obj.SetActive(true);

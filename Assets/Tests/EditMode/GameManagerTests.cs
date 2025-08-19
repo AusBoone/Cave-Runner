@@ -1,7 +1,9 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using System;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 /// <summary>
 /// Tests for core GameManager functionality such as coin counting and
@@ -316,5 +318,52 @@ public class GameManagerTests
 
         Object.DestroyImmediate(primaryObj);
         Object.DestroyImmediate(duplicateObj);
+    }
+
+    /// <summary>
+    /// Ensures <see cref="GameManager.StartGame"/> warns and skips spawning
+    /// starting power-ups when no player object exists in the scene.
+    /// </summary>
+    [Test]
+    public void StartGame_PlayerMissing_SkipsPowerUpSpawn()
+    {
+        // Create required singletons so upgrade data can be queried.
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+        var shopObj = new GameObject("shop");
+        var shop = shopObj.AddComponent<ShopManager>();
+        shop.availableUpgrades = new[]
+        {
+            new ShopManager.UpgradeData
+            {
+                type = UpgradeType.StartingPowerUp,
+                cost = 1,
+                effect = 1f
+            }
+        };
+        // Populate upgrade levels so the starting power-up count is one.
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(shop, null);
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (System.Collections.Generic.Dictionary<UpgradeType, int>)dictField.GetValue(shop);
+        levels[UpgradeType.StartingPowerUp] = 1;
+        dictField.SetValue(shop, levels);
+
+        // GameManager with a simple power-up prefab to instantiate.
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<GameManager>();
+        gm.startingPowerUps = new[] { new GameObject("PowerUp") };
+
+        // Expect a warning about the missing player.
+        LogAssert.Expect(LogType.Warning, new Regex("Player object not found"));
+
+        gm.StartGame();
+
+        // The prefab should not have spawned because the player was absent.
+        Assert.IsNull(GameObject.Find("PowerUp(Clone)"));
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
     }
 }

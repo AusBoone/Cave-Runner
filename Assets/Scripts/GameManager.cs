@@ -56,6 +56,12 @@ using System.Collections;
 /// 2036 update: introduces <see cref="maxComboMultiplier"/> to cap coin combo
 /// rewards and align UI plus achievement logic with the new limit.
 /// </remarks>
+/// <remarks>
+/// 2038 update: <see cref="StartGame"/> now caches the player GameObject and
+/// verifies it exists before spawning starting power-ups. This validation avoids
+/// costly repeated <c>FindGameObjectWithTag</c> calls and prevents spawns when the
+/// player is missing, eliminating potential null reference errors.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -81,6 +87,8 @@ public class GameManager : MonoBehaviour
     private bool gravityFlipped;              // true while gravity is inverted
     private float coinComboTimer;             // countdown for maintaining a coin combo
     private int coinComboMultiplier = 1;      // current coin multiplier from the combo
+
+    private GameObject playerObject;          // cached reference to the player GameObject
 
     // Coin bonus power-up variables
     private float coinBonusTimer;             // remaining time coins are multiplied
@@ -445,6 +453,10 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Resets all runtime variables and begins a new run.
     /// </summary>
+    /// <remarks>
+    /// 2038 update: verifies the player exists before spawning starting
+    /// power-ups and caches the reference to avoid redundant searches.
+    /// </remarks>
     public void StartGame()
     {
         // Always restore gravity before a new run in case the previous game
@@ -487,12 +499,26 @@ public class GameManager : MonoBehaviour
         }
         if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            Vector3 pos = player != null ? player.transform.position : Vector3.zero;
-            for (int i = 0; i < startingCount; i++)
+            // Cache the player reference on first use to avoid repeated lookups.
+            if (playerObject == null)
             {
-                GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
-                Instantiate(prefab, pos + Vector3.right * (i + 1), Quaternion.identity);
+                playerObject = GameObject.FindGameObjectWithTag("Player");
+            }
+
+            if (playerObject == null)
+            {
+                // Without a player we cannot determine a spawn position for the power-ups.
+                // Log a warning so designers know the upgrade could not be applied.
+                Debug.LogWarning("StartGame: Player object not found. Skipping starting power-up spawn.");
+            }
+            else
+            {
+                Vector3 spawnPosition = playerObject.transform.position;
+                for (int i = 0; i < startingCount; i++)
+                {
+                    GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
+                    Instantiate(prefab, spawnPosition + Vector3.right * (i + 1), Quaternion.identity);
+                }
             }
         }
 

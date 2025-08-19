@@ -52,6 +52,10 @@ using System.Collections;
 /// releases native <c>InputAction</c> resources, preventing memory leaks in
 /// player builds and during editor sessions.
 /// </remarks>
+/// <remarks>
+/// 2036 update: introduces <see cref="maxComboMultiplier"/> to cap coin combo
+/// rewards and align UI plus achievement logic with the new limit.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -103,6 +107,11 @@ public class GameManager : MonoBehaviour
 
     [Tooltip("Time allowed between coin pickups to continue the combo.")]
     public float comboDuration = 1.5f;        // seconds before the combo resets
+
+    [Tooltip("Maximum value the coin combo multiplier can reach before it stops increasing.")]
+    [SerializeField]
+    private int maxComboMultiplier = 10;      // cap applied to combo multiplier for balance
+
     public Text comboLabel;                   // UI label showing current combo multiplier
 
     [Header("Combo Feedback")]
@@ -130,7 +139,7 @@ public class GameManager : MonoBehaviour
     private const string AchDistance5000 = "ACH_DISTANCE_5000";
     private const string AchCoins50 = "ACH_COINS_50";
     private const string AchCoins200 = "ACH_COINS_200";
-    private const string AchCombo10 = "ACH_COMBO_10";
+    private const string AchCombo10 = "ACH_COMBO_10"; // unlocked when combo hits max
     private const string AchFirstBoss = "ACH_FIRST_BOSS";
     private const string AchHardcoreWin = "ACH_HARDCORE_WIN";
 
@@ -655,7 +664,9 @@ public class GameManager : MonoBehaviour
         // Unlock the combo achievement once the multiplier reaches the
         // defined threshold. The SteamManager ignores duplicate unlocks
         // so this check can run every increase without additional state.
-        if (SteamManager.Instance != null && coinComboMultiplier >= 10)
+        // Using the configurable max keeps the logic in sync with any
+        // designer-defined cap.
+        if (SteamManager.Instance != null && coinComboMultiplier >= maxComboMultiplier)
         {
             SteamManager.Instance.UnlockAchievement(AchCombo10);
         }
@@ -684,7 +695,9 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Adds to the player's coin tally and updates the UI label. Coin value may
-    /// increase through both the combo system and any purchased upgrades.
+    /// increase through both the combo system and any purchased upgrades. The
+    /// combo multiplier is capped at <see cref="maxComboMultiplier"/> to prevent
+    /// unbounded rewards.
     /// </summary>
     public void AddCoins(int amount)
     {
@@ -697,12 +710,22 @@ public class GameManager : MonoBehaviour
         // Determine whether this pickup continues an existing combo
         if (coinComboTimer > 0f)
         {
-            coinComboMultiplier++;
-            OnComboIncreased();
+            int previous = coinComboMultiplier; // store prior value to detect actual changes
+
+            // Increment then clamp the combo multiplier so feedback only triggers
+            // when the multiplier truly increases and never exceeds the configured max.
+            coinComboMultiplier = Mathf.Min(previous + 1, Mathf.Max(1, maxComboMultiplier));
+
+            // Only run combo-increase feedback when the multiplier rises. This
+            // prevents duplicate particles or sound when already at the cap.
+            if (coinComboMultiplier > previous)
+            {
+                OnComboIncreased();
+            }
         }
         else
         {
-            coinComboMultiplier = 1;
+            coinComboMultiplier = 1; // reset combo when timer expires
         }
 
         coinComboTimer = comboDuration; // reset the combo window
@@ -738,13 +761,16 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Current coin combo multiplier. Returns one when no combo is
-    /// active so callers can easily scale rewards based on the combo
-    /// state.
+    /// Current coin combo multiplier capped by <see cref="maxComboMultiplier"/>.
+    /// Returns one when no combo is active so callers can easily scale
+    /// rewards based on the combo state.
     /// </summary>
     public int GetCoinComboMultiplier()
     {
-        return coinComboMultiplier;
+        // Clamp the reported value so external systems cannot exceed the
+        // configured maximum even if the internal field is set directly via
+        // reflection (as some tests do).
+        return Mathf.Min(coinComboMultiplier, Mathf.Max(1, maxComboMultiplier));
     }
 
     /// <summary>
@@ -770,7 +796,9 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Refreshes the on-screen combo multiplier text.
+    /// Refreshes the on-screen combo multiplier text. Because the combo
+    /// value is clamped, the label never displays a multiplier above
+    /// <see cref="maxComboMultiplier"/>.
     /// </summary>
     private void UpdateMultiplierLabel()
     {

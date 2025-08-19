@@ -18,7 +18,7 @@ This document summarizes the core gameplay mechanics for **Cave-Runner** and how
 ## Scoring
 - Distance traveled increments continuously while alive.
 - Coins increase the score and can be spent on upgrades in the shop.
-- Collecting coins quickly builds a combo multiplier.
+- Collecting coins quickly builds a combo multiplier up to **x10** by default.
 
 ## Saving and Progression
 - Player coins, upgrades and high scores are stored via `SaveGameManager`.

@@ -15,6 +15,8 @@ using UnityEngine.TestTools;
 /// 2030 addition: ensures the <see cref="GameManager"/> triggers
 /// <see cref="InputManager.Shutdown"/> during teardown so native input resources
 /// are released automatically.
+/// 2031 addition: covers rumble shutdown behaviour and validates that missing
+/// rumble hosts generate warnings instead of null reference errors.
 /// </summary>
 public class InputManagerTests
 {
@@ -207,6 +209,37 @@ public class InputManagerTests
     }
 
     /// <summary>
+    /// TriggerRumble should gracefully handle the absence of a rumble host by
+    /// logging a warning and avoiding a null reference exception.
+    /// </summary>
+    [Test]
+    public void TriggerRumble_NoHost_WarnsAndReturns()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Simulate a missing host by clearing the private field via reflection.
+        typeof(InputManager).GetField("rumbleHost", BindingFlags.NonPublic | BindingFlags.Static)
+            .SetValue(null, null);
+
+        FieldInfo routineField = typeof(InputManager).GetField(
+            "rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+
+        // Expect a warning indicating that rumble cannot start without a host.
+        LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("RumbleHost"));
+        InputManager.TriggerRumble(0.5f, 0.01f);
+
+        // Without a host the coroutine should never be assigned.
+        Assert.IsNull(routineField.GetValue(null),
+            "Rumble routine should remain null when host is missing");
+
+        // Reinitialize the manager so later tests have a valid host again.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
     /// Rumble should end even when Time.timeScale is zero. WaitForSecondsRealtime
     /// ensures the coroutine finishes while the game is paused.
     /// </summary>
@@ -225,6 +258,41 @@ public class InputManagerTests
 
         Assert.IsNull(field.GetValue(null), "Coroutine should complete even when paused");
         Time.timeScale = 1f;
+        InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// Calling Shutdown while a rumble coroutine is active should stop the
+    /// vibration and clear the routine reference so subsequent rumbles can
+    /// start cleanly.
+    /// </summary>
+    [Test]
+    public void Shutdown_StopsActiveRumbleAndResetsMotors()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Start a rumble with a long duration so it would normally persist.
+        InputManager.TriggerRumble(1f, 10f);
+
+        FieldInfo routineField = typeof(InputManager).GetField(
+            "rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(routineField.GetValue(null),
+            "Rumble routine should be active before shutdown");
+
+        InputManager.Shutdown();
+
+        // The routine should be cleared and motors reset to zero.
+        Assert.IsNull(routineField.GetValue(null),
+            "Shutdown should clear the active rumble routine");
+        float low, high;
+        gamepad.GetMotorSpeeds(out low, out high);
+        Assert.AreEqual(0f, low, 0.0001f, "Low-frequency motor should be zero after shutdown");
+        Assert.AreEqual(0f, high, 0.0001f, "High-frequency motor should be zero after shutdown");
+
+        // Reinitialize for subsequent tests since Shutdown disposed the actions.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
         InputSystem.RemoveDevice(gamepad);
     }
 

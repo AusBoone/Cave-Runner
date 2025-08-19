@@ -13,6 +13,12 @@
 // 2029 update summary
 // When leaderboard communication fails a localized error message is now shown
 // in the UI so players receive feedback instead of an empty panel.
+//
+// 2031 update summary
+// The mobile-specific canvas instantiated on handheld devices is now marked
+// to persist across scene loads and is explicitly destroyed when the manager
+// itself is torn down. This prevents duplicate canvases from accumulating
+// as scenes transition while still ensuring the mobile UI remains available.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -97,6 +103,9 @@ public class UIManager : MonoBehaviour
             if (prefab != null)
             {
                 mobileCanvas = Instantiate(prefab);
+                // Keep the mobile canvas alive when new scenes load so touch
+                // controls remain available during transitions.
+                DontDestroyOnLoad(mobileCanvas);
             }
             else
             {
@@ -104,6 +113,28 @@ public class UIManager : MonoBehaviour
                 // prefab is missing but remains silent in production builds.
                 LoggingHelper.LogWarning("MobileUI prefab not found in Resources/UI");
             }
+        }
+    }
+
+    /// <summary>
+    /// Cleans up persistent UI when this manager is destroyed. The mobile
+    /// canvas is marked as "DontDestroyOnLoad" so scene changes do not remove
+    /// it automatically. Destroying it here prevents multiple copies from
+    /// lingering if a new <see cref="UIManager"/> is created after a
+    /// transition. The singleton instance reference is also cleared so future
+    /// instances can initialize correctly.
+    /// </summary>
+    void OnDestroy()
+    {
+        if (mobileCanvas != null)
+        {
+            Destroy(mobileCanvas);
+            mobileCanvas = null;
+        }
+
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 

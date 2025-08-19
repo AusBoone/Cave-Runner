@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using System;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -29,6 +30,19 @@ public class SaveGameManagerTests
         }
     }
 
+    /// <summary>
+    /// Flushes any pending asynchronous save operation for the provided manager
+    /// and destroys its GameObject. Tests use this helper to ensure data reaches
+    /// disk before a new <see cref="SaveGameManager"/> is instantiated.
+    /// </summary>
+    private static void FlushAndDestroy(SaveGameManager mgr)
+    {
+        MethodInfo method = typeof(SaveGameManager).GetMethod("FlushPendingSavesAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task)method.Invoke(mgr, new object[] { TimeSpan.FromSeconds(2) });
+        task.GetAwaiter().GetResult();
+        Object.DestroyImmediate(mgr.gameObject);
+    }
+
     [Test]
     public void SaveAndLoad_PersistsData()
     {
@@ -37,7 +51,8 @@ public class SaveGameManagerTests
         save.Coins = 7;
         save.HighScore = 12;
         save.SetUpgradeLevel(UpgradeType.MagnetDuration, 2);
-        Object.DestroyImmediate(go);
+        // Ensure asynchronous save completes before creating a new instance.
+        FlushAndDestroy(save);
 
         // Create a new instance which should load from the file
         var go2 = new GameObject("save2");
@@ -46,7 +61,7 @@ public class SaveGameManagerTests
         Assert.AreEqual(7, save2.Coins);
         Assert.AreEqual(12, save2.HighScore);
         Assert.AreEqual(2, save2.GetUpgradeLevel(UpgradeType.MagnetDuration));
-        Object.DestroyImmediate(go2);
+        FlushAndDestroy(save2);
     }
 
     [Test]
@@ -66,7 +81,7 @@ public class SaveGameManagerTests
         Assert.AreEqual(1, save.GetUpgradeLevel(UpgradeType.MagnetDuration));
         // File should now exist after migration
         Assert.IsTrue(File.Exists(Path.Combine(Application.persistentDataPath, "savegame.json")));
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(save);
     }
 
     [Test]
@@ -79,7 +94,7 @@ public class SaveGameManagerTests
         save.Coins = 1; // triggers SaveDataToFile
 
         // Wait for asynchronous saving to finish before checking for cleanup.
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(save);
 
         string temp = Path.Combine(Application.persistentDataPath, "savegame.json.tmp");
         Assert.IsFalse(File.Exists(temp));
@@ -92,13 +107,13 @@ public class SaveGameManagerTests
         var save = obj.AddComponent<SaveGameManager>();
         save.MusicVolume = 0.4f;
         save.EffectsVolume = 0.7f;
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(save);
 
         var obj2 = new GameObject("save2");
         var save2 = obj2.AddComponent<SaveGameManager>();
         Assert.AreEqual(0.4f, save2.MusicVolume, 0.001f);
         Assert.AreEqual(0.7f, save2.EffectsVolume, 0.001f);
-        Object.DestroyImmediate(obj2);
+        FlushAndDestroy(save2);
     }
 
     [Test]
@@ -113,15 +128,15 @@ public class SaveGameManagerTests
 
         Assert.AreEqual(1f, save.MusicVolume);
         Assert.AreEqual(1f, save.EffectsVolume);
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(save);
     }
 
     [Test]
     public void VersionField_WrittenToFile()
     {
         var go = new GameObject("save");
-        go.AddComponent<SaveGameManager>();
-        Object.DestroyImmediate(go);
+        var save = go.AddComponent<SaveGameManager>();
+        FlushAndDestroy(save);
 
         string path = Path.Combine(Application.persistentDataPath, "savegame.json");
         string json = File.ReadAllText(path);
@@ -135,12 +150,12 @@ public class SaveGameManagerTests
         var go = new GameObject("save");
         var save = go.AddComponent<SaveGameManager>();
         save.Language = "es";
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(save);
 
         var go2 = new GameObject("save2");
         var save2 = go2.AddComponent<SaveGameManager>();
         Assert.AreEqual("es", save2.Language);
-        Object.DestroyImmediate(go2);
+        FlushAndDestroy(save2);
     }
 
     [Test]
@@ -158,7 +173,7 @@ public class SaveGameManagerTests
         Assert.AreEqual(3, save.HighScore);
         Assert.AreEqual(0, save.GetUpgradeLevel(UpgradeType.MagnetDuration));
 
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(save);
     }
 
     [Test]
@@ -172,14 +187,14 @@ public class SaveGameManagerTests
         mgr.Coins = 2;
         mgr.ChangeSlot(1);
         mgr.Coins = 5;
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(mgr);
 
         var obj2 = new GameObject("save2");
         var mgr2 = obj2.AddComponent<SaveGameManager>();
         Assert.AreEqual(5, mgr2.Coins, "Slot 1 should contain updated value");
         mgr2.ChangeSlot(0);
         Assert.AreEqual(2, mgr2.Coins, "Slot 0 should retain original value");
-        Object.DestroyImmediate(obj2);
+        FlushAndDestroy(mgr2);
     }
 
     /// <summary>
@@ -200,20 +215,20 @@ public class SaveGameManagerTests
         // save finishes so the data lands in slot 0.
         mgr.ChangeSlot(1);
         mgr.Coins = 2; // save to slot 1
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(mgr);
 
         // Verify slot 0 contains the first value and slot 1 the second.
         SaveSlotManager.SetSlot(0);
         var check0 = new GameObject("check0");
         var mgr0 = check0.AddComponent<SaveGameManager>();
         Assert.AreEqual(1, mgr0.Coins, "Slot 0 should persist initial value");
-        Object.DestroyImmediate(check0);
+        FlushAndDestroy(mgr0);
 
         SaveSlotManager.SetSlot(1);
         var check1 = new GameObject("check1");
         var mgr1 = check1.AddComponent<SaveGameManager>();
         Assert.AreEqual(2, mgr1.Coins, "Slot 1 should contain updated value");
-        Object.DestroyImmediate(check1);
+        FlushAndDestroy(mgr1);
     }
 
     /// <summary>
@@ -234,7 +249,7 @@ public class SaveGameManagerTests
         MethodInfo method = typeof(SaveGameManager).GetMethod("SaveDataToFile", BindingFlags.NonPublic | BindingFlags.Instance);
         method.Invoke(mgr, null);
 
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(mgr);
     }
 
     /// <summary>
@@ -267,7 +282,7 @@ public class SaveGameManagerTests
         string json = File.ReadAllText(path);
         StringAssert.Contains("\"version\"", json);
 
-        Object.DestroyImmediate(go);
+        FlushAndDestroy(mgr);
     }
 
     // Spy subclass used to count save operations
@@ -313,7 +328,7 @@ public class SaveGameManagerTests
 
         Assert.AreEqual(1, mgr.Calls);
 
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(mgr);
     }
 
     /// <summary>
@@ -332,6 +347,35 @@ public class SaveGameManagerTests
 
         Assert.Less(timer.ElapsedMilliseconds, 100, "Setter should return before slow write completes");
 
-        Object.DestroyImmediate(obj);
+        FlushAndDestroy(mgr);
+    }
+
+    /// <summary>
+    /// Invoking the quit handler should not block the main thread yet still
+    /// persist pending data before a new manager loads it.
+    /// </summary>
+    [Test]
+    public void QuitHandler_FlushesWithoutBlocking()
+    {
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SlowSaveGameManager>();
+        mgr.Coins = 9; // queue save
+
+        // Reflectively invoke the private handler used by Application.quitting.
+        MethodInfo quit = typeof(SaveGameManager).GetMethod("HandleApplicationQuitting", BindingFlags.NonPublic | BindingFlags.Instance);
+        var timer = Stopwatch.StartNew();
+        quit.Invoke(mgr, null); // should return immediately
+        timer.Stop();
+        Assert.Less(timer.ElapsedMilliseconds, 100, "Quit handler should return quickly");
+
+        // Allow the asynchronous save to finish so data reaches disk.
+        Task.Delay(300).Wait();
+
+        var obj2 = new GameObject("check");
+        var mgr2 = obj2.AddComponent<SaveGameManager>();
+        Assert.AreEqual(9, mgr2.Coins, "Data should persist after quit handler");
+
+        FlushAndDestroy(mgr2);
+        FlushAndDestroy(mgr);
     }
 }

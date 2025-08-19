@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.AddressableAssets;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 
 /// <summary>
@@ -317,6 +318,61 @@ public class StageManagerTests
     }
 
     /// <summary>
+    /// Combined progress from parallel loading operations should advance from
+    /// 0 to 1 as each asset finishes loading. This verifies the new progress
+    /// reporting logic aggregates multiple asynchronous tasks.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator LoadStageRoutine_ReportsCombinedProgress()
+    {
+        // Create a UI manager subclass that records progress values for
+        // verification. Awake will assign the singleton instance automatically.
+        var uiObj = new GameObject("ui");
+        var ui = uiObj.AddComponent<ProgressUI>();
+
+        var smObj = new GameObject("sm");
+        var sm = smObj.AddComponent<StageManager>();
+        sm.parallaxBackground = new GameObject("bg").AddComponent<ParallaxBackground>();
+        sm.obstacleSpawner = smObj.AddComponent<ObstacleSpawner>();
+        sm.hazardSpawner = smObj.AddComponent<HazardSpawner>();
+
+        // Stage contains three invalid addressable references which should each
+        // trigger an error log and generate progress updates as loading fails.
+        var stage = ScriptableObject.CreateInstance<StageDataSO>();
+        stage.stage = new StageManager.StageData
+        {
+            backgroundSprite = new AssetReferenceSprite("00000000000000000000000000000006"),
+            groundObstacles = new[] { new AssetReferenceGameObject("00000000000000000000000000000006") },
+            pits = new[] { new AssetReferenceGameObject("00000000000000000000000000000006") }
+        };
+        sm.stages = new[] { stage };
+
+        var failurePattern = new System.Text.RegularExpressions.Regex("(Failed|Exception)");
+        LogAssert.Expect(LogType.Error, failurePattern); // background
+        LogAssert.Expect(LogType.Error, failurePattern); // ground obstacle
+        LogAssert.Expect(LogType.Error, failurePattern); // pit prefab
+
+        sm.ApplyStage(0);
+
+        FieldInfo field = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
+        while (field.GetValue(sm) != null)
+        {
+            yield return null;
+        }
+
+        // Progress should report at least start (0) and completion (1).
+        Assert.GreaterOrEqual(ui.ProgressValues.Count, 2);
+        Assert.AreEqual(1f, ui.ProgressValues[ui.ProgressValues.Count - 1]);
+
+        // Clean up objects and reset the singleton so other tests remain isolated.
+        Object.DestroyImmediate(smObj);
+        Object.DestroyImmediate(stage);
+        Object.DestroyImmediate(uiObj);
+        typeof(UIManager).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
+            .SetValue(null, null);
+    }
+
+    /// <summary>
     /// Destroying the manager should reset any gravity modifications so later
     /// scenes start with the default physics settings.
     /// </summary>
@@ -397,6 +453,20 @@ public class StageManagerTests
         Object.DestroyImmediate(stageManagerObject);
         Object.DestroyImmediate(stageAsset);
         Physics2D.gravity = originalGravity;
+    }
+
+    // Helper UI manager that records progress updates for verification. It
+    // subclasses the real UIManager so StageManager can interact with it
+    // normally while tests capture the reported values.
+    private class ProgressUI : UIManager
+    {
+        public readonly List<float> ProgressValues = new List<float>();
+
+        public override void SetLoadingProgress(float progress)
+        {
+            base.SetLoadingProgress(progress);
+            ProgressValues.Add(progress);
+        }
     }
 }
 

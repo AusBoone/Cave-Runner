@@ -1,3 +1,11 @@
+// UIManager.cs
+// -----------------------------------------------------------------------------
+// Centralizes control of the game's menus and heads-up-display elements. The
+// manager now includes a progress reporting API so loading screens can display
+// combined progress while assets stream asynchronously. This complements the
+// existing show/hide indicator previously added for addressable loading.
+// -----------------------------------------------------------------------------
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -46,6 +54,8 @@ public class UIManager : MonoBehaviour
     public Text workshopListText;
     [Tooltip("Panel containing a simple loading indicator graphic.")]
     public GameObject loadingPanel;
+    [Tooltip("Optional slider visualizing loading progress from 0 to 1.")]
+    public Slider loadingProgressBar;
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
 
@@ -152,6 +162,33 @@ public class UIManager : MonoBehaviour
             loadingPanel.SetActive(false);
         }
     }
+
+    // Stores the most recent normalized progress value so other systems or
+    // unit tests can inspect how far asynchronous loading has advanced.
+    private float loadingProgress;
+
+    /// <summary>
+    /// Updates the visual progress indicator. Callers provide a normalized
+    /// value between 0 (no work complete) and 1 (all work finished). The value
+    /// is clamped to this range to guard against invalid inputs. If a slider is
+    /// assigned in the inspector it will be updated; otherwise the value is
+    /// simply cached for later retrieval.
+    /// </summary>
+    /// <param name="progress">Normalized progress value.</param>
+    public virtual void SetLoadingProgress(float progress)
+    {
+        loadingProgress = Mathf.Clamp01(progress);
+        if (loadingProgressBar != null)
+        {
+            loadingProgressBar.value = loadingProgress;
+        }
+    }
+
+    /// <summary>
+    /// Current progress value in the range [0,1]. Exposed primarily for test
+    /// verification but may be queried by other systems as needed.
+    /// </summary>
+    public float LoadingProgress => loadingProgress;
 
 #if UNITY_STANDALONE
     private List<string> downloadedPacks = new List<string>();

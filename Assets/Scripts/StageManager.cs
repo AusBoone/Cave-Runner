@@ -16,12 +16,15 @@
 // 2028 diagnostic: addressable load failures now log detailed error information
 // to aid in debugging missing or misconfigured assets.
 // 2029 update: stage music now streams via Addressables asynchronously.
+// 2030 refactor: spawner prefabs now load concurrently and report combined
+// progress to the UI so players see overall loading completion.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// Coordinates stage-related visuals and hazards as the player travels further.
@@ -218,33 +221,112 @@ public class StageManager : MonoBehaviour
         StageData data = asset.stage;
 
         UIManager.Instance?.ShowLoadingIndicator();
+        UIManager.Instance?.SetLoadingProgress(0f);
 
-        // Load the background sprite asynchronously
-        Sprite bgSprite = null;
-        if (parallaxBackground != null && data.backgroundSprite != null &&
-            data.backgroundSprite.RuntimeKeyIsValid())
+        // Determine how many assets will be loaded so progress can report a
+        // normalized value. Only valid references contribute to the total to
+        // avoid division by zero and to reflect actual work being performed.
+        int totalAssets = 0;
+        if (parallaxBackground != null && data.backgroundSprite != null && data.backgroundSprite.RuntimeKeyIsValid())
         {
-            AsyncOperationHandle<Sprite> bgHandle = data.backgroundSprite.LoadAssetAsync<Sprite>();
-            loadedHandles.Add(bgHandle);
-            yield return bgHandle;
-            if (bgHandle.Status == AsyncOperationStatus.Succeeded)
+            totalAssets++;
+        }
+
+        System.Func<AssetReferenceGameObject[], int> CountValid = (AssetReferenceGameObject[] arr) =>
+        {
+            if (arr == null)
             {
-                // Background asset loaded successfully; cache it for assignment
-                // after all asynchronous work completes.
-                bgSprite = bgHandle.Result;
+                return 0;
             }
-            else
+            int count = 0;
+            foreach (var r in arr)
             {
-                // Log detailed information about the failure so designers can
-                // resolve misconfigured or missing addressable references. The
-                // OperationException provides stack details when available while
-                // Status offers a fallback enum value if no exception is set.
-                Debug.LogError(bgHandle.OperationException != null
-                    ? bgHandle.OperationException
-                    : (object)bgHandle.Status);
+                if (r != null && r.RuntimeKeyIsValid())
+                {
+                    count++;
+                }
+            }
+            return count;
+        };
+
+        if (obstacleSpawner != null)
+        {
+            totalAssets += CountValid(data.groundObstacles);
+            totalAssets += CountValid(data.ceilingObstacles);
+            totalAssets += CountValid(data.movingPlatforms);
+            totalAssets += CountValid(data.rotatingHazards);
+        }
+
+        if (hazardSpawner != null)
+        {
+            totalAssets += CountValid(data.pits);
+            totalAssets += CountValid(data.bats);
+            totalAssets += CountValid(data.zigZagEnemies);
+            totalAssets += CountValid(data.swoopingEnemies);
+            totalAssets += CountValid(data.shooterEnemies);
+        }
+
+        string musicKey = null;
+        if (data.stageMusic != null && data.stageMusic.Length > 0)
+        {
+            int idx = Random.Range(0, data.stageMusic.Length);
+            musicKey = data.stageMusic[idx];
+            if (!string.IsNullOrEmpty(musicKey))
+            {
+                totalAssets++; // music clip will be loaded as well
             }
         }
 
+        if (totalAssets == 0)
+        {
+            totalAssets = 1; // prevent division by zero if nothing is queued
+        }
+
+        float loadedAssets = 0f;
+        System.Action ReportProgress = () =>
+        {
+            loadedAssets++;
+            UIManager.Instance?.SetLoadingProgress(loadedAssets / totalAssets);
+        };
+
+        // Assemble all asynchronous loading operations so they can run in
+        // parallel. The results are cached locally and applied after every
+        // operation has completed to ensure spawners are updated atomically.
+        var operations = new List<IEnumerator>();
+
+        Sprite bgSprite = null;
+        if (parallaxBackground != null && data.backgroundSprite != null && data.backgroundSprite.RuntimeKeyIsValid())
+        {
+            operations.Add(LoadSprite(data.backgroundSprite, s => bgSprite = s, ReportProgress));
+        }
+
+        if (obstacleSpawner != null)
+        {
+            operations.Add(LoadPrefabs(data.groundObstacles, r => obstacleSpawner.groundObstacles = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.ceilingObstacles, r => obstacleSpawner.ceilingObstacles = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.movingPlatforms, r => obstacleSpawner.movingPlatforms = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.rotatingHazards, r => obstacleSpawner.rotatingHazards = r, ReportProgress));
+        }
+
+        if (hazardSpawner != null)
+        {
+            operations.Add(LoadPrefabs(data.pits, r => hazardSpawner.pitPrefabs = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.bats, r => hazardSpawner.batPrefabs = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.zigZagEnemies, r => hazardSpawner.zigZagPrefabs = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.swoopingEnemies, r => hazardSpawner.swoopPrefabs = r, ReportProgress));
+            operations.Add(LoadPrefabs(data.shooterEnemies, r => hazardSpawner.shooterPrefabs = r, ReportProgress));
+        }
+
+        AudioClip stageClip = null;
+        if (!string.IsNullOrEmpty(musicKey))
+        {
+            operations.Add(LoadStageMusic(musicKey, clip => stageClip = clip, ReportProgress));
+        }
+
+        yield return CoroutineUtilities.WhenAll(this, operations);
+
+        // Assign the background sprite after loading completes so rendering
+        // changes happen in one frame without displaying partial results.
         if (parallaxBackground != null && bgSprite != null)
         {
             parallaxBackground.spriteName = bgSprite.name;
@@ -255,13 +337,8 @@ public class StageManager : MonoBehaviour
             }
         }
 
-        // Load and assign obstacle prefabs
         if (obstacleSpawner != null)
         {
-            yield return LoadPrefabs(data.groundObstacles, r => obstacleSpawner.groundObstacles = r);
-            yield return LoadPrefabs(data.ceilingObstacles, r => obstacleSpawner.ceilingObstacles = r);
-            yield return LoadPrefabs(data.movingPlatforms, r => obstacleSpawner.movingPlatforms = r);
-            yield return LoadPrefabs(data.rotatingHazards, r => obstacleSpawner.rotatingHazards = r);
             obstacleSpawner.spawnMultiplier = data.obstacleSpawnMultiplier;
             obstacleSpawner.groundChance = data.groundObstacleChance;
             obstacleSpawner.ceilingChance = data.ceilingObstacleChance;
@@ -269,14 +346,8 @@ public class StageManager : MonoBehaviour
             obstacleSpawner.rotatingChance = data.rotatingHazardChance;
         }
 
-        // Load and assign hazard prefabs
         if (hazardSpawner != null)
         {
-            yield return LoadPrefabs(data.pits, r => hazardSpawner.pitPrefabs = r);
-            yield return LoadPrefabs(data.bats, r => hazardSpawner.batPrefabs = r);
-            yield return LoadPrefabs(data.zigZagEnemies, r => hazardSpawner.zigZagPrefabs = r);
-            yield return LoadPrefabs(data.swoopingEnemies, r => hazardSpawner.swoopPrefabs = r);
-            yield return LoadPrefabs(data.shooterEnemies, r => hazardSpawner.shooterPrefabs = r);
             hazardSpawner.spawnMultiplier = data.hazardSpawnMultiplier;
             hazardSpawner.pitChance = data.pitChance;
             hazardSpawner.batChance = data.batChance;
@@ -290,43 +361,29 @@ public class StageManager : MonoBehaviour
         {
             GameManager.Instance.SetStageSpeedMultiplier(data.speedMultiplier);
         }
-        // Preserve the existing horizontal gravity component while scaling only
-        // the vertical axis according to the stage's modifier. Some projects
-        // may use a non-zero X gravity for unique mechanics (e.g., sideways
-        // wind) and wiping it out here would cause subtle physics bugs.
         Physics2D.gravity = new Vector2(defaultGravity.x, defaultGravity.y * data.gravityScale);
 
-        // Choose a random music track for this stage and start a cross-fade.
-        // The clip is loaded asynchronously so large files do not stall the
-        // main thread. The coroutine yields until the Addressables request
-        // completes, then invokes the callback with the resulting clip. The
-        // asset handle is cached so ReleaseLoadedAssets can free memory when
-        // switching stages.
-        if (data.stageMusic != null && data.stageMusic.Length > 0)
+        if (stageClip != null && AudioManager.Instance != null)
         {
-            int idx = Random.Range(0, data.stageMusic.Length);
-            string clipKey = data.stageMusic[idx];
-            yield return LoadStageMusic(clipKey, clip =>
-            {
-                // Only cross-fade once a valid clip has loaded and the global
-                // AudioManager exists. The callback isolates audio-specific
-                // behaviour from the loading logic so tests can provide a
-                // minimal environment without audio sources.
-                if (clip != null && AudioManager.Instance != null)
-                {
-                    AudioManager.Instance.CrossfadeTo(clip);
-                }
-            });
+            AudioManager.Instance.CrossfadeTo(stageClip);
         }
 
+        UIManager.Instance?.SetLoadingProgress(1f);
         UIManager.Instance?.HideLoadingIndicator();
         loadRoutine = null;
     }
 
-    // Utility coroutine to load a set of GameObject references via Addressables
-    // and invoke a callback with the resulting array. Handles are tracked so
-    // assets can be released when the stage changes.
-    private IEnumerator LoadPrefabs(AssetReferenceGameObject[] refs, System.Action<GameObject[]> setter)
+    /// <summary>
+    /// Loads a set of prefab references via Addressables and supplies the
+    /// resulting array to <paramref name="setter"/>. Each completed load
+    /// advances <paramref name="progressCallback"/> so callers can aggregate
+    /// overall progress. Handles are tracked for later release when stages
+    /// change.
+    /// </summary>
+    /// <param name="refs">Prefabs to load asynchronously.</param>
+    /// <param name="setter">Callback receiving the resolved prefab array.</param>
+    /// <param name="progressCallback">Invoked after each prefab finishes loading.</param>
+    private IEnumerator LoadPrefabs(AssetReferenceGameObject[] refs, System.Action<GameObject[]> setter, System.Action progressCallback)
     {
         if (refs == null || refs.Length == 0)
         {
@@ -334,7 +391,7 @@ public class StageManager : MonoBehaviour
             yield break;
         }
 
-        var list = new System.Collections.Generic.List<GameObject>();
+        var list = new List<GameObject>();
         foreach (var r in refs)
         {
             if (r == null || !r.RuntimeKeyIsValid())
@@ -358,6 +415,7 @@ public class StageManager : MonoBehaviour
                     ? handle.OperationException
                     : (object)handle.Status);
             }
+            progressCallback?.Invoke();
         }
         setter?.Invoke(list.ToArray());
     }
@@ -372,14 +430,16 @@ public class StageManager : MonoBehaviour
     /// </summary>
     /// <param name="clipKey">Addressable key for the desired music clip.</param>
     /// <param name="onLoaded">Invoked with the loaded clip or null.</param>
+    /// <param name="progressCallback">Called once the load operation completes.</param>
     /// <returns>Coroutine enumerator that yields until the clip finishes loading.</returns>
-    protected virtual IEnumerator LoadStageMusic(string clipKey, System.Action<AudioClip> onLoaded)
+    protected virtual IEnumerator LoadStageMusic(string clipKey, System.Action<AudioClip> onLoaded, System.Action progressCallback)
     {
         // Abort early if no key is provided to avoid issuing unnecessary
         // Addressables requests during testing or in misconfigured stages.
         if (string.IsNullOrEmpty(clipKey))
         {
             onLoaded?.Invoke(null);
+            progressCallback?.Invoke();
             yield break;
         }
 
@@ -400,5 +460,41 @@ public class StageManager : MonoBehaviour
                 : (object)handle.Status);
             onLoaded?.Invoke(null);
         }
+        progressCallback?.Invoke();
+    }
+
+    /// <summary>
+    /// Loads a single sprite via Addressables, assigning the result to
+    /// <paramref name="setter"/>. The <paramref name="progressCallback"/> is
+    /// invoked regardless of success so aggregate progress calculations remain
+    /// accurate even when an asset fails to load.
+    /// </summary>
+    /// <param name="reference">Addressable sprite reference to load.</param>
+    /// <param name="setter">Callback receiving the sprite or null on failure.</param>
+    /// <param name="progressCallback">Invoked after the load finishes.</param>
+    private IEnumerator LoadSprite(AssetReferenceSprite reference, System.Action<Sprite> setter, System.Action progressCallback)
+    {
+        if (reference == null || !reference.RuntimeKeyIsValid())
+        {
+            setter?.Invoke(null);
+            progressCallback?.Invoke();
+            yield break;
+        }
+
+        AsyncOperationHandle<Sprite> handle = reference.LoadAssetAsync<Sprite>();
+        loadedHandles.Add(handle);
+        yield return handle;
+        if (handle.Status == AsyncOperationStatus.Succeeded)
+        {
+            setter?.Invoke(handle.Result);
+        }
+        else
+        {
+            Debug.LogError(handle.OperationException != null
+                ? handle.OperationException
+                : (object)handle.Status);
+            setter?.Invoke(null);
+        }
+        progressCallback?.Invoke();
     }
 }

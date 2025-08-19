@@ -9,6 +9,10 @@
 // Added LoggingHelper usage to gate nonessential Debug output behind a global
 // flag so production builds can remain silent while developers retain verbose
 // information inside the editor.
+//
+// 2029 update summary
+// When leaderboard communication fails a localized error message is now shown
+// in the UI so players receive feedback instead of an empty panel.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -344,6 +348,8 @@ public class UIManager : MonoBehaviour
                 }
                 else if (leaderboardClient != null)
                 {
+                    // Steam call failed; fall back to HTTP client and report
+                    // success status so the UI can surface any errors.
                     StartCoroutine(leaderboardClient.GetTopScores(DisplayScores));
                 }
             });
@@ -360,10 +366,34 @@ public class UIManager : MonoBehaviour
 #endif
     }
 
-    // Helper to format and display leaderboard entries in the panel
-    private void DisplayScores(List<LeaderboardClient.ScoreEntry> scores)
+    // Helper to format and display leaderboard entries in the panel.
+    // Marked public so unit tests and other systems can invoke the formatting
+    // logic directly without relying on coroutines.
+    public void DisplayScores(List<LeaderboardClient.ScoreEntry> scores, bool success)
     {
-        if (leaderboardText != null && scores != null)
+        if (leaderboardText == null)
+        {
+            return;
+        }
+
+        // When the client reports failure, show a user-friendly message instead
+        // of blank text so players understand the leaderboard could not be
+        // reached. A localized string is used when available with an English
+        // fallback otherwise.
+        if (!success)
+        {
+            string msg = LocalizationManager.Get("leaderboard_error");
+            if (msg == "leaderboard_error")
+            {
+                msg = "Failed to load leaderboard.";
+            }
+            leaderboardText.text = msg;
+            return;
+        }
+
+        // Successful retrieval: format the list of scores according to the
+        // localized entry pattern.
+        if (scores != null)
         {
             var sb = new System.Text.StringBuilder();
             string fmt = LocalizationManager.Get("leaderboard_entry_format");

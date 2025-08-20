@@ -30,6 +30,9 @@ using System.Collections;
 /// 2032 refactor: rumble host creation moved out of the static constructor and
 /// into a lazy <see cref="EnsureRumbleHost"/> helper so projects that never
 /// trigger vibration do not accumulate hidden GameObjects.
+/// 2033 fix: shutdown now iterates over all connected gamepads, resetting rumble
+/// on every device so secondary controllers cannot continue vibrating after the
+/// game exits.
 /// </summary>
 public static class InputManager
 {
@@ -270,11 +273,15 @@ public static class InputManager
             rumbleRoutine = null;
         }
 
-        // Explicitly reset any motor speeds to zero so a connected controller
-        // does not remain in a vibrating state after the game exits.
-        if (Gamepad.current != null)
+        // Explicitly reset motor speeds for **all** connected controllers so
+        // none remain in a vibrating state after the game exits. Earlier
+        // versions only silenced <see cref="Gamepad.current"/>, which could
+        // leave secondary pads rumbling if multiple devices were attached.
+        foreach (var pad in Gamepad.all)
         {
-            Gamepad.current.SetMotorSpeeds(0f, 0f);
+            // Setting both low- and high-frequency motors to zero instantly
+            // stops vibration on the given device.
+            pad.SetMotorSpeeds(0f, 0f);
         }
     }
 

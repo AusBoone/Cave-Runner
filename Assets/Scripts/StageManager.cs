@@ -18,6 +18,9 @@
 // 2029 update: stage music now streams via Addressables asynchronously.
 // 2030 refactor: spawner prefabs now load concurrently and report combined
 // progress to the UI so players see overall loading completion.
+// 2031 fix: ApplyStage now resets its coroutine reference immediately after
+// stopping a previous load to ensure callers can detect when no asynchronous
+// stage loading is in progress.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -187,7 +190,12 @@ public class StageManager : MonoBehaviour
     {
         if (loadRoutine != null)
         {
+            // Halt any in-progress stage load to prevent overlapping coroutines
+            // from updating spawners with outdated data.
             StopCoroutine(loadRoutine);
+            // Clear the reference immediately so tests and callers can observe
+            // that no asynchronous load is active before starting a new one.
+            loadRoutine = null;
         }
         // Release assets from the previous stage before loading new ones.
         ReleaseLoadedAssets();

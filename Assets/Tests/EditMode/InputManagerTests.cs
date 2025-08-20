@@ -18,6 +18,8 @@ using UnityEngine.TestTools;
 /// 2031 addition: covers rumble shutdown behaviour.
 /// 2032 addition: verifies that the rumble host is created lazily only when
 /// rumble is requested, keeping scenes free of unnecessary hidden objects.
+/// 2033 addition: confirms <see cref="InputManager.Shutdown"/> silences every
+/// connected gamepad, not just the current device.
 /// </summary>
 public class InputManagerTests
 {
@@ -264,6 +266,49 @@ public class InputManagerTests
         System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
             typeof(InputManager).TypeHandle);
         InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// When multiple controllers are connected, <see cref="InputManager.Shutdown"/>
+    /// should clear rumble on every pad. This test manually sets motor speeds on
+    /// two devices and verifies they are all reset, preventing leftover
+    /// vibration on secondary controllers.
+    /// </summary>
+    [Test]
+    public void Shutdown_ResetsAllConnectedGamepads()
+    {
+        // Add two gamepads to mimic a multiplayer setup with multiple
+        // controllers attached simultaneously.
+        var padOne = InputSystem.AddDevice<Gamepad>();
+        var padTwo = InputSystem.AddDevice<Gamepad>();
+
+        // Give both pads non-zero motor speeds to simulate an ongoing rumble
+        // effect that should be cancelled during shutdown.
+        padOne.SetMotorSpeeds(0.2f, 0.3f);
+        padTwo.SetMotorSpeeds(0.4f, 0.5f);
+
+        // Invoke shutdown; the new implementation iterates <see cref="Gamepad.all"/>
+        // so every connected device should have its motors reset.
+        InputManager.Shutdown();
+
+        float low, high;
+        padOne.GetMotorSpeeds(out low, out high);
+        Assert.AreEqual(0f, low, 0.0001f,
+            "Pad one low-frequency motor should be zero after shutdown");
+        Assert.AreEqual(0f, high, 0.0001f,
+            "Pad one high-frequency motor should be zero after shutdown");
+        padTwo.GetMotorSpeeds(out low, out high);
+        Assert.AreEqual(0f, low, 0.0001f,
+            "Pad two low-frequency motor should be zero after shutdown");
+        Assert.AreEqual(0f, high, 0.0001f,
+            "Pad two high-frequency motor should be zero after shutdown");
+
+        // Reinitialize the InputManager for subsequent tests and remove the
+        // temporary devices from the Input System.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(padOne);
+        InputSystem.RemoveDevice(padTwo);
     }
 
     /// <summary>

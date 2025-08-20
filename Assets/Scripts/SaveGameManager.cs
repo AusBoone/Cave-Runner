@@ -24,6 +24,9 @@
 // 2031 update: ChangeSlot now awaits pending saves asynchronously via
 // FlushPendingSavesAsync, allowing callers to await slot changes without
 // blocking the main thread.
+// 2032 update: Introduced a dirty flag and autosave coroutine so frequent
+// property updates are batched. Data writes now occur at most once every few
+// seconds, significantly reducing disk churn during gameplay.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -110,6 +113,25 @@ public class SaveGameManager : MonoBehaviour
     // unresponsive.
     private static readonly TimeSpan ShutdownFlushTimeout = TimeSpan.FromSeconds(2);
 
+    // ---------------------------------------------------------------------
+    // Autosave support
+    // ---------------------------------------------------------------------
+    // Flag indicating whether in-memory data differs from what is persisted on
+    // disk. Property setters flip this on and the autosave coroutine clears it
+    // once a save completes.
+    private bool dataDirty;
+
+    // Timestamp of the last successful write. Used to throttle disk writes so
+    // repeated property changes within a short window are batched together.
+    private float lastSaveTime;
+
+    // Reference to the running autosave coroutine so multiple instances are not
+    // started concurrently.
+    private Coroutine autoSaveCoroutine;
+
+    // Minimum number of seconds between successive save operations.
+    private const float AutoSaveInterval = 2f;
+
     void Awake()
     {
         if (Instance == null)
@@ -119,6 +141,9 @@ public class SaveGameManager : MonoBehaviour
             // Use the SaveSlotManager so each profile writes to its own file
             savePath = SaveSlotManager.GetPath("savegame.json");
             LoadData();
+            // Initialize save timestamp so the first autosave waits the
+            // configured interval rather than firing immediately.
+            lastSaveTime = Time.realtimeSinceStartup;
             // Subscribe to the global quit event so pending saves can be flushed
             // asynchronously before the process exits.
             Application.quitting += HandleApplicationQuitting;
@@ -135,8 +160,12 @@ public class SaveGameManager : MonoBehaviour
         get => data.coins;
         set
         {
-            data.coins = Mathf.Max(0, value);
-            SaveDataToFile();
+            int clamped = Mathf.Max(0, value);
+            if (clamped != data.coins)
+            {
+                data.coins = clamped;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -146,8 +175,12 @@ public class SaveGameManager : MonoBehaviour
         get => data.highScore;
         set
         {
-            data.highScore = Mathf.Max(0, value);
-            SaveDataToFile();
+            int clamped = Mathf.Max(0, value);
+            if (clamped != data.highScore)
+            {
+                data.highScore = clamped;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -157,8 +190,12 @@ public class SaveGameManager : MonoBehaviour
         get => data.musicVolume;
         set
         {
-            data.musicVolume = Mathf.Clamp01(value);
-            SaveDataToFile();
+            float clamped = Mathf.Clamp01(value);
+            if (!Mathf.Approximately(clamped, data.musicVolume))
+            {
+                data.musicVolume = clamped;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -168,8 +205,12 @@ public class SaveGameManager : MonoBehaviour
         get => data.effectsVolume;
         set
         {
-            data.effectsVolume = Mathf.Clamp01(value);
-            SaveDataToFile();
+            float clamped = Mathf.Clamp01(value);
+            if (!Mathf.Approximately(clamped, data.effectsVolume))
+            {
+                data.effectsVolume = clamped;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -179,10 +220,12 @@ public class SaveGameManager : MonoBehaviour
         get => data.language;
         set
         {
-            if (!string.IsNullOrEmpty(value))
+            if (!string.IsNullOrEmpty(value) && value != data.language)
             {
                 data.language = value;
-                SaveDataToFile();
+                MarkDataDirty();
+                // Immediately inform the localization system so UI updates
+                // reflect the change even before the next save occurs.
                 LocalizationManager.SetLanguage(value);
             }
         }
@@ -194,8 +237,11 @@ public class SaveGameManager : MonoBehaviour
         get => data.tutorialCompleted;
         set
         {
-            data.tutorialCompleted = value;
-            SaveDataToFile();
+            if (data.tutorialCompleted != value)
+            {
+                data.tutorialCompleted = value;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -205,8 +251,11 @@ public class SaveGameManager : MonoBehaviour
         get => data.jumpTipShown;
         set
         {
-            data.jumpTipShown = value;
-            SaveDataToFile();
+            if (data.jumpTipShown != value)
+            {
+                data.jumpTipShown = value;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -216,8 +265,11 @@ public class SaveGameManager : MonoBehaviour
         get => data.slideTipShown;
         set
         {
-            data.slideTipShown = value;
-            SaveDataToFile();
+            if (data.slideTipShown != value)
+            {
+                data.slideTipShown = value;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -227,8 +279,11 @@ public class SaveGameManager : MonoBehaviour
         get => data.hardcoreMode;
         set
         {
-            data.hardcoreMode = value;
-            SaveDataToFile();
+            if (data.hardcoreMode != value)
+            {
+                data.hardcoreMode = value;
+                MarkDataDirty();
+            }
         }
     }
 
@@ -242,8 +297,12 @@ public class SaveGameManager : MonoBehaviour
     /// <summary>Sets the level count for an upgrade and persists it.</summary>
     public void SetUpgradeLevel(UpgradeType type, int level)
     {
-        upgradeLevels[type] = Mathf.Max(0, level);
-        SaveDataToFile();
+        int clamped = Mathf.Max(0, level);
+        if (!upgradeLevels.TryGetValue(type, out int current) || current != clamped)
+        {
+            upgradeLevels[type] = clamped;
+            MarkDataDirty();
+        }
     }
 
     /// <summary>
@@ -263,7 +322,54 @@ public class SaveGameManager : MonoBehaviour
             upgradeLevels[kvp.Key] = Mathf.Max(0, kvp.Value);
         }
 
-        SaveDataToFile();
+        MarkDataDirty();
+    }
+
+    /// <summary>
+    /// Marks the save data as needing persistence and schedules the autosave
+    /// coroutine if it is not already running. Batching saves reduces disk IO
+    /// when many values change in quick succession.
+    /// </summary>
+    private void MarkDataDirty()
+    {
+        dataDirty = true;
+        if (autoSaveCoroutine == null)
+        {
+            autoSaveCoroutine = StartCoroutine(AutoSaveRoutine());
+        }
+    }
+
+    /// <summary>
+    /// Coroutine that periodically checks for dirty data and writes it to disk.
+    /// Saves are throttled so that even rapid property updates result in at most
+    /// one write every <see cref="AutoSaveInterval"/> seconds.
+    /// </summary>
+    private System.Collections.IEnumerator AutoSaveRoutine()
+    {
+        while (true)
+        {
+            if (!dataDirty)
+            {
+                autoSaveCoroutine = null;
+                yield break; // No work pending; stop the coroutine
+            }
+
+            float elapsed = Time.realtimeSinceStartup - lastSaveTime;
+            if (elapsed < AutoSaveInterval)
+            {
+                // Wait just enough so successive saves are spaced out.
+                yield return new WaitForSecondsRealtime(AutoSaveInterval - elapsed);
+            }
+            else
+            {
+                yield return null; // Ensure at least one frame passes
+            }
+
+            if (dataDirty)
+            {
+                SaveDataToFile();
+            }
+        }
     }
 
     /// <summary>
@@ -418,6 +524,11 @@ public class SaveGameManager : MonoBehaviour
                 processingTask = Task.Run(ProcessQueueAsync);
             }
         }
+
+        // Mark current state as clean and record the time so future autosaves
+        // can throttle excessive writes.
+        dataDirty = false;
+        lastSaveTime = Time.realtimeSinceStartup;
     }
 
     /// <summary>
@@ -493,7 +604,10 @@ public class SaveGameManager : MonoBehaviour
     private async Task FlushPendingSavesAsync(TimeSpan timeout)
     {
         // Ensure the most recent data is queued for saving.
-        SaveDataToFile();
+        if (dataDirty)
+        {
+            SaveDataToFile();
+        }
 
         Task toWait;
         lock (queueLock)

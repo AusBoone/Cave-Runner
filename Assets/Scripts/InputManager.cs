@@ -33,6 +33,9 @@ using System.Collections;
 /// 2033 fix: shutdown now iterates over all connected gamepads, resetting rumble
 /// on every device so secondary controllers cannot continue vibrating after the
 /// game exits.
+/// 2034 fix: rumble requests with zero or negative duration now abort before
+/// starting a coroutine, ensuring no unnecessary work is scheduled for
+/// instantaneous vibrations.
 /// </summary>
 public static class InputManager
 {
@@ -792,6 +795,13 @@ public static class InputManager
         // negative durations or out-of-range strengths.
         strength = Mathf.Clamp01(strength);
         duration = Mathf.Max(0f, duration);
+
+        // If the caller requested a non-positive duration after clamping, there
+        // is nothing to do. Exiting early avoids creating a coroutine that would
+        // immediately end, keeping runtime overhead low and preventing subtle
+        // bugs from zero-length rumble requests.
+        if (duration <= 0f)
+            return;
 
         // Stop any existing rumble so motor control doesn't overlap between
         // multiple requests.

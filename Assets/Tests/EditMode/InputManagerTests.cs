@@ -20,6 +20,8 @@ using UnityEngine.TestTools;
 /// rumble is requested, keeping scenes free of unnecessary hidden objects.
 /// 2033 addition: confirms <see cref="InputManager.Shutdown"/> silences every
 /// connected gamepad, not just the current device.
+/// 2034 addition: validates that non-positive duration rumble requests are
+/// ignored, preventing redundant coroutine scheduling.
 /// </summary>
 public class InputManagerTests
 {
@@ -208,6 +210,61 @@ public class InputManagerTests
         FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.IsNotNull(field, "rumbleRoutine field missing");
         Assert.IsNotNull(field.GetValue(null), "TriggerRumble should start a coroutine when a gamepad is present");
+
+        // Clean up so subsequent tests start with a fresh InputManager state.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// Requesting rumble with a zero second duration should be ignored. This
+    /// guards against accidental calls that would otherwise start and stop a
+    /// coroutine immediately, wasting CPU time.
+    /// </summary>
+    [Test]
+    public void TriggerRumble_ZeroDuration_DoesNotStartCoroutine()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Duration is zero; rumble should be skipped entirely.
+        InputManager.TriggerRumble(0.5f, 0f);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNull(field.GetValue(null),
+            "Rumble coroutine should not start for zero duration requests");
+
+        // Reset InputManager so later tests are not affected by this call.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// Negative durations are clamped to zero and should likewise result in no
+    /// rumble. This ensures callers cannot accidentally schedule invalid
+    /// vibration requests.
+    /// </summary>
+    [Test]
+    public void TriggerRumble_NegativeDuration_DoesNotStartCoroutine()
+    {
+        var gamepad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Negative duration is clamped to zero; rumble should not begin.
+        InputManager.TriggerRumble(0.5f, -1f);
+
+        FieldInfo field = typeof(InputManager).GetField("rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNull(field.GetValue(null),
+            "Rumble coroutine should not start for negative duration requests");
+
+        // Reset InputManager so later tests run in a clean environment.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
         InputSystem.RemoveDevice(gamepad);
     }
 

@@ -21,6 +21,9 @@
 // writes and ChangeSlot waits for pending saves before switching profiles.
 // 2030 update: shutdown flush uses Application.quitting with an asynchronous
 // wait and timeout so the game exits promptly even if disk writes stall.
+// 2031 update: ChangeSlot now awaits pending saves asynchronously via
+// FlushPendingSavesAsync, allowing callers to await slot changes without
+// blocking the main thread.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -561,32 +564,33 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Switches to a different save slot at runtime. The current data is
-    /// written to disk before swapping directories and reloading from the new
-    /// slot. Throws when an invalid index is provided.
+    /// Asynchronously switches to a different save slot at runtime. Any pending
+    /// save operations for the current profile are flushed before the slot is
+    /// changed to ensure data persists to the correct location. Callers should
+    /// await the returned task to guarantee the new slot is fully loaded.
     /// </summary>
     /// <param name="slot">Index of the slot to activate.</param>
-    public void ChangeSlot(int slot)
+    /// <returns>A task that completes once the slot has been switched and data
+    /// from the new slot has been loaded.</returns>
+    public async Task ChangeSlot(int slot)
     {
         if (slot < 0 || slot >= SaveSlotManager.MaxSlots)
+        {
+            // Validate input early to provide clear debugging information.
             throw new ArgumentOutOfRangeException(nameof(slot), "Invalid save slot index");
+        }
 
         if (slot == SaveSlotManager.CurrentSlot)
-            return; // already using this slot
-
-        // Persist current state before redirecting file paths.
-        SaveDataToFile();
-
-        // Ensure all queued writes complete so the previous slot is fully saved
-        // before switching. Waiting outside the lock avoids deadlocks while
-        // still guaranteeing the queue is drained.
-        Task toWait;
-        lock (queueLock)
         {
-            toWait = processingTask;
+            return; // already using this slot, nothing to do
         }
-        toWait?.Wait();
 
+        // Flush any queued saves for the current slot. Using an infinite
+        // timeout mirrors the previous blocking behaviour but now allows
+        // callers to await rather than stall the main thread.
+        await FlushPendingSavesAsync(Timeout.InfiniteTimeSpan);
+
+        // Redirect file paths to the new slot and load its data.
         SaveSlotManager.SetSlot(slot);
         savePath = SaveSlotManager.GetPath("savegame.json");
         LoadData();

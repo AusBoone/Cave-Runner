@@ -24,6 +24,12 @@
 // Introduces a dedicated network-activity spinner so players receive visual
 // feedback while HTTP requests or other online operations are in progress.
 // Other managers can toggle the spinner via new public methods exposed below.
+//
+// 2035 update summary
+// Caches the scene's ParallaxBackground so workshop packs can update the
+// background sprite without repeated FindObjectOfType calls. This reduces
+// per-frame allocations and avoids null reference errors when the background
+// is absent.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -81,6 +87,20 @@ public class UIManager : MonoBehaviour
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
 
+    /// <summary>
+    /// Cached reference to the level's parallax background. Assign in the
+    /// inspector for manual control or leave empty to have <see cref="Awake"/>
+    /// discover it once at startup.
+    /// </summary>
+    [SerializeField]
+    private ParallaxBackground parallaxBackground;
+
+    /// <summary>
+    /// Read-only accessor used by tests and other systems that need the
+    /// background reference.
+    /// </summary>
+    public ParallaxBackground ParallaxBackground => parallaxBackground;
+
     private const float panelHideDelay = 0.5f; // wait so hide animation can play
 
     // Instantiated at runtime when running on mobile platforms. Holds the
@@ -120,6 +140,13 @@ public class UIManager : MonoBehaviour
                 // prefab is missing but remains silent in production builds.
                 LoggingHelper.LogWarning("MobileUI prefab not found in Resources/UI");
             }
+        }
+
+        // Resolve the parallax background once so subsequent lookups do not
+        // allocate or accidentally miss the object if it appears later.
+        if (parallaxBackground == null)
+        {
+            parallaxBackground = FindObjectOfType<ParallaxBackground>();
         }
     }
 
@@ -642,10 +669,11 @@ public class UIManager : MonoBehaviour
                 Sprite bg = bundle.LoadAsset<Sprite>("BackgroundSprite");
                 if (bg != null)
                 {
-                    var bgObj = FindObjectOfType<ParallaxBackground>();
-                    if (bgObj != null)
+                    // Utilize the cached parallax background to avoid costly
+                    // scene searches each time a workshop item is applied.
+                    if (parallaxBackground != null)
                     {
-                        var sr = bgObj.GetComponent<SpriteRenderer>();
+                        var sr = parallaxBackground.GetComponent<SpriteRenderer>();
                         if (sr != null)
                         {
                             sr.sprite = bg;
@@ -681,10 +709,11 @@ public class UIManager : MonoBehaviour
                     if (tex.LoadImage(data))
                     {
                         Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                        var bgObj = FindObjectOfType<ParallaxBackground>();
-                        if (bgObj != null)
+                        // Use the cached background reference and skip work if
+                        // it is missing from the active scene.
+                        if (parallaxBackground != null)
                         {
-                            var sr = bgObj.GetComponent<SpriteRenderer>();
+                            var sr = parallaxBackground.GetComponent<SpriteRenderer>();
                             if (sr != null)
                             {
                                 sr.sprite = sprite;

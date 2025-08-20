@@ -177,7 +177,7 @@ public class SaveGameManagerTests
     }
 
     [Test]
-    public void ChangeSlot_SwitchesSavePath()
+    public async Task ChangeSlot_SwitchesSavePath()
     {
         // Write data to the initial slot then change to a new slot and verify
         // values persist separately.
@@ -185,14 +185,14 @@ public class SaveGameManagerTests
         var obj = new GameObject("save");
         var mgr = obj.AddComponent<SaveGameManager>();
         mgr.Coins = 2;
-        mgr.ChangeSlot(1);
+        await mgr.ChangeSlot(1);
         mgr.Coins = 5;
         FlushAndDestroy(mgr);
 
         var obj2 = new GameObject("save2");
         var mgr2 = obj2.AddComponent<SaveGameManager>();
         Assert.AreEqual(5, mgr2.Coins, "Slot 1 should contain updated value");
-        mgr2.ChangeSlot(0);
+        await mgr2.ChangeSlot(0);
         Assert.AreEqual(2, mgr2.Coins, "Slot 0 should retain original value");
         FlushAndDestroy(mgr2);
     }
@@ -203,7 +203,7 @@ public class SaveGameManagerTests
     /// one. Uses <see cref="SlowSaveGameManager"/> to simulate sluggish IO.
     /// </summary>
     [Test]
-    public void ChangeSlot_WaitsForPendingWrites()
+    public async Task ChangeSlot_WaitsForPendingWrites()
     {
         // Begin in slot 0 and queue a save that will complete slowly.
         SaveSlotManager.SetSlot(0);
@@ -213,7 +213,7 @@ public class SaveGameManagerTests
 
         // Immediately switch to slot 1. ChangeSlot should block until the first
         // save finishes so the data lands in slot 0.
-        mgr.ChangeSlot(1);
+        await mgr.ChangeSlot(1);
         mgr.Coins = 2; // save to slot 1
         FlushAndDestroy(mgr);
 

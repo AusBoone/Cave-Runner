@@ -9,6 +9,9 @@ using System.Reflection;
 /// <summary>
 /// Unit tests for the StageManager component verifying stage application and
 /// event-driven updates from the GameManager.
+/// 2031 coverage: ensures the StageManager's internal coroutine reference is
+/// cleared whenever no asynchronous stage load is active, preventing stale
+/// handles from persisting across stage transitions.
 /// </summary>
 // 2028 update: validates that failed addressable loads surface useful error
 // messages, preventing silent failures in test environments.
@@ -70,6 +73,9 @@ public class StageManagerTests
         {
             yield return null;
         }
+        // After loading finishes the coroutine reference should clear so callers
+        // know no asynchronous stage load remains active.
+        Assert.IsNull(field.GetValue(sm), "loadRoutine should be null when no load is active");
 
         // Asset reference is invalid so no prefab will load, but multipliers should still apply
         Assert.AreEqual(2f, obstacleSpawner.spawnMultiplier);
@@ -118,6 +124,8 @@ public class StageManagerTests
         {
             yield return null;
         }
+        // Coroutine should reset to null once the asynchronous load completes.
+        Assert.IsNull(field.GetValue(sm), "loadRoutine should be null when the load finishes");
 
         Object.DestroyImmediate(smObj);
         Object.DestroyImmediate(asset);
@@ -165,6 +173,9 @@ public class StageManagerTests
         {
             yield return null;
         }
+        // Reference must clear after music load completes so callers can observe
+        // that no pending stage operation remains.
+        Assert.IsNull(routineField.GetValue(sm), "loadRoutine should be null when music loading ends");
 
         Object.DestroyImmediate(smObj);
         Object.DestroyImmediate(asset);
@@ -215,6 +226,10 @@ public class StageManagerTests
             yield return null;
         }
 
+        // Once the second stage finishes loading, there should be no active
+        // coroutine left running.
+        Assert.IsNull(field.GetValue(sm), "loadRoutine should be null after stage transition");
+
         Assert.AreEqual("next", bg.spriteName);
 
         Object.DestroyImmediate(gmObj);
@@ -248,12 +263,16 @@ public class StageManagerTests
         FieldInfo handlesField = typeof(StageManager).GetField("loadedHandles", BindingFlags.NonPublic | BindingFlags.Instance);
         while (routineField.GetValue(sm) != null)
             yield return null;
+        // After the initial stage finishes loading the coroutine reference should clear.
+        Assert.IsNull(routineField.GetValue(sm), "loadRoutine should be null after first load");
         var handles = (System.Collections.Generic.List<AsyncOperationHandle>)handlesField.GetValue(sm);
         AsyncOperationHandle oldHandle = handles.Count > 0 ? handles[0] : default;
 
         sm.ApplyStage(1);
         while (routineField.GetValue(sm) != null)
             yield return null;
+        // Reference should again reset once the second stage completes.
+        Assert.IsNull(routineField.GetValue(sm), "loadRoutine should be null after second load");
         handles = (System.Collections.Generic.List<AsyncOperationHandle>)handlesField.GetValue(sm);
         Assert.IsFalse(oldHandle.IsValid(), "Old handles should be released");
         Assert.AreEqual(1, handles.Count, "Handle list should reflect only current stage");
@@ -359,6 +378,9 @@ public class StageManagerTests
         {
             yield return null;
         }
+        // After all assets either load or fail, the coroutine reference should
+        // reset to indicate no further work remains.
+        Assert.IsNull(field.GetValue(sm), "loadRoutine should be null once progress completes");
 
         // Progress should report at least start (0) and completion (1).
         Assert.GreaterOrEqual(ui.ProgressValues.Count, 2);
@@ -401,6 +423,8 @@ public class StageManagerTests
         FieldInfo routineField = typeof(StageManager).GetField("loadRoutine", BindingFlags.NonPublic | BindingFlags.Instance);
         while (routineField.GetValue(sm) != null)
             yield return null;
+        // The coroutine reference should clear before the manager is destroyed.
+        Assert.IsNull(routineField.GetValue(sm), "loadRoutine should be null before destruction");
 
         Object.DestroyImmediate(smObj);
         Assert.AreEqual(startGravity.y, Physics2D.gravity.y, 0.001f);
@@ -442,6 +466,8 @@ public class StageManagerTests
         {
             yield return null;
         }
+        // The reference should clear once gravity scaling completes.
+        Assert.IsNull(routineField.GetValue(stageManager), "loadRoutine should be null after gravity update");
 
         // Only the vertical component should change; horizontal gravity must
         // remain exactly as configured prior to applying the stage.

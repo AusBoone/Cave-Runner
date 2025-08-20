@@ -60,6 +60,19 @@ public class LeaderboardClientTests
         }
     }
 
+    /// <summary>
+    /// Client used to verify that the network spinner is shown during
+    /// asynchronous web requests.
+    /// </summary>
+    private class SpinnerClient : LeaderboardClient
+    {
+        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string> cb)
+        {
+            yield return null; // simulate an async web call
+            cb?.Invoke(true, "[]");
+        }
+    }
+
     [Test]
     public void UploadScore_FormatsBody()
     {
@@ -229,6 +242,36 @@ public class LeaderboardClientTests
         Assert.IsFalse(success, "Callback should report failure when request fails");
 
         Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Network spinner should appear while leaderboard data downloads and be
+    /// hidden once the coroutine completes.
+    /// </summary>
+    [Test]
+    public void GetTopScores_TogglesNetworkSpinner()
+    {
+        var uiObj = new GameObject("ui");
+        var ui = uiObj.AddComponent<UIManager>();
+        ui.networkSpinner = new GameObject("spinner");
+
+        var go = new GameObject("lbSpin");
+        var client = go.AddComponent<SpinnerClient>();
+        client.serviceUrl = "https://example.com";
+
+        var routine = client.GetTopScores(null);
+
+        // Spinner should activate on first step of the coroutine.
+        Assert.IsFalse(ui.networkSpinner.activeSelf);
+        Assert.IsTrue(routine.MoveNext());
+        Assert.IsTrue(ui.networkSpinner.activeSelf);
+
+        while (routine.MoveNext()) { }
+        Assert.IsFalse(ui.networkSpinner.activeSelf);
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(ui.networkSpinner);
+        Object.DestroyImmediate(uiObj);
     }
 
     /// <summary>

@@ -67,6 +67,45 @@ public class AnalyticsManagerTests
         }
     }
 
+    /// <summary>
+    /// Analytics manager subclass that exposes a deterministic web request
+    /// yielding once to simulate an asynchronous upload for spinner testing.
+    /// </summary>
+    private class SpinnerAnalyticsManager : AnalyticsManager
+    {
+        public Queue<UnityWebRequest.Result> mockResults = new Queue<UnityWebRequest.Result>();
+
+        protected override IWebRequest CreateWebRequest(string url, byte[] body)
+        {
+            return new SpinnerRequest(mockResults);
+        }
+
+        protected override YieldInstruction RetryDelay(float seconds)
+        {
+            return null; // skip waits in tests
+        }
+
+        private class SpinnerRequest : IWebRequest
+        {
+            private readonly Queue<UnityWebRequest.Result> results;
+            public SpinnerRequest(Queue<UnityWebRequest.Result> results)
+            {
+                this.results = results;
+            }
+
+            public float UploadProgress => 1f;
+            public bool IsDone => true;
+            public UnityWebRequest.Result Result { get; private set; }
+            public string Error => null;
+
+            public IEnumerator Send()
+            {
+                yield return null; // simulate network delay
+                Result = results.Dequeue();
+            }
+        }
+    }
+
     [SetUp]
     public void ClearPrefs()
     {
@@ -172,6 +211,41 @@ public class AnalyticsManagerTests
         Assert.AreEqual(3f, (float)distanceField.GetValue(firstRun));
 
         Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// The network spinner should reflect analytics upload activity so players
+    /// are aware when data is being transmitted.
+    /// </summary>
+    [Test]
+    public void UploadLoop_TogglesNetworkSpinner()
+    {
+        // Setup UI manager and spinner object.
+        var uiObj = new GameObject("ui");
+        var ui = uiObj.AddComponent<UIManager>();
+        ui.networkSpinner = new GameObject("spinner");
+
+        // Configure analytics manager with a single run and a mock request.
+        var go = new GameObject("amSpin");
+        var am = go.AddComponent<SpinnerAnalyticsManager>();
+        am.remoteEndpoint = "http://example.com"; // non-empty to trigger send
+        am.mockResults.Enqueue(UnityWebRequest.Result.Success);
+        am.LogRun(1f, 0, false);
+
+        var method = typeof(AnalyticsManager).GetMethod("UploadLoop", BindingFlags.NonPublic | BindingFlags.Instance);
+        var routine = (IEnumerator)method.Invoke(am, null);
+
+        // Spinner becomes visible on first iteration of the coroutine.
+        Assert.IsFalse(ui.networkSpinner.activeSelf);
+        Assert.IsTrue(routine.MoveNext());
+        Assert.IsTrue(ui.networkSpinner.activeSelf);
+
+        while (routine.MoveNext()) { }
+        Assert.IsFalse(ui.networkSpinner.activeSelf);
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(ui.networkSpinner);
+        Object.DestroyImmediate(uiObj);
     }
 }
 

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Collections;
 
 /// <summary>
 /// Tests covering the JSON serialization and migration behaviour of
@@ -309,24 +310,57 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
-    /// Updating multiple upgrade levels should result in a single save to disk
-    /// regardless of how many entries are modified.
+    /// Updating multiple upgrade levels in quick succession should still result
+    /// in only one disk write thanks to the autosave batching logic.
     /// </summary>
-    [Test]
-    public void UpdateUpgradeLevels_BatchesWrites()
+    [UnityTest]
+    public IEnumerator UpdateUpgradeLevels_BatchesWrites()
     {
         var obj = new GameObject("save");
         var mgr = obj.AddComponent<SaveGameManagerSpy>();
 
-        var dict = new Dictionary<UpgradeType, int>
+        var dict1 = new Dictionary<UpgradeType, int>
         {
             { UpgradeType.MagnetDuration, 1 },
-            { UpgradeType.SpeedBoostDuration, 2 }
         };
 
-        mgr.UpdateUpgradeLevels(dict);
+        var dict2 = new Dictionary<UpgradeType, int>
+        {
+            { UpgradeType.SpeedBoostDuration, 2 },
+        };
 
-        Assert.AreEqual(1, mgr.Calls);
+        mgr.UpdateUpgradeLevels(dict1);
+        mgr.UpdateUpgradeLevels(dict2); // second call before autosave fires
+
+        // Wait slightly longer than the autosave interval so any pending save
+        // has time to execute.
+        float interval = (float)typeof(SaveGameManager).GetField("AutoSaveInterval", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+        yield return new WaitForSecondsRealtime(interval + 0.1f);
+
+        Assert.AreEqual(1, mgr.Calls, "Autosave should consolidate rapid changes into one write");
+
+        FlushAndDestroy(mgr);
+    }
+
+    /// <summary>
+    /// Setting properties should mark data dirty without immediately saving; an
+    /// autosave should occur after the configured interval.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator PropertySetters_TriggerDelayedSave()
+    {
+        var obj = new GameObject("save");
+        var mgr = obj.AddComponent<SaveGameManagerSpy>();
+
+        mgr.Coins = 5; // mark data dirty
+
+        // Save should not fire immediately.
+        Assert.AreEqual(0, mgr.Calls, "Setter should not write instantly");
+
+        float interval = (float)typeof(SaveGameManager).GetField("AutoSaveInterval", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+        yield return new WaitForSecondsRealtime(interval + 0.1f);
+
+        Assert.AreEqual(1, mgr.Calls, "Autosave should persist data after delay");
 
         FlushAndDestroy(mgr);
     }

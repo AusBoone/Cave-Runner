@@ -289,6 +289,9 @@ public class AnalyticsManager : MonoBehaviour
         isSending = true;
         int attempt = 0;
 
+        // Display spinner so players know analytics are being transmitted.
+        UIManager.Instance?.ShowNetworkSpinner();
+
         while (runs.Count > 0)
         {
             // Skip sending when offline and wait before retrying.
@@ -344,6 +347,9 @@ public class AnalyticsManager : MonoBehaviour
             }
         }
 
+        // Hide spinner once all upload attempts conclude.
+        UIManager.Instance?.HideNetworkSpinner();
+
         isSending = false;
         uploadRoutine = null;
         UploadFinished?.Invoke(runs.Count == 0);
@@ -361,6 +367,9 @@ public class AnalyticsManager : MonoBehaviour
 
         isSending = true;
         int attempt = 0;
+
+        // Display spinner to communicate the blocking network activity.
+        UIManager.Instance?.ShowNetworkSpinner();
 
         while (runs.Count > 0)
         {
@@ -412,6 +421,9 @@ public class AnalyticsManager : MonoBehaviour
                     break;
             }
         }
+
+        // Ensure the spinner is hidden once the blocking send finishes.
+        UIManager.Instance?.HideNetworkSpinner();
 
         isSending = false;
         UploadFinished?.Invoke(runs.Count == 0);

@@ -102,6 +102,9 @@ public class LeaderboardClient : MonoBehaviour
             yield break;
         }
 
+        // Show a visual indicator so players know a network operation is in progress.
+        UIManager.Instance?.ShowNetworkSpinner();
+
         string url = serviceUrl.TrimEnd('/') + "/scores";
         string json = JsonUtility.ToJson(new ScoreEntry { name = playerName, score = score });
 
@@ -139,6 +142,9 @@ public class LeaderboardClient : MonoBehaviour
         // Notify caller of the final outcome. This enables UI elements to
         // display error messages or retry options.
         onComplete?.Invoke(success);
+
+        // Hide the network activity spinner now that the request has finished.
+        UIManager.Instance?.HideNetworkSpinner();
     }
 
     /// <summary>
@@ -159,6 +165,9 @@ public class LeaderboardClient : MonoBehaviour
         // requests.
         if (IsServiceUrlSecure())
         {
+            // Network request will occur, so show the spinner to inform the user.
+            UIManager.Instance?.ShowNetworkSpinner();
+
             string url = serviceUrl.TrimEnd('/') + "/scores";
             const int maxRetries = 3;
             int attempt = 0;
@@ -184,6 +193,9 @@ public class LeaderboardClient : MonoBehaviour
             {
                 result = ParseScores(text);
             }
+
+            // Hide the spinner once the request finishes regardless of outcome.
+            UIManager.Instance?.HideNetworkSpinner();
         }
 
         // Fallback when the serviceUrl is invalid, the request fails, or the

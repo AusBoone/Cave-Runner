@@ -19,6 +19,11 @@
 // to persist across scene loads and is explicitly destroyed when the manager
 // itself is torn down. This prevents duplicate canvases from accumulating
 // as scenes transition while still ensuring the mobile UI remains available.
+//
+// 2034 update summary
+// Introduces a dedicated network-activity spinner so players receive visual
+// feedback while HTTP requests or other online operations are in progress.
+// Other managers can toggle the spinner via new public methods exposed below.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -71,6 +76,8 @@ public class UIManager : MonoBehaviour
     public GameObject loadingPanel;
     [Tooltip("Optional slider visualizing loading progress from 0 to 1.")]
     public Slider loadingProgressBar;
+    [Tooltip("Small icon or status text shown while network calls are pending.")]
+    public GameObject networkSpinner;
     [Tooltip("External form URL for player feedback. Leave blank to hide the button.")]
     public string feedbackUrl = "";
 
@@ -232,6 +239,35 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public float LoadingProgress => loadingProgress;
 
+    /// <summary>
+    /// Shows a small spinner or status label to indicate that a network
+    /// operation is currently in progress. Network-related classes call this
+    /// before initiating web requests so players receive immediate visual
+    /// feedback. The spinner remains visible until
+    /// <see cref="HideNetworkSpinner"/> is invoked.
+    /// </summary>
+    public void ShowNetworkSpinner()
+    {
+        if (networkSpinner != null)
+        {
+            networkSpinner.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// Hides the network activity spinner once all outstanding network
+    /// operations have completed. Callers are responsible for pairing each
+    /// <see cref="ShowNetworkSpinner"/> invocation with this method to ensure
+    /// the spinner accurately reflects current activity.
+    /// </summary>
+    public void HideNetworkSpinner()
+    {
+        if (networkSpinner != null)
+        {
+            networkSpinner.SetActive(false);
+        }
+    }
+
 #if UNITY_STANDALONE
     private List<string> downloadedPacks = new List<string>();
 #endif
@@ -271,6 +307,7 @@ public class UIManager : MonoBehaviour
         HidePanelImmediate(shopPanel);
         HidePanelImmediate(settingsPanel);
         HidePanelImmediate(loadingPanel);
+        HidePanelImmediate(networkSpinner);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetUIManager(this);

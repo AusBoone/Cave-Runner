@@ -193,6 +193,9 @@ public class WorkshopManager : MonoBehaviour
             yield break;
         }
 
+        // Display both the general loading indicator and the new network spinner
+        // so users know an online fetch is occurring.
+        UIManager.Instance?.ShowNetworkSpinner();
         UIManager.Instance?.ShowLoadingIndicator();
         AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(address);
         yield return handle;
@@ -200,6 +203,7 @@ public class WorkshopManager : MonoBehaviour
         callback?.Invoke(result);
         Addressables.Release(handle);
         UIManager.Instance?.HideLoadingIndicator();
+        UIManager.Instance?.HideNetworkSpinner();
     }
 #endif
 }

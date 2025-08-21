@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // TextMeshPro components used for UI labels
 using System.Collections.Generic;
 using System.IO;
 
@@ -25,7 +25,7 @@ public class UIManagerTests
         var uiObj = new GameObject("ui");
         var ui = uiObj.AddComponent<UIManager>();
         var textObj = new GameObject("txt");
-        var text = textObj.AddComponent<Text>();
+        var text = textObj.AddComponent<TextMeshProUGUI>();
         ui.leaderboardText = text;
 
         // Simulate a failed leaderboard retrieval.

@@ -1,5 +1,12 @@
+// SettingsMenu.cs
+// -----------------------------------------------------------------------------
+// Handles runtime configuration options such as key bindings, audio levels and
+// accessibility toggles. Text fields now use TextMeshPro's TMP_Text for improved
+// clarity across resolutions.
+// -----------------------------------------------------------------------------
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UI; // Sliders, Toggles and Dropdown remain in this namespace
+using TMPro;          // Provides the TMP_Text components for labels
 using System.Collections.Generic;
 
 /// <summary>
@@ -9,14 +16,14 @@ using System.Collections.Generic;
 /// </summary>
 public class SettingsMenu : MonoBehaviour
 {
-    public Text jumpKeyLabel;
-    public Text slideKeyLabel;
-    public Text pauseKeyLabel;
+    public TMP_Text jumpKeyLabel;
+    public TMP_Text slideKeyLabel;
+    public TMP_Text pauseKeyLabel;
     public Toggle colorblindToggle;
     public Slider musicVolumeSlider;
-    public Text musicVolumeLabel;
+    public TMP_Text musicVolumeLabel;
     public Slider effectsVolumeSlider;
-    public Text effectsVolumeLabel;
+    public TMP_Text effectsVolumeLabel;
     public Dropdown languageDropdown;
     public Toggle rumbleToggle;
     public Toggle hardcoreToggle; // toggle for hardcore mode

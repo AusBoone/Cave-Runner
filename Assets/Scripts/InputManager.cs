@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 using System.Collections;
+using TMPro; // TextMeshPro used for binding label updates
 
 // 2024 update: added a stubbed TriggerRumble method so projects using the
 // legacy input manager still compile. Calls to TriggerRumble simply do nothing
@@ -36,6 +37,9 @@ using System.Collections;
 /// 2034 fix: rumble requests with zero or negative duration now abort before
 /// starting a coroutine, ensuring no unnecessary work is scheduled for
 /// instantaneous vibrations.
+/// 2036 update: rebinding UI labels now use <see cref="TMP_Text"/> to provide
+/// crisp, resolution-independent text and remove the dependency on legacy
+/// <c>UnityEngine.UI.Text</c> components.
 /// </summary>
 public static class InputManager
 {
@@ -448,10 +452,10 @@ public static class InputManager
     /// <summary>
     /// Begins an interactive rebinding operation for the jump action.
     /// The provided MonoBehaviour is used to start a coroutine so the
-    /// operation can run asynchronously. The label is updated with the
-    /// human readable binding string when complete.
+    /// operation can run asynchronously. The TMP_Text label is updated
+    /// with the human readable binding string when complete.
     /// </summary>
-    public static void StartRebindJump(MonoBehaviour owner, UnityEngine.UI.Text label)
+    public static void StartRebindJump(MonoBehaviour owner, TMP_Text label)
     {
         owner.StartCoroutine(RebindRoutine(jumpAction, JumpBindingPref, label));
     }
@@ -459,7 +463,7 @@ public static class InputManager
     /// <summary>
     /// Begins an interactive rebinding operation for the slide action.
     /// </summary>
-    public static void StartRebindSlide(MonoBehaviour owner, UnityEngine.UI.Text label)
+    public static void StartRebindSlide(MonoBehaviour owner, TMP_Text label)
     {
         owner.StartCoroutine(RebindRoutine(slideAction, SlideBindingPref, label));
     }
@@ -468,7 +472,7 @@ public static class InputManager
     /// Begins an interactive rebinding operation for the down action.
     /// This input is used for fast falling.
     /// </summary>
-    public static void StartRebindDown(MonoBehaviour owner, UnityEngine.UI.Text label)
+    public static void StartRebindDown(MonoBehaviour owner, TMP_Text label)
     {
         owner.StartCoroutine(RebindRoutine(downAction, DownBindingPref, label));
     }
@@ -476,13 +480,13 @@ public static class InputManager
     /// <summary>
     /// Begins an interactive rebinding operation for the pause action.
     /// </summary>
-    public static void StartRebindPause(MonoBehaviour owner, UnityEngine.UI.Text label)
+    public static void StartRebindPause(MonoBehaviour owner, TMP_Text label)
     {
         owner.StartCoroutine(RebindRoutine(pauseAction, PauseBindingPref, label));
     }
 
     // Coroutine that waits for the user to press a new control and stores the result.
-    private static System.Collections.IEnumerator RebindRoutine(InputAction action, string pref, UnityEngine.UI.Text label)
+    private static System.Collections.IEnumerator RebindRoutine(InputAction action, string pref, TMP_Text label)
     {
         action.Disable();
         var operation = action.PerformInteractiveRebinding()

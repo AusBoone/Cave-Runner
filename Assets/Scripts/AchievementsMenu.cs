@@ -6,7 +6,7 @@
  * game runs without Steam (for example in WebGL) the menu will simply remain
  * empty. Typical usage:
  *   - Attach this component to a panel with a VerticalLayoutGroup.
- *   - Assign 'entryPrefab' which contains a Text component.
+ *   - Assign 'entryPrefab' which contains a TMP_Text component.
  *   - The Start method calls PopulateList automatically, but tests may invoke
  *     it directly.
  * Achievements are queried once at startup and displayed using localized
@@ -14,7 +14,7 @@
  * -----------------------------------------------------------------------------
  */
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // TextMeshPro is used for achievement entry labels
 #if UNITY_STANDALONE
 using Steamworks;
 #endif
@@ -22,15 +22,15 @@ using Steamworks;
 /// <summary>
 /// Displays a scrollable list of Steam achievements and their unlocked state.
 /// Attach this component to a panel containing a vertical layout group. Provide
-/// a prefab with a <see cref="Text"/> component for each entry.
+/// a prefab with a <see cref="TMP_Text"/> component for each entry.
 /// </summary>
 public class AchievementsMenu : MonoBehaviour
 {
     [Tooltip("Prefab used to display each achievement entry.")]
     /// <summary>
     /// Prefab used to visualise a single achievement. Must contain a
-    /// <see cref="UnityEngine.UI.Text"/> component which is populated with the
-    /// achievement name and description.
+    /// <see cref="TMP_Text"/> component which is populated with the achievement
+    /// name and description.
     /// </summary>
     public GameObject entryPrefab;
     [Tooltip("Parent transform where instantiated entries are placed.")]
@@ -77,7 +77,8 @@ public class AchievementsMenu : MonoBehaviour
             SteamUserStats.GetAchievement(id, out achieved);
 
             GameObject entry = Instantiate(entryPrefab, listParent);
-            Text text = entry.GetComponentInChildren<Text>();
+            // Use TextMeshPro for crisp, flexible rendering of achievement info.
+            TMP_Text text = entry.GetComponentInChildren<TMP_Text>();
             if (text != null)
             {
                 string unlocked = achieved ? LocalizationManager.Get("achievement_unlocked") : string.Empty;

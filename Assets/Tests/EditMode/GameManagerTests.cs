@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using UnityEngine.UI;               // Needed for assigning UI Text references
+using TMPro;               // Needed for assigning TMP_Text references
 using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -32,16 +32,16 @@ public class GameManagerTests
         var go = new GameObject("gm");
         var gm = go.AddComponent<T>();
 
-        gm.scoreLabel = new GameObject("scoreLabel").AddComponent<Text>();
+        gm.scoreLabel = new GameObject("scoreLabel").AddComponent<TextMeshProUGUI>();
         gm.scoreLabel.transform.SetParent(go.transform);
 
-        gm.highScoreLabel = new GameObject("highScoreLabel").AddComponent<Text>();
+        gm.highScoreLabel = new GameObject("highScoreLabel").AddComponent<TextMeshProUGUI>();
         gm.highScoreLabel.transform.SetParent(go.transform);
 
-        gm.coinLabel = new GameObject("coinLabel").AddComponent<Text>();
+        gm.coinLabel = new GameObject("coinLabel").AddComponent<TextMeshProUGUI>();
         gm.coinLabel.transform.SetParent(go.transform);
 
-        gm.comboLabel = new GameObject("comboLabel").AddComponent<Text>();
+        gm.comboLabel = new GameObject("comboLabel").AddComponent<TextMeshProUGUI>();
         gm.comboLabel.transform.SetParent(go.transform);
 
         return gm;

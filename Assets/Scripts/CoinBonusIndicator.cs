@@ -4,25 +4,26 @@
  * UI helper that displays the remaining duration of the coin bonus effect on
  * screen. When the bonus is inactive the label's GameObject is disabled so it
  * does not occupy layout space. Attach this script to a UI GameObject that has
- * a child Text component assigned to 'timerLabel'.
+ * a child TMP_Text component assigned to 'timerLabel'.
  * -----------------------------------------------------------------------------
  */
 
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // TextMeshPro provides TMP_Text for crisp UI text
 
 /// <summary>
-/// Updates a UI <see cref="Text"/> to show the current coin bonus multiplier
-/// and countdown. The label is automatically hidden when the bonus expires.
+/// Updates a UI <see cref="TMP_Text"/> to show the current coin bonus
+/// multiplier and countdown. The label is automatically hidden when the bonus
+/// expires.
 /// </summary>
 public class CoinBonusIndicator : MonoBehaviour
 {
     [Tooltip("UI text displaying multiplier and remaining seconds.")]
     /// <summary>
-    /// Label that shows the current multiplier and seconds left. When the
-    /// bonus expires this GameObject is disabled to collapse its layout.
+    /// Label that shows the current multiplier and seconds left. When the bonus
+    /// expires this GameObject is disabled to collapse its layout.
     /// </summary>
-    public Text timerLabel;
+    public TMP_Text timerLabel;
 
     /// <summary>
     /// Refreshes the bonus timer display each frame and hides the label when

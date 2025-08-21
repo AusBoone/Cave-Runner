@@ -1,8 +1,8 @@
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
+using TMPro; // TextMeshPro provides TMP_Text for UI labels
 
 /// <summary>
 /// Central controller for the endless runner. Tracks the player's
@@ -79,14 +79,19 @@ using System.Collections;
 /// <see cref="StartGame"/> with null-safe handling to prevent runtime
 /// exceptions when supporting managers or UI elements are missing.
 /// </remarks>
+/// <remarks>
+/// 2043 update: UI text elements migrated from <c>UnityEngine.UI.Text</c> to
+/// <see cref="TMP_Text"/> for higher quality rendering and to modernize the
+/// UI stack.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     public float baseSpeed = 5f;              // initial world scroll speed
     public float speedIncrease = 0.1f;        // speed gain per second
-    public Text scoreLabel;                   // UI label showing current distance
-    public Text highScoreLabel;               // UI label showing best distance
-    public Text coinLabel;                    // UI label showing collected coins
+    public TMP_Text scoreLabel;               // UI label showing current distance
+    public TMP_Text highScoreLabel;           // UI label showing best distance
+    public TMP_Text coinLabel;                // UI label showing collected coins
     [Tooltip("Power-up prefabs that may spawn when a run begins if the player has the corresponding upgrade.")]
     public GameObject[] startingPowerUps;
 
@@ -138,7 +143,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private int maxComboMultiplier = 10;      // cap applied to combo multiplier for balance
 
-    public Text comboLabel;                   // UI label showing current combo multiplier
+    public TMP_Text comboLabel;               // UI label showing current combo multiplier
 
     [Header("Combo Feedback")]
     [Tooltip("Particle effect played when the combo multiplier increases.")]

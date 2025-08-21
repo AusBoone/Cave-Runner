@@ -86,12 +86,12 @@ public class ObjectPoolTests
 
         // Immediately after Start only the first object should exist because
         // the coroutine yields after each instantiation.
-        Assert.AreEqual(1, pool.transform.childCount,
+        Assert.AreEqual(1, pool.PooledInstanceCount,
             "First preload iteration should run immediately");
 
         // Allow one frame for the coroutine to continue and create the second object.
         yield return null;
-        Assert.AreEqual(2, pool.transform.childCount,
+        Assert.AreEqual(2, pool.PooledInstanceCount,
             "Second preload iteration should occur on following frame");
 
         Object.DestroyImmediate(pool.prefab);

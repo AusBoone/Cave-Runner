@@ -32,6 +32,20 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
+    /// Creates a <see cref="SaveGameManager"/> or subclass and blocks until its
+    /// asynchronous initialization has completed. Tests rely on this helper so
+    /// they operate on fully loaded data despite the production code loading
+    /// in the background.
+    /// </summary>
+    private static T CreateManager<T>(string name) where T : SaveGameManager
+    {
+        var go = new GameObject(name);
+        var mgr = go.AddComponent<T>();
+        mgr.Initialization.GetAwaiter().GetResult();
+        return mgr;
+    }
+
+    /// <summary>
     /// Flushes any pending asynchronous save operation for the provided manager
     /// and destroys its GameObject. Tests use this helper to ensure data reaches
     /// disk before a new <see cref="SaveGameManager"/> is instantiated.
@@ -47,8 +61,7 @@ public class SaveGameManagerTests
     [Test]
     public void SaveAndLoad_PersistsData()
     {
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
         save.Coins = 7;
         save.HighScore = 12;
         save.SetUpgradeLevel(UpgradeType.MagnetDuration, 2);
@@ -56,8 +69,7 @@ public class SaveGameManagerTests
         FlushAndDestroy(save);
 
         // Create a new instance which should load from the file
-        var go2 = new GameObject("save2");
-        var save2 = go2.AddComponent<SaveGameManager>();
+        var save2 = CreateManager<SaveGameManager>("save2");
 
         Assert.AreEqual(7, save2.Coins);
         Assert.AreEqual(12, save2.HighScore);
@@ -74,8 +86,7 @@ public class SaveGameManagerTests
         PlayerPrefs.SetInt("UpgradeLevel_MagnetDuration", 1);
         PlayerPrefs.Save();
 
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
 
         Assert.AreEqual(3, save.Coins);
         Assert.AreEqual(4, save.HighScore);
@@ -89,8 +100,7 @@ public class SaveGameManagerTests
     public void Save_UsesTemporaryFile()
     {
         // Saving should not leave the temporary file used for atomic writes.
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
 
         save.Coins = 1; // triggers SaveDataToFile
 
@@ -104,14 +114,12 @@ public class SaveGameManagerTests
     [Test]
     public void VolumeValues_ArePersisted()
     {
-        var obj = new GameObject("save");
-        var save = obj.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
         save.MusicVolume = 0.4f;
         save.EffectsVolume = 0.7f;
         FlushAndDestroy(save);
 
-        var obj2 = new GameObject("save2");
-        var save2 = obj2.AddComponent<SaveGameManager>();
+        var save2 = CreateManager<SaveGameManager>("save2");
         Assert.AreEqual(0.4f, save2.MusicVolume, 0.001f);
         Assert.AreEqual(0.7f, save2.EffectsVolume, 0.001f);
         FlushAndDestroy(save2);
@@ -124,8 +132,7 @@ public class SaveGameManagerTests
         string path = Path.Combine(Application.persistentDataPath, "savegame.json");
         File.WriteAllText(path, "{\"coins\":1,\"highScore\":2,\"upgrades\":[]}");
 
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
 
         Assert.AreEqual(1f, save.MusicVolume);
         Assert.AreEqual(1f, save.EffectsVolume);
@@ -135,8 +142,7 @@ public class SaveGameManagerTests
     [Test]
     public void VersionField_WrittenToFile()
     {
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
         FlushAndDestroy(save);
 
         string path = Path.Combine(Application.persistentDataPath, "savegame.json");
@@ -148,13 +154,11 @@ public class SaveGameManagerTests
     public void LanguageValue_IsPersisted()
     {
         // Save a language preference and ensure it loads correctly on next startup
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
         save.Language = "es";
         FlushAndDestroy(save);
 
-        var go2 = new GameObject("save2");
-        var save2 = go2.AddComponent<SaveGameManager>();
+        var save2 = CreateManager<SaveGameManager>("save2");
         Assert.AreEqual("es", save2.Language);
         FlushAndDestroy(save2);
     }
@@ -167,8 +171,7 @@ public class SaveGameManagerTests
         string path = Path.Combine(Application.persistentDataPath, "savegame.json");
         File.WriteAllText(path, "{\"coins\":2,\"highScore\":3}");
 
-        var go = new GameObject("save");
-        var save = go.AddComponent<SaveGameManager>();
+        var save = CreateManager<SaveGameManager>("save");
 
         Assert.AreEqual(2, save.Coins);
         Assert.AreEqual(3, save.HighScore);
@@ -183,15 +186,13 @@ public class SaveGameManagerTests
         // Write data to the initial slot then change to a new slot and verify
         // values persist separately.
         SaveSlotManager.SetSlot(0);
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SaveGameManager>();
+        var mgr = CreateManager<SaveGameManager>("save");
         mgr.Coins = 2;
         await mgr.ChangeSlot(1);
         mgr.Coins = 5;
         FlushAndDestroy(mgr);
 
-        var obj2 = new GameObject("save2");
-        var mgr2 = obj2.AddComponent<SaveGameManager>();
+        var mgr2 = CreateManager<SaveGameManager>("save2");
         Assert.AreEqual(5, mgr2.Coins, "Slot 1 should contain updated value");
         await mgr2.ChangeSlot(0);
         Assert.AreEqual(2, mgr2.Coins, "Slot 0 should retain original value");
@@ -208,8 +209,7 @@ public class SaveGameManagerTests
     {
         // Begin in slot 0 and queue a save that will complete slowly.
         SaveSlotManager.SetSlot(0);
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SlowSaveGameManager>();
+        var mgr = CreateManager<SlowSaveGameManager>("save");
         mgr.Coins = 1; // queue save for slot 0
 
         // Immediately switch to slot 1. ChangeSlot should block until the first
@@ -220,14 +220,12 @@ public class SaveGameManagerTests
 
         // Verify slot 0 contains the first value and slot 1 the second.
         SaveSlotManager.SetSlot(0);
-        var check0 = new GameObject("check0");
-        var mgr0 = check0.AddComponent<SaveGameManager>();
+        var mgr0 = CreateManager<SaveGameManager>("check0");
         Assert.AreEqual(1, mgr0.Coins, "Slot 0 should persist initial value");
         FlushAndDestroy(mgr0);
 
         SaveSlotManager.SetSlot(1);
-        var check1 = new GameObject("check1");
-        var mgr1 = check1.AddComponent<SaveGameManager>();
+        var mgr1 = CreateManager<SaveGameManager>("check1");
         Assert.AreEqual(2, mgr1.Coins, "Slot 1 should contain updated value");
         FlushAndDestroy(mgr1);
     }
@@ -239,8 +237,7 @@ public class SaveGameManagerTests
     [Test]
     public void SaveDataToFile_InvalidPath_LogsWarning()
     {
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SaveGameManager>();
+        var mgr = CreateManager<SaveGameManager>("save");
 
         FieldInfo pathField = typeof(SaveGameManager).GetField("savePath", BindingFlags.NonPublic | BindingFlags.Instance);
         pathField.SetValue(mgr, Path.Combine(Application.dataPath, "no_such_dir", "save.json"));
@@ -270,8 +267,7 @@ public class SaveGameManagerTests
         File.WriteAllText(path, "{ invalid json }");
 
         // Loading should detect the bad file and regenerate a default save.
-        var go = new GameObject("save");
-        var mgr = go.AddComponent<SaveGameManager>();
+        var mgr = CreateManager<SaveGameManager>("save");
 
         // All persistent values should revert to their defaults.
         Assert.AreEqual(0, mgr.Coins, "Coins should reset when save is invalid");
@@ -316,8 +312,7 @@ public class SaveGameManagerTests
     [UnityTest]
     public IEnumerator UpdateUpgradeLevels_BatchesWrites()
     {
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SaveGameManagerSpy>();
+        var mgr = CreateManager<SaveGameManagerSpy>("save");
 
         var dict1 = new Dictionary<UpgradeType, int>
         {
@@ -349,8 +344,7 @@ public class SaveGameManagerTests
     [UnityTest]
     public IEnumerator PropertySetters_TriggerDelayedSave()
     {
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SaveGameManagerSpy>();
+        var mgr = CreateManager<SaveGameManagerSpy>("save");
 
         mgr.Coins = 5; // mark data dirty
 
@@ -372,8 +366,7 @@ public class SaveGameManagerTests
     [Test]
     public void SlowDisk_DoesNotBlockMainThread()
     {
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SlowSaveGameManager>();
+        var mgr = CreateManager<SlowSaveGameManager>("save");
 
         var timer = Stopwatch.StartNew();
         mgr.Coins = 3; // triggers asynchronous save
@@ -391,8 +384,7 @@ public class SaveGameManagerTests
     [Test]
     public void QuitHandler_FlushesWithoutBlocking()
     {
-        var obj = new GameObject("save");
-        var mgr = obj.AddComponent<SlowSaveGameManager>();
+        var mgr = CreateManager<SlowSaveGameManager>("save");
         mgr.Coins = 9; // queue save
 
         // Reflectively invoke the private handler used by Application.quitting.
@@ -405,8 +397,7 @@ public class SaveGameManagerTests
         // Allow the asynchronous save to finish so data reaches disk.
         Task.Delay(300).Wait();
 
-        var obj2 = new GameObject("check");
-        var mgr2 = obj2.AddComponent<SaveGameManager>();
+        var mgr2 = CreateManager<SaveGameManager>("check");
         Assert.AreEqual(9, mgr2.Coins, "Data should persist after quit handler");
 
         FlushAndDestroy(mgr2);

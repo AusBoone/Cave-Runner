@@ -29,6 +29,10 @@ using UnityEngine;
 // correctly if game modes invert gravity.
 // 2026 fix: Air-dive logic now guards against zero gravity to prevent
 // undefined velocity when Physics2D.gravity is a zero vector.
+// 2030 enhancement: Ground checking now derives the ray direction from
+// Physics2D.gravity.normalized and projects collider bounds along that
+// vector. This supports diagonal and zero-gravity scenarios by falling back to
+// <c>Vector2.down</c> when gravity's magnitude is negligible.
 [RequireComponent(typeof(Rigidbody2D), typeof(CapsuleCollider2D), typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
@@ -289,20 +293,26 @@ public class PlayerController : MonoBehaviour
         // the collider is resized for sliding.
         Vector2 origin = coll.bounds.center;
 
-        // Calculate the ray length dynamically based on the collider's vertical
-        // extents. This allows ground detection to scale with both very small
-        // and very large colliders. A small skin width avoids floating-point
-        // precision issues that could otherwise report false negatives. Using
-        // <c>bounds.extents</c> instead of a fixed constant also means the logic
-        // remains correct if gravity is inverted (positive Y), since the ray is
-        // cast from the center in the direction of gravity and always reaches
-        // beyond the collider's edge.
-        float distance = coll.bounds.extents.y + 0.1f;
+        // Determine the ray direction from the current gravity vector. This
+        // supports diagonal or even inverted gravity configurations used by
+        // certain power-ups or game modes. Physics2D.gravity.normalized will
+        // produce NaN when gravity is exactly zero, so we explicitly fall back to
+        // Vector2.down in that case so the player can still detect the ground
+        // during zero-gravity sections.
+        Vector2 gravity = Physics2D.gravity;
+        Vector2 rayDir = gravity.sqrMagnitude > 0.0001f ? gravity.normalized : Vector2.down;
 
-        // Choose the ray direction based on the sign of gravity. When gravity is
-        // flipped upward, the raycast travels upward so the player can still
-        // detect "ground" above them.
-        Vector2 rayDir = Physics2D.gravity.y > 0f ? Vector2.up : Vector2.down;
+        // Calculate the ray length by projecting the collider's extents onto the
+        // ray direction. This yields the half-size of the collider along that
+        // direction, ensuring the ray always reaches just beyond the edge of the
+        // collider regardless of its dimensions or the gravity orientation. A
+        // small skin width avoids precision issues that might otherwise miss
+        // surfaces resting directly against the collider.
+        Vector3 extents3 = coll.bounds.extents;
+        Vector2 extents = new Vector2(extents3.x, extents3.y);
+        Vector2 absDir = new Vector2(Mathf.Abs(rayDir.x), Mathf.Abs(rayDir.y));
+        float distance = Vector2.Dot(extents, absDir) + 0.1f;
+
         RaycastHit2D hit = Physics2D.Raycast(origin, rayDir, distance, groundLayer);
         bool wasGrounded = isGrounded;
         isGrounded = hit.collider != null;

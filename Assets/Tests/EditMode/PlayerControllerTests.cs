@@ -6,6 +6,8 @@
 // a GameObject lacking those dependencies.
 // 2029 update: Physics behaviour moved to FixedUpdate; tests call it explicitly
 // to exercise queued forces and velocity changes.
+// 2030 update: Adds regression tests for diagonal and zero-gravity ground
+// detection to ensure CheckGrounded handles non-standard gravity vectors.
 
 using NUnit.Framework;
 using UnityEngine;
@@ -22,7 +24,9 @@ using UnityEngine.InputSystem;
 /// colliders. 2026 update: adds a regression test ensuring the air-dive
 /// defaults to <see cref="Vector2.down"/> when gravity is zero, preventing NaN
 /// velocities. 2029 update: physics-affecting tests explicitly invoke
-/// <c>FixedUpdate</c> to process queued forces.
+/// <c>FixedUpdate</c> to process queued forces. 2030 update: additional tests
+/// cover diagonal gravity and zero-gravity cases to validate the enhanced
+/// ground ray direction logic.
 /// </summary>
 public class PlayerControllerTests
 {
@@ -268,6 +272,77 @@ public class PlayerControllerTests
             .GetValue(pc);
         Assert.IsTrue(grounded, "Ray length based on collider bounds should register the ground");
 
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(ground);
+    }
+
+    [Test]
+    public void GroundCheck_RespectsDiagonalGravity()
+    {
+        // When gravity points diagonally, CheckGrounded should cast along that
+        // vector and still detect surfaces positioned in the same direction.
+        var player = new GameObject("player");
+        player.AddComponent<Rigidbody2D>();
+        var col = player.AddComponent<CapsuleCollider2D>();
+        col.size = new Vector2(1f, 1f);
+        var pc = player.AddComponent<PlayerController>();
+        pc.groundLayer = LayerMask.GetMask("Default");
+
+        // Use a diagonal gravity vector and place the ground along that path.
+        Vector2 gravity = new Vector2(5f, -5f);
+        Physics2D.gravity = gravity;
+        Vector2 rayDir = gravity.normalized;
+        Vector3 extents3 = col.bounds.extents;
+        Vector2 extents = new Vector2(extents3.x, extents3.y);
+        Vector2 absDir = new Vector2(Mathf.Abs(rayDir.x), Mathf.Abs(rayDir.y));
+        float distance = Vector2.Dot(extents, absDir) + 0.05f;
+
+        var ground = new GameObject("ground");
+        ground.AddComponent<BoxCollider2D>();
+        Vector2 groundPos = (Vector2)player.transform.position + rayDir * distance;
+        ground.transform.position = new Vector3(groundPos.x, groundPos.y, 0f);
+
+        typeof(PlayerController)
+            .GetMethod("CheckGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
+
+        bool grounded = (bool)typeof(PlayerController)
+            .GetField("isGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(pc);
+        Assert.IsTrue(grounded, "Ray should hit ground along diagonal gravity");
+
+        Physics2D.gravity = new Vector2(0f, -9.81f);
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(ground);
+    }
+
+    [Test]
+    public void GroundCheck_DefaultsDownWithZeroGravity()
+    {
+        // With zero gravity the ray should fall back to Vector2.down so ground
+        // directly beneath the player is still detected.
+        var player = new GameObject("player");
+        player.AddComponent<Rigidbody2D>();
+        player.AddComponent<CapsuleCollider2D>();
+        var pc = player.AddComponent<PlayerController>();
+        pc.groundLayer = LayerMask.GetMask("Default");
+
+        Physics2D.gravity = Vector2.zero;
+
+        var ground = new GameObject("ground");
+        ground.AddComponent<BoxCollider2D>();
+        ground.transform.position = new Vector3(0f, -0.05f, 0f);
+
+        typeof(PlayerController)
+            .GetMethod("CheckGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(pc, null);
+
+        bool grounded = (bool)typeof(PlayerController)
+            .GetField("isGrounded", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(pc);
+        Assert.IsTrue(grounded, "Ray should default downward when gravity is zero");
+
+        Physics2D.gravity = new Vector2(0f, -9.81f);
         Object.DestroyImmediate(player);
         Object.DestroyImmediate(ground);
     }

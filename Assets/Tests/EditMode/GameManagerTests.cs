@@ -20,6 +20,10 @@ using System.Text.RegularExpressions;
 /// 2047 update: adds coverage ensuring <see cref="GameManager"/> clamps its
 /// internal speed to the configured maximum value.
 /// </remarks>
+/// <remarks>
+/// 2050 update: introduces tests confirming that pausing the game freezes
+/// object movement by setting <c>Time.timeScale</c> to zero.
+/// </remarks>
 
 // EditMode tests can be run through Unity's Test Runner window.
 // Create this file under Assets/Tests/EditMode and open Window > General > Test Runner.
@@ -348,6 +352,45 @@ public class GameManagerTests
         update.Invoke(gm, null);
 
         Assert.AreEqual(1f, Time.timeScale);
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
+    }
+
+    /// <summary>
+    /// Pausing the game should freeze <see cref="Time.timeScale"/> and prevent
+    /// objects that rely on <see cref="GameManager.IsRunning"/> from moving.
+    /// </summary>
+    [Test]
+    public void PauseGame_StopsObjectMovement()
+    {
+        // Create GameManager with required UI and a dummy player for StartGame.
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
+        gm.StartGame();
+
+        // Spawn a ZigZagEnemy which consults IsRunning() before moving.
+        var enemyObj = new GameObject("enemy");
+        var enemy = enemyObj.AddComponent<ZigZagEnemy>();
+        enemy.OnEnable();
+
+        // Run one update to establish a baseline position.
+        enemy.Update();
+        Vector3 posBeforePause = enemyObj.transform.position;
+
+        // Pausing should set timeScale to zero and halt further movement.
+        gm.PauseGame();
+        enemy.Update();
+        Vector3 posAfterPause = enemyObj.transform.position;
+
+        Assert.AreEqual(posBeforePause, posAfterPause, "Enemy should not move while game is paused.");
+
+        // Resume to restore time scale for subsequent tests and clean up.
+        gm.ResumeGame();
+        Object.DestroyImmediate(enemyObj);
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(player);
     }

@@ -33,6 +33,10 @@
 // 2036 update summary
 // Migrates UI text elements to TextMeshPro's TMP_Text for sharper rendering
 // and to remove the legacy UnityEngine.UI.Text dependency.
+// 2050 update summary
+// Global time scaling is now controlled exclusively by GameManager. UIManager
+// no longer modifies Time.timeScale when pausing or resuming, preventing
+// redundant state changes.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -388,9 +392,10 @@ public class UIManager : MonoBehaviour
         ShowPanel(pausePanel);
         if (GameManager.Instance != null)
         {
+            // Delegates the actual pausing and time-scale adjustment to
+            // GameManager so only one system controls global time state.
             GameManager.Instance.PauseGame();
         }
-        Time.timeScale = 0f;
     }
 
     /// <summary>
@@ -401,9 +406,9 @@ public class UIManager : MonoBehaviour
         HidePanel(pausePanel);
         if (GameManager.Instance != null)
         {
+            // GameManager restores normal gameplay and resets time scale.
             GameManager.Instance.ResumeGame();
         }
-        Time.timeScale = 1f;
     }
 
     /// <summary>

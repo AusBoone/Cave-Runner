@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using TMPro;               // Needed for assigning TMP_Text references
 using System;
+using System.Collections;  // Provides IEnumerator for Unity tests
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -14,6 +15,10 @@ using System.Text.RegularExpressions;
 /// 2039 update: tests explicitly assign the serialized player reference
 /// before invoking <see cref="GameManager.StartGame"/> to satisfy new
 /// validation requirements.
+/// </remarks>
+/// <remarks>
+/// 2047 update: adds coverage ensuring <see cref="GameManager"/> clamps its
+/// internal speed to the configured maximum value.
 /// </remarks>
 
 // EditMode tests can be run through Unity's Test Runner window.
@@ -118,6 +123,47 @@ public class GameManagerTests
         // Expect an ArgumentOutOfRangeException when multiplier is zero.
         Assert.Throws<ArgumentOutOfRangeException>(() => gm.ActivateSpeedBoost(1f, 0f));
         Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
+    /// Verifies that the GameManager's internal speed never surpasses
+    /// <see cref="GameManager.MaxSpeed"/> even after many updates. This ensures
+    /// difficulty managers cannot cause runaway acceleration that would make
+    /// gameplay unmanageable.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Update_DoesNotExceedMaxSpeed()
+    {
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+
+        // Assign required player reference for StartGame validation.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
+        gm.baseSpeed = 0f;                    // start from standstill
+        gm.speedIncrease = 10f;               // aggressive acceleration
+        typeof(GameManager).GetField("maxSpeed", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, 1f);                // low cap to hit quickly
+
+        gm.StartGame();                       // begin the run
+
+        // Allow several frames for Update to execute and attempt to exceed the cap.
+        for (int i = 0; i < 10; i++)
+        {
+            yield return null;                // each frame applies speed increase
+        }
+
+        // Retrieve the private currentSpeed field to ensure clamping occurred.
+        var speedField = typeof(GameManager).GetField("currentSpeed", BindingFlags.NonPublic | BindingFlags.Instance);
+        float currentSpeed = (float)speedField.GetValue(gm);
+
+        // Speed should not surpass the configured maximum value.
+        Assert.LessOrEqual(currentSpeed, 1f + 0.0001f);
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 
     [Test]

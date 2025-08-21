@@ -89,11 +89,18 @@ using TMPro; // TextMeshPro provides TMP_Text for UI labels
 /// access the player's <see cref="Transform"/> directly instead of performing
 /// costly scene searches for a tagged object.
 /// </remarks>
+/// <remarks>
+/// 2047 update: introduces <see cref="maxSpeed"/> to cap world speed and exposes
+/// <see cref="MaxSpeed"/> for systems that scale difficulty based on the
+/// game's top velocity.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     public float baseSpeed = 5f;              // initial world scroll speed
     public float speedIncrease = 0.1f;        // speed gain per second
+    [SerializeField]
+    private float maxSpeed = 20f;             // upper limit for world scroll speed
     public TMP_Text scoreLabel;               // UI label showing current distance
     public TMP_Text highScoreLabel;           // UI label showing best distance
     public TMP_Text coinLabel;                // UI label showing collected coins
@@ -133,6 +140,13 @@ public class GameManager : MonoBehaviour
             return playerObject != null ? playerObject.transform : null;
         }
     }
+
+    /// <summary>
+    /// Read-only accessor exposing the configured maximum speed so external
+    /// systems like <see cref="AdaptiveDifficultyManager"/> can scale their
+    /// behavior based on the game's top scroll velocity.
+    /// </summary>
+    public float MaxSpeed => maxSpeed;
 
     // Coin bonus power-up variables
     private float coinBonusTimer;             // remaining time coins are multiplied
@@ -350,6 +364,8 @@ public class GameManager : MonoBehaviour
 
         // Increase the base scroll speed over time so difficulty ramps up
         currentSpeed += speedIncrease * Time.deltaTime;
+        // Prevent runaway acceleration by clamping to the configured maximum
+        currentSpeed = Mathf.Min(currentSpeed, maxSpeed);
 
         // Count down slow motion timer using unscaled time so it expires
         // regardless of the current time scale.

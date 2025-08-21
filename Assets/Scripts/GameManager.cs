@@ -94,6 +94,12 @@ using TMPro; // TextMeshPro provides TMP_Text for UI labels
 /// <see cref="MaxSpeed"/> for systems that scale difficulty based on the
 /// game's top velocity.
 /// </remarks>
+/// <remarks>
+/// 2050 update: pausing now sets <c>Time.timeScale</c> to <c>0</c> and resuming or
+/// starting a run restores it to <c>1</c>. Centralizing time control here ensures
+/// all gameplay and physics-based systems halt uniformly when the game is
+/// paused and resume predictably.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -625,6 +631,8 @@ public class GameManager : MonoBehaviour
 
         stageSpeedMultiplier = 1f;
         slowMotionTimer = 0f;
+        // Ensure global time runs at normal speed in case a previous session
+        // paused the game or slow motion was active.
         Time.timeScale = 1f;
 
         // Validate required references and spawn starting power-ups if configured.
@@ -663,8 +671,13 @@ public class GameManager : MonoBehaviour
     public void PauseGame()
     {
         if (!isRunning || isPaused) return;
+
+        // Flag gameplay as inactive and freeze time so all Update and physics
+        // calculations stop. Using Time.timeScale ensures any running
+        // coroutines or animations tied to scaled time also pause.
         isRunning = false;
         isPaused = true;
+        Time.timeScale = 0f;
     }
 
     /// <summary>
@@ -673,8 +686,13 @@ public class GameManager : MonoBehaviour
     public void ResumeGame()
     {
         if (!isPaused) return;
+
+        // Reactivate gameplay and restore normal time progression so movement
+        // and physics resume. This mirrors the behavior in StartGame so all
+        // entry points use consistent time scaling.
         isRunning = true;
         isPaused = false;
+        Time.timeScale = 1f;
     }
 
     /// <summary>

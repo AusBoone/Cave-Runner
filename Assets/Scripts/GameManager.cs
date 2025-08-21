@@ -73,6 +73,12 @@ using System.Collections;
 /// build configurations can suppress verbose output while still surfacing
 /// critical issues.
 /// </remarks>
+/// <remarks>
+/// 2042 update: adds explicit dependency validation in <see cref="Awake"/> and
+/// replaces direct property access in <see cref="GameOver"/> and
+/// <see cref="StartGame"/> with null-safe handling to prevent runtime
+/// exceptions when supporting managers or UI elements are missing.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -238,6 +244,41 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        // Validate critical dependencies before proceeding. Missing references
+        // indicate a misconfigured scene and could lead to null reference
+        // exceptions later in initialization. Logging an explicit error helps
+        // developers quickly diagnose the issue.
+        bool missingDependencies = false;
+        if (SaveGameManager.Instance == null)
+        {
+            LoggingHelper.LogError("Awake: SaveGameManager instance not found. Aborting initialization.");
+            missingDependencies = true;
+        }
+        if (scoreLabel == null)
+        {
+            LoggingHelper.LogError("Awake: scoreLabel reference not set.");
+            missingDependencies = true;
+        }
+        if (highScoreLabel == null)
+        {
+            LoggingHelper.LogError("Awake: highScoreLabel reference not set.");
+            missingDependencies = true;
+        }
+        if (coinLabel == null)
+        {
+            LoggingHelper.LogError("Awake: coinLabel reference not set.");
+            missingDependencies = true;
+        }
+        if (comboLabel == null)
+        {
+            LoggingHelper.LogError("Awake: comboLabel reference not set.");
+            missingDependencies = true;
+        }
+        if (missingDependencies)
+        {
+            return; // Abort setup when essential components are missing
+        }
+
         // Load the persisted hardcore mode preference after ensuring
         // SaveGameManager exists. Default to false when no save is present.
         hardcoreMode = SaveGameManager.Instance != null && SaveGameManager.Instance.HardcoreMode;
@@ -394,14 +435,31 @@ public class GameManager : MonoBehaviour
         }
         coinBonusMultiplier = 1f;
         coinBonusTimer = 0f;
+
         int finalScore = Mathf.FloorToInt(distance);
-        int highScore = SaveGameManager.Instance.HighScore;
+
+        // Use null-conditional access so a missing save system does not crash
+        // the game. Fallback to zero when no high score is available.
+        var save = SaveGameManager.Instance;
+        int highScore = save?.HighScore ?? 0;
+        if (save == null)
+        {
+            LoggingHelper.LogError("GameOver: SaveGameManager missing; using default high score of 0.");
+        }
 
         // Persist a new high score locally and to Steam if available
         if (finalScore > highScore)
         {
             highScore = finalScore;
-            SaveGameManager.Instance.HighScore = highScore;
+            if (save != null)
+            {
+                // Persist the new high score when a save system exists.
+                save.HighScore = highScore;
+            }
+            else
+            {
+                LoggingHelper.LogError("GameOver: SaveGameManager missing; high score not saved.");
+            }
             if (SteamManager.Instance != null)
             {
                 SteamManager.Instance.SaveHighScore(highScore);
@@ -445,9 +503,14 @@ public class GameManager : MonoBehaviour
         }
 
         // Persist run coins so they can be spent in the shop
-        if (ShopManager.Instance != null)
+        var shop = ShopManager.Instance;
+        if (shop != null)
         {
-            ShopManager.Instance.AddCoins(coins);
+            shop.AddCoins(coins);
+        }
+        else
+        {
+            LoggingHelper.LogError("GameOver: ShopManager missing; coins not persisted.");
         }
         // Update the UI with the final results
         if (uiManager != null)
@@ -459,7 +522,15 @@ public class GameManager : MonoBehaviour
         {
             AnalyticsManager.Instance.LogRun(distance, coins, true);
         }
-        UpdateHighScoreLabel();
+        // Update the high score label only when the save system exists.
+        if (SaveGameManager.Instance != null)
+        {
+            UpdateHighScoreLabel();
+        }
+        else
+        {
+            LoggingHelper.LogError("GameOver: SaveGameManager missing; high score label not updated.");
+        }
     }
 
     /// <summary>
@@ -488,10 +559,15 @@ public class GameManager : MonoBehaviour
         isPaused = false;
         isGameOver = false;
         distance = 0f;
-        float bonus = 0f;
-        if (ShopManager.Instance != null)
+
+        // Query the shop for upgrades using null-conditional access. When the
+        // shop is missing, default values are used and an error is logged so
+        // developers understand why bonuses were skipped.
+        var shop = ShopManager.Instance;
+        float bonus = shop?.GetUpgradeEffect(UpgradeType.BaseSpeedBonus) ?? 0f;
+        if (shop == null)
         {
-            bonus = ShopManager.Instance.GetUpgradeEffect(UpgradeType.BaseSpeedBonus);
+            LoggingHelper.LogError("StartGame: ShopManager missing; using base speed without bonuses.");
         }
         currentSpeed = baseSpeed + bonus;
         coins = 0;
@@ -510,10 +586,10 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
 
         // Validate required references and spawn starting power-ups if configured.
-        int startingCount = 0;
-        if (ShopManager.Instance != null)
+        int startingCount = Mathf.RoundToInt(shop?.GetUpgradeEffect(UpgradeType.StartingPowerUp) ?? 0f);
+        if (shop == null)
         {
-            startingCount = Mathf.RoundToInt(ShopManager.Instance.GetUpgradeEffect(UpgradeType.StartingPowerUp));
+            LoggingHelper.LogError("StartGame: ShopManager missing; starting power-ups unavailable.");
         }
 
         // Ensure the player reference exists so dependent logic operates safely.

@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;               // Needed for assigning UI Text references
 using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -21,12 +22,43 @@ using System.Text.RegularExpressions;
 
 public class GameManagerTests
 {
+    /// <summary>
+    /// Creates a <see cref="GameManager"/> (or subclass) with the required UI
+    /// label references. Parenting the labels to the manager ensures they clean
+    /// up automatically when the manager is destroyed.
+    /// </summary>
+    private T CreateGameManagerWithUI<T>() where T : GameManager
+    {
+        var go = new GameObject("gm");
+        var gm = go.AddComponent<T>();
+
+        gm.scoreLabel = new GameObject("scoreLabel").AddComponent<Text>();
+        gm.scoreLabel.transform.SetParent(go.transform);
+
+        gm.highScoreLabel = new GameObject("highScoreLabel").AddComponent<Text>();
+        gm.highScoreLabel.transform.SetParent(go.transform);
+
+        gm.coinLabel = new GameObject("coinLabel").AddComponent<Text>();
+        gm.coinLabel.transform.SetParent(go.transform);
+
+        gm.comboLabel = new GameObject("comboLabel").AddComponent<Text>();
+        gm.comboLabel.transform.SetParent(go.transform);
+
+        return gm;
+    }
+
+    // Convenience overload for tests that use the base GameManager type
+    private GameManager CreateGameManagerWithUI()
+    {
+        return CreateGameManagerWithUI<GameManager>();
+    }
+
     [Test]
     public void AddCoins_IncreasesTotal()
     {
-        // Create a temporary GameManager instance
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        // Create a temporary GameManager instance with required UI labels
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         gm.AddCoins(2);
         gm.AddCoins(3);
@@ -40,8 +72,8 @@ public class GameManagerTests
     public void ActivateSpeedBoost_MultipliesSpeed()
     {
         // GameManager must be running for speed boosts to apply
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Assign a dummy player reference to satisfy GameManager's runtime validation.
         var player = new GameObject("player");
@@ -65,8 +97,8 @@ public class GameManagerTests
     [Test]
     public void ActivateSpeedBoost_RejectsNonPositiveDuration()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Expect an ArgumentException when duration is zero.
         Assert.Throws<ArgumentException>(() => gm.ActivateSpeedBoost(0f, 1f));
@@ -80,8 +112,8 @@ public class GameManagerTests
     [Test]
     public void ActivateSpeedBoost_RejectsNonPositiveMultiplier()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Expect an ArgumentOutOfRangeException when multiplier is zero.
         Assert.Throws<ArgumentOutOfRangeException>(() => gm.ActivateSpeedBoost(1f, 0f));
@@ -92,8 +124,8 @@ public class GameManagerTests
     public void CoinCombo_IncrementsAndResets()
     {
         // Validate that coins picked up quickly increase the combo multiplier
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         gm.AddCoins(1);            // first coin, multiplier = 1
         gm.AddCoins(1);            // within combo window, multiplier now 2
@@ -122,8 +154,8 @@ public class GameManagerTests
     public void AddCoins_TriggersComboFeedback()
     {
         // Ensure OnComboIncreased is invoked when combo multiplier rises
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<TestGameManager>();
+        var gm = CreateGameManagerWithUI<TestGameManager>();
+        var go = gm.gameObject;
 
         gm.AddCoins(1);    // multiplier = 1
         gm.AddCoins(1);    // multiplier increments -> should trigger feedback
@@ -151,8 +183,8 @@ public class GameManagerTests
         levels[UpgradeType.CoinMultiplier] = 1;
         dictField.SetValue(sm, levels);
 
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         gm.AddCoins(1);
 
@@ -166,8 +198,8 @@ public class GameManagerTests
     [Test]
     public void ActivateCoinBonus_MultipliesCoins()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Provide the required player reference for StartGame.
         var player = new GameObject("player");
@@ -196,8 +228,8 @@ public class GameManagerTests
     [Test]
     public void ActivateCoinBonus_StacksDurationAndMultiplier()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Supply player reference so combo bonus logic can run safely.
         var player = new GameObject("player");
@@ -228,8 +260,8 @@ public class GameManagerTests
     [Test]
     public void GetCoinBonusMethods_ReturnCurrentValues()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Assign player reference for StartGame validation.
         var player = new GameObject("player");
@@ -250,8 +282,8 @@ public class GameManagerTests
     [Test]
     public void ActivateSlowMotion_ChangesTimeScale()
     {
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Create a dummy player object required by StartGame.
         var player = new GameObject("player");
@@ -284,8 +316,8 @@ public class GameManagerTests
         var saveObj = new GameObject("save");
         saveObj.AddComponent<SaveGameManager>();
 
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
 
         // Provide player reference so StartGame does not log errors.
         var player = new GameObject("player");
@@ -314,21 +346,19 @@ public class GameManagerTests
         // Enable hardcore mode and destroy the objects to force a save
         var saveObj = new GameObject("save");
         saveObj.AddComponent<SaveGameManager>();
-        var gmObj = new GameObject("gm");
-        var gm = gmObj.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
         gm.HardcoreMode = true;
-        Object.DestroyImmediate(gmObj);
+        Object.DestroyImmediate(gm.gameObject);
         Object.DestroyImmediate(saveObj);
 
         // Creating new instances should load the persisted setting
         var saveObj2 = new GameObject("save2");
         saveObj2.AddComponent<SaveGameManager>();
-        var gmObj2 = new GameObject("gm2");
-        var gm2 = gmObj2.AddComponent<GameManager>();
+        var gm2 = CreateGameManagerWithUI();
 
         Assert.IsTrue(gm2.HardcoreMode);
 
-        Object.DestroyImmediate(gmObj2);
+        Object.DestroyImmediate(gm2.gameObject);
         Object.DestroyImmediate(saveObj2);
     }
 
@@ -342,8 +372,8 @@ public class GameManagerTests
     public void Awake_DuplicateDoesNotReinitializeDependencies()
     {
         // Establish the primary manager which also spawns a SaveGameManager.
-        var primaryObj = new GameObject("gmPrimary");
-        primaryObj.AddComponent<GameManager>();
+        var primary = CreateGameManagerWithUI();
+        var primaryObj = primary.gameObject;
 
         // Simulate the supporting SaveGameManager being missing by destroying
         // it and clearing the static Instance field via reflection.
@@ -397,8 +427,8 @@ public class GameManagerTests
         dictField.SetValue(shop, levels);
 
         // GameManager with a simple power-up prefab to instantiate.
-        var go = new GameObject("gm");
-        var gm = go.AddComponent<GameManager>();
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
         gm.startingPowerUps = new[] { new GameObject("PowerUp") };
 
         // Expect an error about the missing player reference.
@@ -412,5 +442,71 @@ public class GameManagerTests
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(shopObj);
         Object.DestroyImmediate(saveObj);
+    }
+
+    /// <summary>
+    /// Calling <see cref="GameManager.GameOver"/> with a missing save system
+    /// should log errors but still complete gracefully without throwing
+    /// exceptions.
+    /// </summary>
+    [Test]
+    public void GameOver_MissingSaveManager_LogsErrorAndUsesFallback()
+    {
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+
+        // Provide a ShopManager to avoid unrelated error logs.
+        var shopObj = new GameObject("shop");
+        shopObj.AddComponent<ShopManager>();
+
+        // Remove the SaveGameManager instance to simulate a missing dependency.
+        if (SaveGameManager.Instance != null)
+        {
+            Object.DestroyImmediate(SaveGameManager.Instance.gameObject);
+            var instField = typeof(SaveGameManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            instField.SetValue(null, null);
+        }
+
+        // Expect error logs about the missing save manager.
+        LogAssert.Expect(LogType.Error, new Regex("SaveGameManager missing"));
+        LogAssert.Expect(LogType.Error, new Regex("SaveGameManager missing"));
+        LogAssert.Expect(LogType.Error, new Regex("SaveGameManager missing"));
+
+        gm.GameOver();
+
+        LogAssert.NoUnexpectedReceived();
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(shopObj);
+    }
+
+    /// <summary>
+    /// <see cref="GameManager.StartGame"/> should use default values and log
+    /// errors when the <see cref="ShopManager"/> dependency is missing.
+    /// </summary>
+    [Test]
+    public void StartGame_MissingShopManager_UsesDefaultsAndLogsError()
+    {
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+
+        // Supply required player reference so only ShopManager errors surface.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
+        // Expect two error logs: one for speed bonus and one for power-up count.
+        LogAssert.Expect(LogType.Error, new Regex("ShopManager missing"));
+        LogAssert.Expect(LogType.Error, new Regex("ShopManager missing"));
+
+        gm.StartGame();
+
+        // Without a shop, the starting speed should equal the base speed.
+        Assert.AreEqual(gm.baseSpeed, gm.GetSpeed());
+
+        LogAssert.NoUnexpectedReceived();
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
     }
 }

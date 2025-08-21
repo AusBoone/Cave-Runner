@@ -30,14 +30,18 @@
 // background sprite without repeated FindObjectOfType calls. This reduces
 // per-frame allocations and avoids null reference errors when the background
 // is absent.
+// 2036 update summary
+// Migrates UI text elements to TextMeshPro's TMP_Text for sharper rendering
+// and to remove the legacy UnityEngine.UI.Text dependency.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
+using UnityEngine.UI; // Retained for Slider and other legacy UI components
 #if UNITY_STANDALONE
 using Steamworks;
 #endif
+using TMPro; // TextMeshPro for TMP_Text components
 using System.Collections.Generic;
 using System.Collections;
 using System.IO;
@@ -67,17 +71,17 @@ public class UIManager : MonoBehaviour
     public GameObject gameOverPanel;
     public GameObject pausePanel;
     public GameObject settingsPanel;
-    public Text finalScoreLabel;
-    public Text highScoreLabel;
-    public Text coinScoreLabel;
+    public TMP_Text finalScoreLabel;
+    public TMP_Text highScoreLabel;
+    public TMP_Text coinScoreLabel;
     public GameObject leaderboardPanel;
-    public Text leaderboardText;
+    public TMP_Text leaderboardText;
     [Tooltip("Client used for non-Steam leaderboard requests.")]
     public LeaderboardClient leaderboardClient;
     public GameObject workshopPanel;
     public GameObject achievementsPanel;
     public GameObject shopPanel;
-    public Text workshopListText;
+    public TMP_Text workshopListText;
     [Tooltip("Panel containing a simple loading indicator graphic.")]
     public GameObject loadingPanel;
     [Tooltip("Optional slider visualizing loading progress from 0 to 1.")]
@@ -592,9 +596,10 @@ public class UIManager : MonoBehaviour
 
     /// <summary>
     /// Performs a brief scaling animation on the provided combo multiplier
-    /// label to draw the player's attention when the value changes.
+    /// label to draw the player's attention when the value changes. Uses
+    /// <see cref="TMP_Text"/> to leverage TextMeshPro rendering.
     /// </summary>
-    public void AnimateComboLabel(Text label)
+    public void AnimateComboLabel(TMP_Text label)
     {
         if (label != null)
         {
@@ -603,7 +608,7 @@ public class UIManager : MonoBehaviour
     }
 
     // Coroutine that smoothly scales the label up and back down.
-    private IEnumerator ScaleLabel(Text label)
+    private IEnumerator ScaleLabel(TMP_Text label)
     {
         const float duration = 0.2f;
         Vector3 baseScale = label.transform.localScale;

@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // Using TextMeshPro components in tests
 using System.Reflection;
 
 /// <summary>
@@ -30,7 +30,8 @@ public class ComboMultiplierTests
 
         // Provide a label so UpdateMultiplierLabel can display the current value.
         var labelObj = new GameObject("label");
-        gm.comboLabel = labelObj.AddComponent<Text>();
+        // TextMeshProUGUI simulates the in-game combo label for testing.
+        gm.comboLabel = labelObj.AddComponent<TextMeshProUGUI>();
 
         // Read the configured cap via reflection to keep the test flexible.
         int max = (int)typeof(GameManager).GetField("maxComboMultiplier", BindingFlags.NonPublic | BindingFlags.Instance)

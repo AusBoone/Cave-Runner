@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // Use TextMeshPro for UI elements in tests
 
 /// <summary>
 /// Tests for the CoinBonusIndicator component ensuring it shows and hides
@@ -16,7 +16,7 @@ public class CoinBonusIndicatorTests
         gm.StartGame();
 
         var uiObj = new GameObject("ui");
-        var text = uiObj.AddComponent<Text>();
+        var text = uiObj.AddComponent<TextMeshProUGUI>();
         var ind = uiObj.AddComponent<CoinBonusIndicator>();
         ind.timerLabel = text;
 

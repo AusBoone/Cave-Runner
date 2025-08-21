@@ -36,6 +36,8 @@
 // unnoticed.
 // 2035 update: OnDestroy now waits briefly for queued saves to flush so data
 // persists even when the manager is destroyed without the quit path.
+// 2036 update: Failed save attempts mark data dirty and are retried a limited
+// number of times so autosave can recover from transient IO errors.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -110,18 +112,27 @@ public class SaveGameManager : MonoBehaviour
     // Data packet used for queued save operations. Each request stores both the
     // serialized JSON payload and the path it should be written to so that
     // pending saves are not redirected if <see cref="savePath"/> changes
-    // mid-flight.
+    // mid-flight. An attempt counter tracks how many times a request has been
+    // processed so transient failures can be retried without looping
+    // indefinitely on permanent errors.
     private readonly struct SaveRequest
     {
-        public readonly string Json; // Serialized SaveData content
-        public readonly string Path; // Destination file path for this request
+        public readonly string Json;    // Serialized SaveData content
+        public readonly string Path;    // Destination file path for this request
+        public readonly int Attempts;   // Number of write attempts so far
 
-        public SaveRequest(string json, string path)
+        public SaveRequest(string json, string path, int attempts = 0)
         {
             Json = json;
             Path = path;
+            Attempts = attempts;
         }
     }
+
+    // Maximum number of times a failed save request will be retried before
+    // giving up. This guards against infinite retry loops on persistent
+    // failures such as read-only disks.
+    private const int MaxSaveAttempts = 3;
 
     // Fields used for asynchronous, thread-safe file saving. Requests are
     // queued so only one write happens at a time and the main thread remains
@@ -572,8 +583,10 @@ public class SaveGameManager : MonoBehaviour
     /// <summary>
     /// Background loop that processes queued save requests one at a time. Each
     /// JSON payload is written to disk using async <see cref="FileStream"/>
-    /// APIs. Any errors are enqueued so they can be reported on the main thread
-    /// during <see cref="Update"/>.
+    /// APIs. Failures mark the data as dirty and requests are retried up to
+    /// <see cref="MaxSaveAttempts"/> times so transient issues do not result in
+    /// lost progress. Any errors are enqueued so they can be reported on the
+    /// main thread during <see cref="Update"/>.
     /// </summary>
     private async Task ProcessQueueAsync()
     {
@@ -593,13 +606,28 @@ public class SaveGameManager : MonoBehaviour
             string tempPath = request.Path + ".tmp";
             try
             {
+                // Attempt the disk write. A successful write means the in-memory
+                // state now matches what is on disk, so the dirty flag can be
+                // cleared.
                 await WriteFileAsync(tempPath, request.Path, request.Json);
+                dataDirty = false;
             }
             catch (IOException ex)
             {
-                // Errors are marshalled back to the main thread so callers are
-                // informed without touching Unity APIs off-thread.
+                // Mark data as dirty so the autosave coroutine schedules
+                // another write attempt. The failed request is re-enqueued up to
+                // <see cref="MaxSaveAttempts"/> times so transient IO issues
+                // have additional chances to succeed.
+                dataDirty = true;
                 completionActions.Enqueue(() => Debug.LogWarning($"Failed to write save file: {ex.Message}"));
+
+                if (request.Attempts + 1 < MaxSaveAttempts)
+                {
+                    lock (queueLock)
+                    {
+                        saveQueue.Enqueue(new SaveRequest(request.Json, request.Path, request.Attempts + 1));
+                    }
+                }
             }
             finally
             {

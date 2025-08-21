@@ -279,6 +279,38 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
+    /// When disk writes repeatedly fail the manager should mark its data as
+    /// dirty and attempt the operation multiple times so transient issues do not
+    /// permanently prevent saving.
+    /// </summary>
+    [Test]
+    public void ProcessQueueAsync_Failure_SetsDirtyAndRetries()
+    {
+        var mgr = CreateManager<AlwaysFailingSaveGameManager>("fail");
+
+        // Queue a save operation which will consistently throw.
+        MethodInfo method = typeof(SaveGameManager).GetMethod("SaveDataToFile", BindingFlags.NonPublic | BindingFlags.Instance);
+        method.Invoke(mgr, null);
+
+        // Wait for the background processing task to exhaust its retry attempts.
+        FieldInfo taskField = typeof(SaveGameManager).GetField("processingTask", BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task)taskField.GetValue(mgr);
+        task.GetAwaiter().GetResult();
+
+        // The manager should now consider its data dirty because no write
+        // succeeded.
+        FieldInfo dirtyField = typeof(SaveGameManager).GetField("dataDirty", BindingFlags.NonPublic | BindingFlags.Instance);
+        bool dirty = (bool)dirtyField.GetValue(mgr);
+        Assert.IsTrue(dirty, "Failed save should mark data dirty to trigger retry.");
+
+        // Verify that the save was attempted multiple times to implement a
+        // simple retry mechanism.
+        Assert.Greater(mgr.Calls, 1, "Save operation should be retried at least once.");
+
+        Object.DestroyImmediate(mgr.gameObject);
+    }
+
+    /// <summary>
     /// When the save file contains invalid JSON the manager should discard it and
     /// create a new save using default values. The default language must also be
     /// reapplied so text remains readable.
@@ -341,6 +373,21 @@ public class SaveGameManagerTests
         {
             Calls++;
             base.SaveDataToFile();
+        }
+    }
+
+    /// <summary>
+    /// Subclass whose writes always fail. Used to verify that the manager marks
+    /// data as dirty and retries when disk operations throw.
+    /// </summary>
+    private class AlwaysFailingSaveGameManager : SaveGameManager
+    {
+        public int Calls { get; private set; }
+
+        protected override Task WriteFileAsync(string tempPath, string finalPath, string json)
+        {
+            Calls++;
+            throw new IOException("Simulated write failure");
         }
     }
 

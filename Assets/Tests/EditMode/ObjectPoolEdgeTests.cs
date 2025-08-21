@@ -32,7 +32,7 @@ public class ObjectPoolEdgeTests
         var second = pool.GetObject(Vector3.one, Quaternion.identity);
 
         // Two children under the pool indicates it expanded.
-        Assert.AreEqual(2, pool.transform.childCount,
+        Assert.AreEqual(2, pool.PooledInstanceCount,
             "Pool should instantiate a new object when empty");
 
         Object.DestroyImmediate(first);
@@ -153,6 +153,69 @@ public class ObjectPoolEdgeTests
             "Prefab-defined PooledObject should be reused, not duplicated");
 
         Object.DestroyImmediate(obj);
+        Object.DestroyImmediate(pool.prefab);
+        Object.DestroyImmediate(poolGO);
+    }
+
+    /// <summary>
+    /// Ensures that unrelated children under the pool's transform do not
+    /// contribute to <see cref="ObjectPool.maxSize"/>. Only objects created by
+    /// the pool should affect the cap, allowing designers to organise helper
+    /// objects under the pool without blocking instantiation.
+    /// </summary>
+    [Test]
+    public void MaxSize_IgnoresNonPooledChildren()
+    {
+        var poolGO = new GameObject("pool");
+        var pool = poolGO.AddComponent<ObjectPool>();
+        pool.prefab = new GameObject("prefab");
+        pool.maxSize = 1;
+
+        // Add an unrelated child object to simulate design-time helpers or
+        // markers that should not count toward pooled instance limits.
+        var helper = new GameObject("helper");
+        helper.transform.SetParent(poolGO.transform);
+
+        // Request an object; despite the extra child the pool should still
+        // instantiate because only pooled objects are counted.
+        var obj = pool.GetObject(Vector3.zero, Quaternion.identity);
+        Assert.IsNotNull(obj, "Pooled object should be created even with foreign children present");
+
+        Object.DestroyImmediate(obj);
+        Object.DestroyImmediate(helper);
+        Object.DestroyImmediate(pool.prefab);
+        Object.DestroyImmediate(poolGO);
+    }
+
+    /// <summary>
+    /// Verifies that destroying a pooled instance outside of
+    /// <see cref="ObjectPool.ReturnObject"/> properly decrements the internal
+    /// counter so the pool can create replacements when under its
+    /// <see cref="ObjectPool.maxSize"/> limit.
+    /// </summary>
+    [Test]
+    public void DestroyedInstance_DecrementsCounter()
+    {
+        var poolGO = new GameObject("pool");
+        var pool = poolGO.AddComponent<ObjectPool>();
+        pool.prefab = new GameObject("prefab");
+        pool.maxSize = 1;
+
+        // Create and immediately destroy an instance to simulate external
+        // destruction without returning to the pool.
+        var obj = pool.GetObject(Vector3.zero, Quaternion.identity);
+        Object.DestroyImmediate(obj);
+
+        // The counter should reflect that no pooled instances remain.
+        Assert.AreEqual(0, pool.PooledInstanceCount,
+            "Counter must decrement when pooled instance is destroyed");
+
+        // With the count reduced, requesting another object should succeed.
+        var replacement = pool.GetObject(Vector3.zero, Quaternion.identity);
+        Assert.IsNotNull(replacement,
+            "Pool should spawn replacement after destruction frees slot");
+
+        Object.DestroyImmediate(replacement);
         Object.DestroyImmediate(pool.prefab);
         Object.DestroyImmediate(poolGO);
     }

@@ -19,6 +19,10 @@ using System.Collections.Generic;
  *   emit warnings when expansion is requested beyond the cap.
  * - Replaced Start's synchronous preloading loop with an asynchronous coroutine
  *   that spreads instantiation across multiple frames to avoid hitches.
+ * - Added a private counter tracking the number of pooled instances. The
+ *   counter replaces reliance on <c>transform.childCount</c> so only objects
+ *   created by this pool contribute toward <see cref="maxSize"/> and is
+ *   decremented when an instance is destroyed.
  */
 
 /// <summary>
@@ -63,6 +67,25 @@ public class ObjectPool : MonoBehaviour
     public int maxSize = 0;
 
     private Queue<PooledObject> objects = new Queue<PooledObject>();
+
+    /// <summary>
+    /// Tracks how many objects this pool has created that still exist.
+    /// <para>
+    /// Using a dedicated counter instead of relying on
+    /// <c>transform.childCount</c> ensures that only legitimate pooled
+    /// instances are considered when enforcing <see cref="maxSize"/>,
+    /// avoiding interference from unrelated children under the pool's
+    /// transform.
+    /// </para>
+    /// </summary>
+    private int pooledInstanceCount = 0;
+
+    /// <summary>
+    /// Read-only access for tests and diagnostics to see how many pooled
+    /// instances currently exist. External systems should not modify the
+    /// counter directly.
+    /// </summary>
+    public int PooledInstanceCount => pooledInstanceCount;
 
     // Delay initialization until Start so prefab can be assigned by spawners
     // before the pool creates its initial objects.
@@ -129,10 +152,11 @@ public class ObjectPool : MonoBehaviour
     /// </summary>
     PooledObject CreateNew()
     {
-        // Enforce the optional maxSize limit to prevent runaway growth. When
-        // the limit is reached, log a warning and refuse to create more
-        // instances so callers can react appropriately.
-        if (maxSize > 0 && transform.childCount >= maxSize)
+        // Enforce the optional maxSize limit using the dedicated counter so
+        // only objects created by this pool contribute to the limit. This
+        // avoids issues where unrelated children under the transform would
+        // otherwise block expansion.
+        if (maxSize > 0 && pooledInstanceCount >= maxSize)
         {
             Debug.LogWarning($"{nameof(ObjectPool)} on {name} cannot expand beyond max size of {maxSize}.");
             return null;
@@ -142,6 +166,11 @@ public class ObjectPool : MonoBehaviour
         // hierarchy stays clean in the editor.
         GameObject obj = Instantiate(prefab, transform);
         obj.SetActive(false);
+
+        // Update our internal counter now that a new pooled object exists. The
+        // decrement occurs in <see cref="OnPooledObjectDestroyed"/> when the
+        // instance is destroyed.
+        pooledInstanceCount++;
 
         // Check if the instantiated object already contains a PooledObject
         // component. Prefabs can define it ahead of time to perform custom
@@ -230,6 +259,39 @@ public class ObjectPool : MonoBehaviour
             // the pool's internal state consistent and free of foreign entries.
             Debug.LogWarning($"{nameof(ObjectPool)} on {name} received an object that does not belong to this pool; destroying to maintain integrity.");
             Destroy(obj);
+        }
+    }
+
+    /// <summary>
+    /// Called by <see cref="PooledObject"/> when a pooled instance is
+    /// destroyed instead of returned. This keeps the internal counter
+    /// accurate so the pool can spawn replacements if needed.
+    /// </summary>
+    /// <param name="po">The pooled object being destroyed.</param>
+    internal void OnPooledObjectDestroyed(PooledObject po)
+    {
+        // Reduce the count but ensure it never drops below zero in case the
+        // notification is sent unexpectedly.
+        if (pooledInstanceCount > 0)
+        {
+            pooledInstanceCount--;
+        }
+
+        // Remove the object from the queue if it was waiting there to avoid
+        // stale references. Create a new queue to filter out the destroyed
+        // instance while preserving ordering.
+        if (objects.Contains(po))
+        {
+            var remaining = new Queue<PooledObject>(objects.Count);
+            while (objects.Count > 0)
+            {
+                var item = objects.Dequeue();
+                if (item != po)
+                {
+                    remaining.Enqueue(item);
+                }
+            }
+            objects = remaining;
         }
     }
 }

@@ -112,6 +112,34 @@ public class SaveGameManagerTests
     }
 
     [Test]
+    public void TempFileDeletionFailure_LogsWarning()
+    {
+        // Simulate a locked temporary file so the background cleanup step
+        // cannot remove it. The manager should enqueue a warning for the main
+        // thread rather than silently swallowing the issue.
+        var save = CreateManager<LockedTempSaveGameManager>("save");
+        save.Coins = 1; // triggers SaveDataToFile and locks the temp file
+
+        // Expect the queued warning to surface once pending operations flush.
+        LogAssert.Expect(LogType.Warning, new Regex("Failed to delete temporary save file"));
+
+        // Flush pending saves using reflection so the test can verify the
+        // queued log without destroying the manager prematurely.
+        MethodInfo method = typeof(SaveGameManager).GetMethod(
+            "FlushPendingSavesAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task)method.Invoke(save, new object[] { TimeSpan.FromSeconds(2) });
+        task.GetAwaiter().GetResult();
+
+        string tempPath = Path.Combine(Application.persistentDataPath, "savegame.json.tmp");
+        Assert.IsTrue(File.Exists(tempPath), "Temp file should remain when deletion fails");
+
+        // Release the intentional lock so later tests can clean up the file.
+        save.ReleaseLock();
+        File.Delete(tempPath);
+        Object.DestroyImmediate(save.gameObject);
+    }
+
+    [Test]
     public void VolumeValues_ArePersisted()
     {
         var save = CreateManager<SaveGameManager>("save");
@@ -280,6 +308,29 @@ public class SaveGameManagerTests
         StringAssert.Contains("\"version\"", json);
 
         FlushAndDestroy(mgr);
+    }
+
+    /// <summary>
+    /// Subclass that intentionally keeps a handle open on the temporary file so
+    /// <see cref="ProcessQueueAsync"/> cannot delete it. Used to verify that
+    /// deletion failures are reported back to the main thread.
+    /// </summary>
+    private class LockedTempSaveGameManager : SaveGameManager
+    {
+        private FileStream heldStream;
+
+        protected override async Task WriteFileAsync(string tempPath, string finalPath, string json)
+        {
+            await base.WriteFileAsync(tempPath, finalPath, json);
+            // Open the temp file without sharing so later deletion attempts
+            // throw, simulating a locked file on disk.
+            heldStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.None);
+        }
+
+        public void ReleaseLock()
+        {
+            heldStream?.Dispose();
+        }
     }
 
     // Spy subclass used to count save operations

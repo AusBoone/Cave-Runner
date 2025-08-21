@@ -84,6 +84,11 @@ using TMPro; // TextMeshPro provides TMP_Text for UI labels
 /// <see cref="TMP_Text"/> for higher quality rendering and to modernize the
 /// UI stack.
 /// </remarks>
+/// <remarks>
+/// 2045 update: exposes <see cref="PlayerTransform"/> so external systems can
+/// access the player's <see cref="Transform"/> directly instead of performing
+/// costly scene searches for a tagged object.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -112,6 +117,22 @@ public class GameManager : MonoBehaviour
 
     [SerializeField]
     private GameObject playerObject;          // cached reference to the player GameObject; assign via inspector
+
+    /// <summary>
+    /// Provides read-only access to the player's <see cref="Transform"/>. The
+    /// reference is null when the player object has not been assigned in the
+    /// inspector, allowing callers to safely handle missing dependencies.
+    /// </summary>
+    public Transform PlayerTransform
+    {
+        get
+        {
+            // Return the transform of the serialized player object when
+            // available. The null-conditional prevents dereferencing a missing
+            // player and keeps callers robust in unconfigured scenes.
+            return playerObject != null ? playerObject.transform : null;
+        }
+    }
 
     // Coin bonus power-up variables
     private float coinBonusTimer;             // remaining time coins are multiplied

@@ -5,6 +5,13 @@ using UnityEngine;
 /// frequency increases with the player's distance. Supports object
 /// pooling for performance. Stage-specific spawn weights and a
 /// difficulty multiplier are applied by <see cref="StageManager"/>.
+/// 
+/// <remarks>
+/// 2045 update: After spawning an enemy that uses <see cref="EnemyBehavior"/>,
+/// the spawner now assigns the player's transform directly via
+/// <see cref="EnemyBehavior.SetTarget"/>. This eliminates scene searches for
+/// a "Player" tag and ensures pooled enemies immediately know who to pursue.
+/// </remarks>
 /// </summary>
 public class HazardSpawner : MonoBehaviour
 {
@@ -181,6 +188,16 @@ public class HazardSpawner : MonoBehaviour
             obj.GetComponent<ShooterEnemy>() == null)
         {
             obj.AddComponent<EnemyBehavior>();
+        }
+
+        // Provide the freshly spawned enemy with the player's transform so it
+        // can immediately begin chasing without performing a scene search. When
+        // the GameManager or player reference is missing the enemy remains idle
+        // thanks to the null checks inside EnemyBehavior.Update().
+        if (obj != null && GameManager.Instance != null)
+        {
+            var behavior = obj.GetComponent<EnemyBehavior>();
+            behavior?.SetTarget(GameManager.Instance.PlayerTransform);
         }
     }
 

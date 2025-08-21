@@ -1,8 +1,12 @@
 // EnemyBehavior.cs
 // -----------------------------------------------------------------------------
-// AI controller for simple flying enemies that pursue the player horizontally.
-// Movement now uses world coordinates so rotation does not influence the
-// direction of travel, preventing erratic paths for rotated enemies.
+// AI controller for simple flying enemies that pursue a designated target.
+// The original implementation searched the scene for a GameObject tagged
+// "Player" during Start(), which was both fragile and performed an expensive
+// lookup.  This revision exposes a public SetTarget method so spawners can
+// explicitly provide the player Transform when enemies are created. Movement
+// continues to use world coordinates so rotation does not influence the chase
+// direction, preventing erratic paths for rotated enemies.
 // -----------------------------------------------------------------------------
 using UnityEngine;
 
@@ -13,27 +17,26 @@ using UnityEngine;
 /// </summary>
 public class EnemyBehavior : MonoBehaviour
 {
-    // Movement speed in world units per second.
+    // Movement speed in world units per second. Public so designers can tune
+    // values in the Unity inspector.
     public float speed = 3f;
 
-    // Cached reference to the player transform for efficient lookups.
+    // Cached reference to the target the enemy should pursue. Marked
+    // [SerializeField] so a target can optionally be assigned in the inspector
+    // for scenes that do not use the provided SetTarget method. When left null,
+    // the enemy simply idles.
+    [SerializeField, Tooltip("Transform this enemy will chase. Set via SetTarget or assign in inspector.")]
     private Transform player;
 
     /// <summary>
-    /// Locates the player object so the enemy can chase it. If no player is
-    /// found, the enemy remains idle. Assumes a GameObject tagged "Player"
-    /// exists in the scene.
+    /// Assigns the Transform the enemy should chase.
     /// </summary>
-    void Start()
+    /// <param name="target">Transform of the player or other object to pursue. May be null to clear the target.</param>
+    public void SetTarget(Transform target)
     {
-        GameObject obj = GameObject.FindGameObjectWithTag("Player");
-
-        // If the player is not found the enemy cannot move; leaving player null
-        // gracefully halts Update movement logic.
-        if (obj != null)
-        {
-            player = obj.transform;
-        }
+        // Direct assignment is sufficient—callers control when the target is
+        // valid. Passing null intentionally leaves the enemy idle.
+        player = target;
     }
 
     /// <summary>
@@ -43,19 +46,25 @@ public class EnemyBehavior : MonoBehaviour
     /// </summary>
     void Update()
     {
-        // Abort if no player has been located or the game is currently paused
-        // or stopped.
+        // Abort when no target is assigned. The check prevents null reference
+        // errors if SetTarget has not been called or the caller intentionally
+        // cleared the target so the enemy should remain idle.
         if (player == null)
         {
             return;
         }
+
+        // Ensure the game is currently running before applying movement. This
+        // mirrors the behaviour of other scripts that pause when gameplay is
+        // halted by GameManager.
         if (GameManager.Instance == null || !GameManager.Instance.IsRunning())
         {
             return;
         }
 
-        // Calculate the normalized direction vector toward the player and move
-        // the enemy using world coordinates to remain independent of rotation.
+        // Calculate the normalized direction vector toward the target and move
+        // the enemy using world coordinates. Using Space.World keeps pursuit
+        // behaviour consistent regardless of the enemy's own rotation.
         Vector3 dir = (player.position - transform.position).normalized;
         transform.Translate(dir * speed * Time.deltaTime, Space.World);
     }

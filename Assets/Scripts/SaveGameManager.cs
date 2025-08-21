@@ -31,6 +31,9 @@
 // File.ReadAllTextAsync and Awake triggers loading without blocking. A Start
 // coroutine awaits completion so startup remains responsive while still
 // ensuring the manager is fully initialized before use.
+// 2034 update: Queue processing now reports failures when temporary save files
+// cannot be deleted, aiding diagnosis of cleanup issues that previously went
+// unnoticed.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -599,7 +602,18 @@ public class SaveGameManager : MonoBehaviour
             finally
             {
                 if (File.Exists(tempPath))
-                    File.Delete(tempPath);
+                {
+                    try
+                    {
+                        File.Delete(tempPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Surface cleanup problems on the main thread so they
+                        // are not silently ignored when running off-thread.
+                        completionActions.Enqueue(() => Debug.LogWarning($"Failed to delete temporary save file '{tempPath}': {ex.Message}"));
+                    }
+                }
             }
         }
     }

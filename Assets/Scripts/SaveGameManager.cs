@@ -27,6 +27,10 @@
 // 2032 update: Introduced a dirty flag and autosave coroutine so frequent
 // property updates are batched. Data writes now occur at most once every few
 // seconds, significantly reducing disk churn during gameplay.
+// 2033 update: LoadData now performs asynchronous reads via
+// File.ReadAllTextAsync and Awake triggers loading without blocking. A Start
+// coroutine awaits completion so startup remains responsive while still
+// ensuring the manager is fully initialized before use.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -36,6 +40,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -60,7 +65,7 @@ public class SaveGameManager : MonoBehaviour
     private class SaveData
     {
         // Bump <see cref="CurrentVersion"/> when fields are added so older
-        // saves can be upgraded in <see cref="LoadData"/>.
+        // saves can be upgraded in <see cref="LoadDataAsync"/>.
         public int version;
         public int coins;
         public int highScore;
@@ -84,6 +89,18 @@ public class SaveGameManager : MonoBehaviour
     private SaveData data = new SaveData();
     private readonly Dictionary<UpgradeType, int> upgradeLevels = new Dictionary<UpgradeType, int>();
     private string savePath;
+
+    // Task representing the asynchronous load of persisted data. This allows
+    // callers and tests to await initialization without blocking the main
+    // Unity thread during startup.
+    private Task loadTask = Task.CompletedTask;
+
+    /// <summary>
+    /// Exposes the task for the most recent load operation so external code
+    /// can await completion and be sure the manager's data has been populated
+    /// before it is accessed.
+    /// </summary>
+    public Task Initialization => loadTask;
 
     // Data packet used for queued save operations. Each request stores both the
     // serialized JSON payload and the path it should be written to so that
@@ -140,7 +157,10 @@ public class SaveGameManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
             // Use the SaveSlotManager so each profile writes to its own file
             savePath = SaveSlotManager.GetPath("savegame.json");
-            LoadData();
+            // Begin loading asynchronously so the main thread remains
+            // responsive during startup. The resulting task is exposed via
+            // <see cref="Initialization"/> so callers can await completion.
+            loadTask = LoadDataAsync();
             // Initialize save timestamp so the first autosave waits the
             // configured interval rather than firing immediately.
             lastSaveTime = Time.realtimeSinceStartup;
@@ -152,6 +172,17 @@ public class SaveGameManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// Unity coroutine automatically invoked after <see cref="Awake"/>. It
+    /// waits for the asynchronous load started during Awake to finish without
+    /// blocking the main thread. This ensures the manager's data is fully
+    /// populated before other systems rely on it.
+    /// </summary>
+    private IEnumerator Start()
+    {
+        yield return new WaitUntil(() => loadTask.IsCompleted);
     }
 
     /// <summary>Current coin balance.</summary>
@@ -376,13 +407,15 @@ public class SaveGameManager : MonoBehaviour
     /// Reads existing save data from disk or migrates old PlayerPrefs data when
     /// the save file does not yet exist.
     /// </summary>
-    private void LoadData()
+    private async Task LoadDataAsync()
     {
         if (File.Exists(savePath))
         {
             try
             {
-                string json = File.ReadAllText(savePath);
+                // Asynchronously read the entire save file so disk IO does not
+                // stall the main thread during startup.
+                string json = await File.ReadAllTextAsync(savePath);
                 SaveData loaded = JsonUtility.FromJson<SaveData>(json);
                 if (loaded != null)
                 {
@@ -417,7 +450,7 @@ public class SaveGameManager : MonoBehaviour
                     data.slideTipShown = loaded.slideTipShown;
                     data.hardcoreMode = loaded.hardcoreMode;
                     LocalizationManager.SetLanguage(data.language);
-                    
+
                     upgradeLevels.Clear();
                     if (loaded.upgrades != null)
                     {
@@ -704,9 +737,12 @@ public class SaveGameManager : MonoBehaviour
         // callers to await rather than stall the main thread.
         await FlushPendingSavesAsync(Timeout.InfiniteTimeSpan);
 
-        // Redirect file paths to the new slot and load its data.
+        // Redirect file paths to the new slot and load its data asynchronously
+        // so the main thread remains responsive during the potentially slow
+        // disk read.
         SaveSlotManager.SetSlot(slot);
         savePath = SaveSlotManager.GetPath("savegame.json");
-        LoadData();
+        loadTask = LoadDataAsync();
+        await loadTask;
     }
 }

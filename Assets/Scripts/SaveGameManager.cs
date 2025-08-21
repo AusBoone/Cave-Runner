@@ -34,6 +34,8 @@
 // 2034 update: Queue processing now reports failures when temporary save files
 // cannot be deleted, aiding diagnosis of cleanup issues that previously went
 // unnoticed.
+// 2035 update: OnDestroy now waits briefly for queued saves to flush so data
+// persists even when the manager is destroyed without the quit path.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -128,9 +130,9 @@ public class SaveGameManager : MonoBehaviour
     private readonly Queue<SaveRequest> saveQueue = new Queue<SaveRequest>();
     private Task processingTask = Task.CompletedTask;
     private readonly ConcurrentQueue<Action> completionActions = new ConcurrentQueue<Action>();
-    // Maximum time to wait for pending saves during application shutdown. A
-    // short timeout prevents the game from hanging indefinitely if the disk is
-    // unresponsive.
+    // Maximum time to wait for pending saves during application shutdown or
+    // destruction. A short timeout prevents the game from hanging indefinitely
+    // if the disk is unresponsive.
     private static readonly TimeSpan ShutdownFlushTimeout = TimeSpan.FromSeconds(2);
 
     // ---------------------------------------------------------------------
@@ -707,12 +709,19 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Unsubscribes from global events and executes any pending completion
-    /// callbacks. Flushing of save data is handled separately when the
-    /// application quits to avoid blocking destruction.
+    /// Flushes pending save operations with a short timeout before
+    /// unsubscribing from global events and executing any remaining completion
+    /// callbacks. A synchronous wait ensures queued data reaches disk even if
+    /// the manager is destroyed without the application quitting.
     /// </summary>
     void OnDestroy()
     {
+        // Block briefly to flush any queued saves. Using GetAwaiter().GetResult
+        // ensures that asynchronous file writes complete before the manager is
+        // destroyed, avoiding data loss when destruction occurs without a quit
+        // event.
+        FlushPendingSavesAsync(ShutdownFlushTimeout).GetAwaiter().GetResult();
+
         // Remove event subscription to avoid callbacks to a destroyed instance.
         Application.quitting -= HandleApplicationQuitting;
 

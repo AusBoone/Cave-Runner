@@ -454,4 +454,26 @@ public class SaveGameManagerTests
         FlushAndDestroy(mgr2);
         FlushAndDestroy(mgr);
     }
+
+    /// <summary>
+    /// Destroying the manager should block briefly to flush pending saves so a
+    /// subsequent instance immediately observes the persisted data.
+    /// </summary>
+    [Test]
+    public void OnDestroy_FlushesPendingSaves()
+    {
+        var mgr = CreateManager<SlowSaveGameManager>("save");
+        mgr.Coins = 5; // queue save
+
+        var timer = Stopwatch.StartNew();
+        Object.DestroyImmediate(mgr.gameObject); // invokes OnDestroy synchronously
+        timer.Stop();
+        Assert.GreaterOrEqual(timer.ElapsedMilliseconds, 190,
+            "OnDestroy should wait for the slow flush to finish");
+
+        var mgr2 = CreateManager<SaveGameManager>("check");
+        Assert.AreEqual(5, mgr2.Coins, "Data should persist after OnDestroy");
+
+        FlushAndDestroy(mgr2);
+    }
 }

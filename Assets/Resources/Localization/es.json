@@ -22,6 +22,11 @@
     {"key": "ach_daily_complete_desc", "value": "Completa un desafío diario."},
     {"key": "leaderboard_entry_format", "value": "{0}. {1} - {2}"},
     {"key": "leaderboard_local_player", "value": "Local ES"},
-    {"key": "achievement_unlocked", "value": " (Desbloqueado)"}
+    {"key": "achievement_unlocked", "value": " (Desbloqueado)"},
+    {"key": "leaderboard_error_network", "value": "Red inaccesible."},
+    {"key": "leaderboard_error_http", "value": "El servidor devolvió un error."},
+    {"key": "leaderboard_error_certificate", "value": "Falló la validación del certificado."},
+    {"key": "leaderboard_error_timeout", "value": "La solicitud excedió el tiempo."},
+    {"key": "leaderboard_error_unknown", "value": "No se pudo cargar la tabla de clasificación."}
   ]
 }

@@ -42,6 +42,10 @@
 // non-blocking on slower devices. The asynchronous coroutine logs a warning if
 // the expected prefab cannot be found, preserving previous error reporting.
 // -----------------------------------------------------------------------------
+// 2052 update summary
+// Leaderboard operations now expose detailed error codes that map to localized
+// messages, ensuring players see a clear explanation when uploads or downloads
+// fail.
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -510,7 +514,7 @@ public class UIManager : MonoBehaviour
     // Helper to format and display leaderboard entries in the panel.
     // Marked public so unit tests and other systems can invoke the formatting
     // logic directly without relying on coroutines.
-    public void DisplayScores(List<LeaderboardClient.ScoreEntry> scores, bool success)
+    public void DisplayScores(List<LeaderboardClient.ScoreEntry> scores, bool success, LeaderboardClient.ErrorCode error = LeaderboardClient.ErrorCode.Unknown)
     {
         if (leaderboardText == null)
         {
@@ -523,12 +527,7 @@ public class UIManager : MonoBehaviour
         // fallback otherwise.
         if (!success)
         {
-            string msg = LocalizationManager.Get("leaderboard_error");
-            if (msg == "leaderboard_error")
-            {
-                msg = "Failed to load leaderboard.";
-            }
-            leaderboardText.text = msg;
+            ShowLeaderboardError(error);
             return;
         }
 
@@ -544,6 +543,67 @@ public class UIManager : MonoBehaviour
             }
             leaderboardText.text = sb.ToString();
         }
+    }
+
+    /// <summary>
+    /// Shows a localized error message in the leaderboard text field based on
+    /// the provided error code. This centralizes mapping of codes to
+    /// human‑readable strings so both upload and download operations present
+    /// consistent messaging.
+    /// </summary>
+    public void ShowLeaderboardError(LeaderboardClient.ErrorCode code)
+    {
+        if (leaderboardText == null)
+        {
+            return;
+        }
+
+        string key;
+        switch (code)
+        {
+            case LeaderboardClient.ErrorCode.CertificateError:
+                key = "leaderboard_error_certificate";
+                break;
+            case LeaderboardClient.ErrorCode.HttpError:
+                key = "leaderboard_error_http";
+                break;
+            case LeaderboardClient.ErrorCode.NetworkError:
+                key = "leaderboard_error_network";
+                break;
+            case LeaderboardClient.ErrorCode.Timeout:
+                key = "leaderboard_error_timeout";
+                break;
+            default:
+                key = "leaderboard_error_unknown";
+                break;
+        }
+
+        string msg = LocalizationManager.Get(key);
+        if (msg == key)
+        {
+            // Fallback English strings when localization is missing to ensure
+            // the player still receives useful feedback.
+            switch (code)
+            {
+                case LeaderboardClient.ErrorCode.CertificateError:
+                    msg = "Certificate validation failed.";
+                    break;
+                case LeaderboardClient.ErrorCode.HttpError:
+                    msg = "Server returned an error.";
+                    break;
+                case LeaderboardClient.ErrorCode.NetworkError:
+                    msg = "Network unreachable.";
+                    break;
+                case LeaderboardClient.ErrorCode.Timeout:
+                    msg = "Request timed out.";
+                    break;
+                default:
+                    msg = "Failed to load leaderboard.";
+                    break;
+            }
+        }
+
+        leaderboardText.text = msg;
     }
 
     /// <summary>

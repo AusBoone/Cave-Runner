@@ -47,6 +47,10 @@
 // Leaderboard operations now expose detailed error codes that map to localized
 // messages, ensuring players see a clear explanation when uploads or downloads
 // fail.
+// 2053 update summary
+// Startup now validates critical UI references. Missing assignments log errors
+// via LoggingHelper and gracefully disable the affected features to prevent
+// runtime null reference exceptions.
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -124,8 +128,38 @@ public class UIManager : MonoBehaviour
     // simplified canvas defined by MobileUI.prefab.
     private GameObject mobileCanvas;
 
+    // Flags indicating whether critical UI references are present. Awake sets
+    // these after validation so later methods can quickly skip features that
+    // would otherwise dereference missing objects and throw exceptions.
+    private bool hasStartPanel;
+    private bool hasGameOverPanel;
+    private bool hasPausePanel;
+    private bool hasFinalScoreLabel;
+    private bool hasHighScoreLabel;
+    private bool hasCoinScoreLabel;
+
     /// <summary>
-    /// Configure the singleton instance.
+    /// Centralized helper that verifies a serialized field was assigned in the
+    /// inspector. When the reference is missing, an error is logged and false is
+    /// returned so callers can disable dependent functionality.
+    /// </summary>
+    /// <param name="obj">Reference to validate.</param>
+    /// <param name="name">Human readable field name used in the log message.</param>
+    /// <returns>True when the reference is non-null and safe to use.</returns>
+    private bool ValidateReference(Object obj, string name)
+    {
+        if (obj == null)
+        {
+            LoggingHelper.LogError($"{name} reference is missing; related UI features will be disabled to prevent errors.");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Configure the singleton instance and validate inspector assignments. The
+    /// validation step ensures all critical UI references are present before
+    /// other systems invoke this manager.
     /// </summary>
     void Awake()
     {
@@ -158,6 +192,17 @@ public class UIManager : MonoBehaviour
         {
             parallaxBackground = FindObjectOfType<ParallaxBackground>();
         }
+
+        // Validate that critical UI elements were wired in the inspector. Each
+        // reference logs an explicit error and toggles a flag so later
+        // interactions can safely skip unavailable features instead of throwing
+        // a NullReferenceException at runtime.
+        hasStartPanel = ValidateReference(startPanel, nameof(startPanel));
+        hasGameOverPanel = ValidateReference(gameOverPanel, nameof(gameOverPanel));
+        hasPausePanel = ValidateReference(pausePanel, nameof(pausePanel));
+        hasFinalScoreLabel = ValidateReference(finalScoreLabel, nameof(finalScoreLabel));
+        hasHighScoreLabel = ValidateReference(highScoreLabel, nameof(highScoreLabel));
+        hasCoinScoreLabel = ValidateReference(coinScoreLabel, nameof(coinScoreLabel));
     }
 
     /// <summary>
@@ -375,9 +420,21 @@ public class UIManager : MonoBehaviour
     /// </summary>
     void Start()
     {
-        ShowPanel(startPanel);
-        HidePanelImmediate(gameOverPanel);
-        HidePanelImmediate(pausePanel);
+        // Initialize panels based on the presence flags computed in Awake. Each
+        // helper method already null-checks, but the flags avoid invoking logic
+        // for features explicitly disabled due to missing references.
+        if (hasStartPanel)
+        {
+            ShowPanel(startPanel);
+        }
+        if (hasGameOverPanel)
+        {
+            HidePanelImmediate(gameOverPanel);
+        }
+        if (hasPausePanel)
+        {
+            HidePanelImmediate(pausePanel);
+        }
         HidePanelImmediate(leaderboardPanel);
         HidePanelImmediate(workshopPanel);
         HidePanelImmediate(achievementsPanel);
@@ -396,7 +453,10 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Play()
     {
-        HidePanel(startPanel);
+        if (hasStartPanel)
+        {
+            HidePanel(startPanel);
+        }
         if (GameManager.Instance != null)
         {
             GameManager.Instance.StartGame();
@@ -408,22 +468,25 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowGameOver(int score, int highScore, int coins)
     {
-        if (finalScoreLabel != null)
+        if (hasFinalScoreLabel)
         {
             string fmt = LocalizationManager.Get("final_score_format");
             finalScoreLabel.text = string.Format(fmt, score);
         }
-        if (highScoreLabel != null)
+        if (hasHighScoreLabel)
         {
             string fmt = LocalizationManager.Get("high_score_format");
             highScoreLabel.text = string.Format(fmt, highScore);
         }
-        if (coinScoreLabel != null)
+        if (hasCoinScoreLabel)
         {
             string fmt = LocalizationManager.Get("coins_format");
             coinScoreLabel.text = string.Format(fmt, coins);
         }
-        ShowPanel(gameOverPanel);
+        if (hasGameOverPanel)
+        {
+            ShowPanel(gameOverPanel);
+        }
     }
 
     /// <summary>
@@ -431,7 +494,10 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Pause()
     {
-        ShowPanel(pausePanel);
+        if (hasPausePanel)
+        {
+            ShowPanel(pausePanel);
+        }
         if (GameManager.Instance != null)
         {
             // Delegates the actual pausing and time-scale adjustment to
@@ -445,7 +511,10 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void Resume()
     {
-        HidePanel(pausePanel);
+        if (hasPausePanel)
+        {
+            HidePanel(pausePanel);
+        }
         if (GameManager.Instance != null)
         {
             // GameManager restores normal gameplay and resets time scale.

@@ -3,11 +3,13 @@ using UnityEngine;
 using TMPro; // TextMeshPro components used for UI labels
 using System.Collections.Generic;
 using System.IO;
+using UnityEngine.TestTools; // Provides LogAssert for log verification
 
 /// <summary>
-/// Tests for <see cref="UIManager"/> verifying that leaderboard errors are
-/// surfaced to the player through a clear message. The tests execute the
-/// formatting logic directly to avoid dependency on Unity coroutines.
+/// Tests for <see cref="UIManager"/> covering both leaderboard error handling
+/// and startup validation of critical references. The tests execute logic
+/// directly without relying on Unity coroutines so they remain fast and
+/// deterministic in edit mode.
 /// </summary>
 public class UIManagerTests
 {
@@ -63,6 +65,56 @@ public class UIManagerTests
 
         Object.DestroyImmediate(uiObj);
         Object.DestroyImmediate(bgObj);
+    }
+
+    /// <summary>
+    /// Verifies that the manager emits an explicit error when a critical panel
+    /// such as <see cref="UIManager.startPanel"/> is left unassigned. Other
+    /// fields are populated to isolate the test to a single missing reference.
+    /// </summary>
+    [Test]
+    public void Awake_LogsError_WhenStartPanelMissing()
+    {
+        var uiObj = new GameObject("ui");
+        var ui = uiObj.AddComponent<UIManager>();
+
+        // Populate other required fields so only startPanel is missing.
+        ui.gameOverPanel = new GameObject();
+        ui.pausePanel = new GameObject();
+        ui.finalScoreLabel = new GameObject().AddComponent<TextMeshProUGUI>();
+        ui.highScoreLabel = new GameObject().AddComponent<TextMeshProUGUI>();
+        ui.coinScoreLabel = new GameObject().AddComponent<TextMeshProUGUI>();
+
+        LogAssert.Expect(LogType.Error, "startPanel reference is missing; related UI features will be disabled to prevent errors.");
+        typeof(UIManager).GetMethod("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .Invoke(ui, null);
+
+        Object.DestroyImmediate(uiObj);
+    }
+
+    /// <summary>
+    /// Ensures that label references are validated. When <see cref="UIManager.coinScoreLabel"/>
+    /// is omitted, Awake should log an error so developers know why the coin
+    /// display remains inactive.
+    /// </summary>
+    [Test]
+    public void Awake_LogsError_WhenCoinScoreLabelMissing()
+    {
+        var uiObj = new GameObject("ui");
+        var ui = uiObj.AddComponent<UIManager>();
+
+        // Assign all panels and other labels except coinScoreLabel.
+        ui.startPanel = new GameObject();
+        ui.gameOverPanel = new GameObject();
+        ui.pausePanel = new GameObject();
+        ui.finalScoreLabel = new GameObject().AddComponent<TextMeshProUGUI>();
+        ui.highScoreLabel = new GameObject().AddComponent<TextMeshProUGUI>();
+
+        LogAssert.Expect(LogType.Error, "coinScoreLabel reference is missing; related UI features will be disabled to prevent errors.");
+        typeof(UIManager).GetMethod("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .Invoke(ui, null);
+
+        Object.DestroyImmediate(uiObj);
     }
 
     /// <summary>

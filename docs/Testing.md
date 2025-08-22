@@ -2,6 +2,8 @@
 
 The repository includes a set of EditMode tests located under `Assets/Tests`. They can be run through the Unity Test Runner.
 
+For setup prerequisites see [DeveloperSetup](DeveloperSetup.md).
+
 ## Running Tests in the Editor
 1. Open **Window > General > Test Runner**.
 2. Select the **EditMode** tab.

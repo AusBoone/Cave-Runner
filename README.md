@@ -4,6 +4,7 @@ A 2D endless runner built with Unity. This repository contains basic scripts for
 
 Additional documentation describing gameplay systems lives in the [`docs`](docs/) folder.
 Key files include:
+- **DeveloperSetup.md** – environment setup, required packages, and build instructions.
 - **GameMechanics.md** – high level overview of movement and scoring.
 - **InputBindings.md** – instructions for customizing controls.
 - **MovementTuning.md** – how to adjust physics parameters for a snappy feel.
@@ -23,6 +24,7 @@ For contribution guidelines and testing instructions, see
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Getting Started
+For full environment configuration see [docs/DeveloperSetup.md](docs/DeveloperSetup.md).
 1. Install **Unity 2022.3 LTS** or newer using Unity Hub.
 2. Clone this repository and open it with Unity.
 3. Create a new scene and add the scripts found in `Assets/Scripts` to your GameObjects:

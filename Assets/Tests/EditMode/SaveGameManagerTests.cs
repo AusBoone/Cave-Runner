@@ -58,6 +58,50 @@ public class SaveGameManagerTests
         Object.DestroyImmediate(mgr.gameObject);
     }
 
+    /// <summary>
+    /// Ensures that valid AES key and IV environment variables are parsed and
+    /// flagged as available so optional save encryption can proceed.
+    /// </summary>
+    [Test]
+    public void LoadEncryptionSecrets_FromEnvironment_Succeeds()
+    {
+        string key = Convert.ToBase64String(new byte[32]);
+        string iv = Convert.ToBase64String(new byte[16]);
+        Environment.SetEnvironmentVariable("CR_AES_KEY", key);
+        Environment.SetEnvironmentVariable("CR_AES_IV", iv);
+
+        MethodInfo load = typeof(SaveGameManager).GetMethod("LoadEncryptionSecrets", BindingFlags.NonPublic | BindingFlags.Static);
+        load.Invoke(null, null);
+
+        FieldInfo configured = typeof(SaveGameManager).GetField("encryptionConfigured", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsTrue((bool)configured.GetValue(null), "Valid secrets should enable encryption");
+
+        // Cleanup so subsequent tests observe the default unconfigured state.
+        Environment.SetEnvironmentVariable("CR_AES_KEY", null);
+        Environment.SetEnvironmentVariable("CR_AES_IV", null);
+    }
+
+    /// <summary>
+    /// When AES key and IV are absent, the manager should disable encryption and
+    /// operate without throwing so save operations still succeed.
+    /// </summary>
+    [Test]
+    public void LoadEncryptionSecrets_MissingVariables_DisablesEncryption()
+    {
+        Environment.SetEnvironmentVariable("CR_AES_KEY", null);
+        Environment.SetEnvironmentVariable("CR_AES_IV", null);
+
+        MethodInfo load = typeof(SaveGameManager).GetMethod("LoadEncryptionSecrets", BindingFlags.NonPublic | BindingFlags.Static);
+        load.Invoke(null, null);
+
+        FieldInfo configured = typeof(SaveGameManager).GetField("encryptionConfigured", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsFalse((bool)configured.GetValue(null), "Missing secrets should leave encryption disabled");
+
+        // Ensure environment variables remain cleared for other tests.
+        Environment.SetEnvironmentVariable("CR_AES_KEY", null);
+        Environment.SetEnvironmentVariable("CR_AES_IV", null);
+    }
+
     [Test]
     public void SaveAndLoad_PersistsData()
     {

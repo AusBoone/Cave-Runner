@@ -44,6 +44,9 @@
 // encryption. During load the checksum is verified and, if enabled, the
 // payload is decrypted. Any mismatch is treated as corruption and triggers a
 // safe reset to default values.
+// 2038 update: AES key and IV are sourced from environment variables rather
+// than hard-coded constants. When unavailable, saves transparently fall back to
+// plaintext with a logged warning so progress is preserved.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -116,10 +119,29 @@ public class SaveGameManager : MonoBehaviour
     // written to disk. Disabled by default so files remain human-readable.
     private const bool EncryptSaves = false;
 
-    // Project-specific AES key and IV. In a production game these would be
-    // stored more securely, but constants suffice for demonstration and tests.
-    private static readonly byte[] EncryptionKey = Encoding.UTF8.GetBytes("0123456789ABCDEF0123456789ABCDEF"); // 32 bytes
-    private static readonly byte[] EncryptionIV = Encoding.UTF8.GetBytes("ABCDEF0123456789");                   // 16 bytes
+    // Names of the environment variables containing the base64 encoded AES key
+    // and IV. These secrets are loaded at runtime so they are not stored in the
+    // repository or shipped in plaintext builds.
+    private const string KeyEnvVar = "CR_AES_KEY"; // expects 32-byte key
+    private const string IvEnvVar = "CR_AES_IV";   // expects 16-byte IV
+
+    // Cached AES key and IV loaded from the secure source. When either value is
+    // missing or malformed, encryption is considered unavailable and save data
+    // falls back to plaintext even if EncryptSaves is true. This avoids using
+    // hard-coded secrets while keeping behaviour predictable for developers who
+    // have not provisioned keys.
+    private static byte[] encryptionKey;
+    private static byte[] encryptionIV;
+    private static bool encryptionConfigured;
+
+    /// <summary>
+    /// Static constructor eagerly loads AES secrets so calls to the encryption
+    /// helpers know whether encryption is possible for this session.
+    /// </summary>
+    static SaveGameManager()
+    {
+        LoadEncryptionSecrets();
+    }
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -176,29 +198,65 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Encrypts the supplied plain text bytes using AES with the project's
-    /// static key and IV.
+    /// Attempts to populate <see cref="encryptionKey"/> and <see cref="encryptionIV"/>
+    /// from the configured environment variables. When the values are absent or
+    /// invalid, a warning is logged and <see cref="encryptionConfigured"/> remains
+    /// false so callers can gracefully fall back to plaintext saves.
+    /// </summary>
+    private static void LoadEncryptionSecrets()
+    {
+        encryptionConfigured = false;
+        try
+        {
+            string keyB64 = Environment.GetEnvironmentVariable(KeyEnvVar);
+            string ivB64 = Environment.GetEnvironmentVariable(IvEnvVar);
+            if (!string.IsNullOrEmpty(keyB64) && !string.IsNullOrEmpty(ivB64))
+            {
+                byte[] keyBytes = Convert.FromBase64String(keyB64);
+                byte[] ivBytes = Convert.FromBase64String(ivB64);
+                if (keyBytes.Length == 32 && ivBytes.Length == 16)
+                {
+                    encryptionKey = keyBytes;
+                    encryptionIV = ivBytes;
+                    encryptionConfigured = true;
+                    return;
+                }
+            }
+            Debug.LogWarning("AES key/IV not found or invalid; save encryption disabled.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("Failed to load AES key/IV; save encryption disabled. " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Encrypts the supplied plain text bytes using AES with the runtime-loaded
+    /// key and IV. Caller must ensure <see cref="encryptionConfigured"/> is true
+    /// before invoking this helper.
     /// </summary>
     private static byte[] EncryptBytes(byte[] plain)
     {
         using (var aes = Aes.Create())
         {
-            aes.Key = EncryptionKey;
-            aes.IV = EncryptionIV;
+            aes.Key = encryptionKey;
+            aes.IV = encryptionIV;
             using var enc = aes.CreateEncryptor();
             return PerformCryptography(plain, enc);
         }
     }
 
     /// <summary>
-    /// Decrypts AES encrypted bytes using the project's static key and IV.
+    /// Decrypts AES encrypted bytes using the runtime-loaded key and IV. Caller
+    /// must ensure <see cref="encryptionConfigured"/> is true before invoking
+    /// this helper.
     /// </summary>
     private static byte[] DecryptBytes(byte[] cipher)
     {
         using (var aes = Aes.Create())
         {
-            aes.Key = EncryptionKey;
-            aes.IV = EncryptionIV;
+            aes.Key = encryptionKey;
+            aes.IV = encryptionIV;
             using var dec = aes.CreateDecryptor();
             return PerformCryptography(cipher, dec);
         }
@@ -527,6 +585,8 @@ public class SaveGameManager : MonoBehaviour
                 {
                     if (wrapper.encrypted)
                     {
+                        if (!encryptionConfigured)
+                            throw new InvalidOperationException("Save file is encrypted but AES key/IV are unavailable");
                         byte[] cipher = Convert.FromBase64String(wrapper.payload ?? string.Empty);
                         string expected = wrapper.checksum ?? string.Empty;
                         string actual = ComputeChecksum(cipher);
@@ -679,7 +739,7 @@ public class SaveGameManager : MonoBehaviour
         // tampering can be detected during load. The checksum is calculated over
         // the exact byte sequence written to disk (encrypted or plain).
         SaveFile wrapper = new SaveFile();
-        if (EncryptSaves)
+        if (EncryptSaves && encryptionConfigured)
         {
             byte[] plain = Encoding.UTF8.GetBytes(payloadJson);
             byte[] cipher = EncryptBytes(plain);
@@ -689,6 +749,14 @@ public class SaveGameManager : MonoBehaviour
         }
         else
         {
+            if (EncryptSaves && !encryptionConfigured)
+            {
+                // Documented fallback: when AES secrets are missing the save is
+                // written in plaintext so progress is not lost. Developers can
+                // configure the required environment variables to enable
+                // encryption in their builds.
+                Debug.LogWarning("Save encryption requested but AES key/IV are unavailable; writing plaintext save.");
+            }
             wrapper.encrypted = false;
             wrapper.data = data; // store as object for human readability
             wrapper.checksum = ComputeChecksum(Encoding.UTF8.GetBytes(payloadJson));

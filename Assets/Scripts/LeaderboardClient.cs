@@ -16,7 +16,9 @@ using UnityEngine.Networking;
 // meaningful error messages when network communication fails. In this revision
 // error handling has been expanded further with explicit error codes covering
 // network, HTTP, certificate and timeout issues so the UI can surface
-// localized explanations for each failure mode.
+// localized explanations for each failure mode. Missing or insecure service
+// URLs now trigger a NetworkError so callers can uniformly handle configuration
+// problems as connectivity failures.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -117,7 +119,9 @@ public class LeaderboardClient : MonoBehaviour
         // allow insecure plaintext traffic or null requests.
         if (!IsServiceUrlSecure())
         {
-            onComplete?.Invoke(false);
+            // Treat missing or insecure URLs as a network error so callers can
+            // display a consistent failure message to the player.
+            onComplete?.Invoke(false, ErrorCode.NetworkError);
             yield break;
         }
 

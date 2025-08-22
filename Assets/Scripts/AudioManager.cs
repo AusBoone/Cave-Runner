@@ -11,12 +11,19 @@
  *
  * 2024 maintenance:
  *   - Added clip caching so sound effects loaded by name are fetched from
- *     disk only once. Cached clips persist for the lifetime of the manager
- *     because the project uses a small audio set. Call <see cref="ClearClipCache"/>
- *     if manual cleanup is required.
- */
+ *     disk only once.
+ *
+ * 2025 maintenance:
+ *   - Switched from Resources.Load to Unity Addressables. Sound effects now
+ *     load asynchronously and their underlying handles are cached and released
+ *     automatically, reducing memory usage in larger projects.
+ *     Call <see cref="ClearClipCache"/> for an explicit cleanup.
+*/
 #endregion
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using System.Collections;
 using System.Collections.Generic;
 
 /// <summary>
@@ -37,12 +44,26 @@ public class AudioManager : MonoBehaviour
     public AudioSource musicSourceSecondary;
     public AudioSource effectsSource;
 
-    // Cache storing AudioClips loaded via PlaySound(string). This avoids
-    // repeated Resources.Load calls for frequently used effects. Entries are
-    // retained for the lifetime of the manager; no automatic eviction strategy
-    // is implemented because the sound library is small. Tests or callers can
-    // invoke ClearClipCache() to release references when needed.
-    private readonly Dictionary<string, AudioClip> clipCache = new Dictionary<string, AudioClip>();
+    // Cache storing Addressables handles for sound effects requested via
+    // PlaySound(string). Each entry records the handle and a coroutine used to
+    // release the clip after a period of inactivity. This approach avoids
+    // repeated disk access while still allowing unused clips to be unloaded
+    // automatically to free memory.
+    private readonly Dictionary<string, ClipReference> clipCache = new Dictionary<string, ClipReference>();
+
+    // Duration in seconds that a clip remains in the cache after its last use.
+    // Tests can override this to zero for immediate release or increase it for
+    // longer-lived caching depending on project needs.
+    [Tooltip("Seconds a sound effect stays in cache after playback.")]
+    public float clipReleaseDelay = 5f;
+
+    // Internal record tying an Addressables handle to a coroutine that will
+    // release it after clipReleaseDelay seconds.
+    private class ClipReference
+    {
+        public AsyncOperationHandle<AudioClip> handle;
+        public Coroutine releaseCoroutine;
+    }
 
     // Name of the music clip located under Assets/Audio/Resources.
     public string backgroundMusicName = "Background";
@@ -136,25 +157,44 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clears all cached sound effect clips. Because clips are cached for the
-    /// lifetime of the manager, this method provides manual eviction when tests
-    /// or gameplay need to reclaim memory.
+    /// Clears all cached sound effect handles. Each handle is released via the
+    /// Addressables system before the cache is emptied. Tests or callers invoke
+    /// this method for an immediate cleanup rather than waiting for the
+    /// automatic timeout.
     /// </summary>
     public void ClearClipCache()
     {
+        foreach (var kvp in clipCache)
+        {
+            if (kvp.Value.releaseCoroutine != null)
+            {
+                StopCoroutine(kvp.Value.releaseCoroutine);
+            }
+            ReleaseHandle(kvp.Value.handle);
+        }
         clipCache.Clear();
     }
 
     /// <summary>
-    /// Loads an AudioClip from the Resources/Audio folder. This indirection
-    /// exists so unit tests can override the loading mechanism without relying
-    /// on actual asset files.
+    /// Initiates an Addressables load for a clip. The default implementation
+    /// simply forwards to <see cref="Addressables.LoadAssetAsync{TObject}(object)"/>
+    /// and returns the handle so callers can monitor or release it. Unit tests
+    /// override this method to inject stub clips without touching the disk.
     /// </summary>
-    /// <param name="clipName">Name of the clip to load.</param>
-    /// <returns>The loaded clip or null if not found.</returns>
-    protected virtual AudioClip LoadClip(string clipName)
+    /// <param name="clipName">Addressable key used to locate the clip.</param>
+    /// <returns>Async handle representing the load request.</returns>
+    protected virtual AsyncOperationHandle<AudioClip> LoadClipHandle(string clipName)
     {
-        return Resources.Load<AudioClip>("Audio/" + clipName);
+        return Addressables.LoadAssetAsync<AudioClip>(clipName);
+    }
+
+    /// <summary>
+    /// Releases an Addressables handle. Exposed as virtual so unit tests can
+    /// track when releases occur without depending on the Addressables runtime.
+    /// </summary>
+    protected virtual void ReleaseHandle(AsyncOperationHandle<AudioClip> handle)
+    {
+        Addressables.Release(handle);
     }
 
     /// <summary>
@@ -172,30 +212,58 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Convenience overload that loads a clip from Resources/Audio by name.
-    /// To reduce disk access, clips are cached after their first load and
-    /// reused for subsequent calls. No automatic eviction is performed because
-    /// the expected number of unique effects is small; call
-    /// <see cref="ClearClipCache"/> if manual cleanup is required.
+    /// Convenience overload that loads a sound effect by addressable key. The
+    /// clip is cached via its <see cref="AsyncOperationHandle"/> so subsequent
+    /// plays do not trigger another load. After <see cref="clipReleaseDelay"/>
+    /// seconds of inactivity the handle is automatically released to reclaim
+    /// memory.
     /// </summary>
-    /// <param name="clipName">Clip located under Resources/Audio.</param>
+    /// <param name="clipName">Addressable key identifying the clip.</param>
     /// <param name="pitch">Optional pitch adjustment passed to PlaySound.</param>
     public void PlaySound(string clipName, float pitch = 1f)
     {
-        if (string.IsNullOrEmpty(clipName) || effectsSource == null) return;
-
-        if (!clipCache.TryGetValue(clipName, out AudioClip clip) || clip == null)
+        if (string.IsNullOrEmpty(clipName) || effectsSource == null)
         {
-            clip = LoadClip(clipName);
-            if (clip != null)
-            {
-                clipCache[clipName] = clip;
-            }
+            return;
         }
 
-        if (clip != null)
+        if (!clipCache.TryGetValue(clipName, out ClipReference reference) ||
+            !reference.handle.IsValid() || reference.handle.Result == null)
         {
-            PlaySound(clip, pitch);
+            // Load clip via Addressables and wait synchronously for completion so
+            // the one-shot can play immediately. In a production game this could
+            // be fully asynchronous with a callback.
+            var handle = LoadClipHandle(clipName);
+            handle.WaitForCompletion();
+            if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
+            {
+                Debug.LogWarning($"Sound clip '{clipName}' failed to load");
+                return;
+            }
+
+            reference = new ClipReference { handle = handle };
+            clipCache[clipName] = reference;
+        }
+
+        // Play the loaded clip immediately.
+        PlaySound(reference.handle.Result, pitch);
+
+        // Restart the release timer so the clip remains cached while in recent use.
+        if (reference.releaseCoroutine != null)
+        {
+            StopCoroutine(reference.releaseCoroutine);
+        }
+        reference.releaseCoroutine = StartCoroutine(ReleaseAfterDelay(clipName, clipReleaseDelay));
+    }
+
+    // Coroutine that waits the configured delay before releasing a cached clip.
+    private IEnumerator ReleaseAfterDelay(string clipName, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (clipCache.TryGetValue(clipName, out ClipReference reference))
+        {
+            ReleaseHandle(reference.handle);
+            clipCache.Remove(clipName);
         }
     }
 

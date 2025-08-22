@@ -1,6 +1,15 @@
 using UnityEngine;
 using System;
 
+//------------------------------------------------------------------------------
+// Updated for buffered state persistence. The previous implementation wrote
+// challenge progress to PlayerPrefs every frame, which caused unnecessary disk
+// I/O. Progress is now marked dirty when it changes and flushed only after the
+// value increases by a threshold or a fixed time interval has elapsed. The
+// final state is also saved when the application pauses or quits to avoid data
+// loss.
+//------------------------------------------------------------------------------
+
 /// <summary>
 /// Generates and tracks a single daily challenge. The challenge persists in
 /// PlayerPrefs with an expiry timestamp so players receive a new objective
@@ -41,9 +50,21 @@ public class DailyChallengeManager : MonoBehaviour
     private const int RewardCoins = 25;                    // coins awarded on completion
     private const string AchComplete = "ACH_DAILY_COMPLETE";
 
+    // Minimum change required before auto-saving to reduce write frequency.
+    private static readonly int ProgressSaveThreshold = 5;
+    // Seconds between automatic saves when progress is changing slowly.
+    private static readonly float SaveInterval = 1f;
+
     public static DailyChallengeManager Instance { get; private set; }
 
     private ChallengeState state;
+
+    // Tracks unsaved changes so persistence can be deferred until necessary.
+    private bool isDirty;
+    // Timestamp of the last flush to PlayerPrefs.
+    private float lastSaveTime;
+    // Progress value stored during the last save for delta comparisons.
+    private int lastSavedProgress;
 
     /// <summary>
     /// Initializes the singleton instance and loads or creates the current
@@ -64,8 +85,9 @@ public class DailyChallengeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Checks for completion each frame by comparing GameManager metrics
-    /// against the active challenge.
+    /// Updates challenge progress from <see cref="GameManager"/> statistics.
+    /// Progress changes are marked dirty and persisted in batches to avoid
+    /// expensive per-frame disk writes.
     /// </summary>
     void Update()
     {
@@ -83,18 +105,28 @@ public class DailyChallengeManager : MonoBehaviour
             case ChallengeType.Distance:
                 if (GameManager.Instance != null)
                 {
-                    state.progress = Mathf.FloorToInt(GameManager.Instance.GetDistance());
-                    SaveState();
+                    int newProgress = Mathf.FloorToInt(GameManager.Instance.GetDistance());
+                    if (newProgress != state.progress)
+                    {
+                        state.progress = newProgress;
+                        isDirty = true; // mark for deferred save
+                    }
                 }
                 break;
             case ChallengeType.Coins:
                 if (GameManager.Instance != null)
                 {
-                    state.progress = GameManager.Instance.GetCoins();
-                    SaveState();
+                    int newProgress = GameManager.Instance.GetCoins();
+                    if (newProgress != state.progress)
+                    {
+                        state.progress = newProgress;
+                        isDirty = true; // mark for deferred save
+                    }
                 }
                 break;
         }
+
+        MaybeFlushState();
 
         if (state.progress >= state.target)
         {
@@ -103,7 +135,8 @@ public class DailyChallengeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Records usage of a power-up so power-up challenges can progress.
+    /// Records usage of a power-up so power-up challenges can progress. The
+    /// update is buffered and only persisted once thresholds or timers are met.
     /// </summary>
     public void RecordPowerUpUse(PowerUpType type)
     {
@@ -112,13 +145,14 @@ public class DailyChallengeManager : MonoBehaviour
         if (state.type == ChallengeType.PowerUpUse && state.powerUp == type)
         {
             state.progress++;
+            isDirty = true; // track unsaved progress
             if (state.progress >= state.target)
             {
                 CompleteChallenge();
             }
             else
             {
-                SaveState();
+                MaybeFlushState();
             }
         }
     }
@@ -161,6 +195,13 @@ public class DailyChallengeManager : MonoBehaviour
             {
                 GenerateChallenge();
             }
+            else
+            {
+                // Initialize tracking fields for existing saved progress.
+                lastSavedProgress = state.progress;
+                lastSaveTime = Time.time;
+                isDirty = false;
+            }
         }
         else
         {
@@ -187,13 +228,35 @@ public class DailyChallengeManager : MonoBehaviour
         SaveState();
     }
 
-    // Writes the current state to PlayerPrefs for persistence across sessions.
+    // Saves progress only when enough change has accumulated or the interval elapsed.
+    private void MaybeFlushState()
+    {
+        if (!isDirty || state == null)
+            return; // nothing to persist
+
+        // Flush when progress jumps significantly or after the timeout.
+        if (Mathf.Abs(state.progress - lastSavedProgress) >= ProgressSaveThreshold ||
+            Time.time - lastSaveTime >= SaveInterval)
+        {
+            SaveState();
+        }
+    }
+
+    // Writes the current state to PlayerPrefs and clears the dirty flag so
+    // future saves can be throttled.
     private void SaveState()
     {
-        if (state == null) return;
+        if (state == null)
+            return;
+
         string json = JsonUtility.ToJson(state);
         PlayerPrefs.SetString(PrefKey, json);
         PlayerPrefs.Save();
+
+        // Track save metadata so future writes can be throttled.
+        lastSavedProgress = state.progress;
+        lastSaveTime = Time.time;
+        isDirty = false;
     }
 
     // Grants the reward and flags the challenge as complete.
@@ -212,18 +275,21 @@ public class DailyChallengeManager : MonoBehaviour
     }
 
     // Persist the challenge whenever the application quits so progress is not
-    // lost on shutdown.
+    // lost on shutdown. Only writes when there are unsaved changes.
     void OnApplicationQuit()
     {
-        SaveState();
+        // Persist unsaved progress when shutting down.
+        if (isDirty)
+            SaveState();
     }
 
-    // Mobile platforms may pause the app without quitting. Save progress when
-    // entering the background.
+    // Mobile platforms may pause the app without quitting. Any pending progress
+    // is flushed when entering the background.
     void OnApplicationPause(bool paused)
     {
-        if (paused)
+        if (paused && isDirty)
         {
+            // Entering background: ensure current progress is stored.
             SaveState();
         }
     }

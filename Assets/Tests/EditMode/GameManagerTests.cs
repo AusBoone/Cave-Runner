@@ -245,6 +245,71 @@ public class GameManagerTests
         Object.DestroyImmediate(saveObj);
     }
 
+    /// <summary>
+    /// Ensures <see cref="GameManager.StartGame"/> gracefully skips null entries
+    /// in <see cref="GameManager.startingPowerUps"/>. A warning should be logged
+    /// and valid prefabs still spawn so misconfigured arrays do not crash the
+    /// game at runtime.
+    /// </summary>
+    [Test]
+    public void StartGame_NullStartingPowerUp_SkipsAndWarns()
+    {
+        // Enable verbose logging so the warning about null entries is emitted
+        // during the test but restore the original state afterward to avoid
+        // affecting other tests.
+        bool prevVerbose = LoggingHelper.VerboseEnabled;
+        LoggingHelper.VerboseEnabled = true;
+
+        // Create required singletons and grant one starting power-up upgrade.
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+        var shopObj = new GameObject("shop");
+        var shop = shopObj.AddComponent<ShopManager>();
+        shop.availableUpgrades = new[]
+        {
+            new ShopManager.UpgradeData
+            {
+                type = UpgradeType.StartingPowerUp,
+                cost = 1,
+                effect = 1f
+            }
+        };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(shop, null);
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (System.Collections.Generic.Dictionary<UpgradeType, int>)dictField.GetValue(shop);
+        levels[UpgradeType.StartingPowerUp] = 1;
+        dictField.SetValue(shop, levels);
+
+        // GameManager configured with one valid prefab and one null entry.
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+        gm.startingPowerUps = new[] { new GameObject("PowerUp"), null };
+
+        // Assign player reference so StartGame proceeds normally.
+        var player = new GameObject("player");
+        typeof(GameManager).GetField("playerObject", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(gm, player);
+
+        // Expect a warning about the null entry and ensure no exception is thrown.
+        LogAssert.Expect(LogType.Warning, new Regex("startingPowerUps contains null"));
+        Assert.DoesNotThrow(() => gm.StartGame());
+
+        // Only the valid prefab should have spawned; the null entry is skipped.
+        Assert.IsNotNull(GameObject.Find("PowerUp(Clone)"));
+
+        LogAssert.NoUnexpectedReceived();
+
+        // Clean up spawned objects and singletons to keep the test isolated.
+        Object.DestroyImmediate(GameObject.Find("PowerUp(Clone)"));
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(player);
+        Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
+
+        // Restore the original verbose logging setting.
+        LoggingHelper.VerboseEnabled = prevVerbose;
+    }
+
     [Test]
     public void ActivateCoinBonus_MultipliesCoins()
     {

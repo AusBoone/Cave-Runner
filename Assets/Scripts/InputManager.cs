@@ -5,6 +5,8 @@ using UnityEngine.InputSystem;
 using System.Collections;
 using TMPro; // TextMeshPro used for binding label updates
 
+// For an overview of system interactions, see docs/ArchitectureOverview.md.
+
 // 2024 update: added a stubbed TriggerRumble method so projects using the
 // legacy input manager still compile. Calls to TriggerRumble simply do nothing
 // when the new Input System package is absent, clarifying that rumble support

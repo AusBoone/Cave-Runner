@@ -1,0 +1,81 @@
+# Architecture Overview
+
+This document summarizes the major systems that power **Cave-Runner** and how they interact. Each manager encapsulates a specific responsibility so gameplay, persistence, and the user interface remain decoupled.
+
+## Manager Responsibilities
+
+### InputManager
+- Normalizes keyboard, gamepad and touch input into a unified API.
+- Exposes high‑level queries such as `GetHorizontal`, `JumpPressed` and `PausePressed`.
+- Saves user bindings to `PlayerPrefs` and disposes `InputAction` objects on shutdown to avoid leaks.
+
+### GameManager
+- Singleton that drives the endless‑runner loop.
+- Listens to `InputManager` for player commands and updates distance, speed and coin totals each frame.
+- Emits `OnStageUnlocked`, `OnGameOver` and similar events that other systems subscribe to.
+- Notifies `SaveGameManager` when coins or options change and pushes score/state updates to `UIManager`.
+
+### StageManager
+- Subscribes to `GameManager.OnStageUnlocked`.
+- Loads background sprites and spawner prefabs asynchronously using Addressables.
+- Applies stage‑specific spawn probabilities, gravity multipliers and speed modifiers.
+
+### SaveGameManager
+- Serializes coins, upgrades and options to a JSON file under `Application.persistentDataPath`.
+- Wraps saves with a SHA‑256 checksum and optional AES encryption for tamper detection.
+- Queues asynchronous write requests and exposes an `Initialization` task so callers can await load completion.
+
+### UIManager
+- Controls start, pause, game‑over, settings and shop menus plus the heads‑up display.
+- Displays loading and network‑activity spinners for asynchronous operations.
+- Reads values from `GameManager` and `SaveGameManager` to populate labels and progress bars.
+- Exposes a singleton for other managers to show or hide UI elements.
+
+## Detailed Event Flow
+
+```text
+[Input Devices]
+      │
+      ▼
+InputManager --(Jump/Slide/Pause events)--> GameManager
+      │                                       │
+      │                                       ├─ updates distance and coins
+      │                                       ├─ raises OnStageUnlocked ──┐
+      │                                       │                          ▼
+      │                                       │                    StageManager
+      │                                       │                          │
+      │                                       ├─ notifies SaveGameManager ──> Disk
+      │                                       │
+      │                                       └─ updates UIManager ──> HUD & menus
+      ▼
+Player Controller
+```
+
+1. **InputManager** captures raw device input and exposes high‑level events.
+2. **GameManager** reacts to those events, advancing gameplay and unlocking stages.
+3. **StageManager** loads new assets and adjusts spawner settings when a stage unlocks.
+4. **UIManager** refreshes labels, progress bars and menus based on the latest game state.
+5. **SaveGameManager** queues an asynchronous save whenever coins, upgrades or options change.
+
+## Dependency Hierarchy
+
+- `GameManager`
+  - requires `InputManager` for player actions.
+  - drives `StageManager` and `UIManager` via events.
+  - calls into `SaveGameManager` to persist progress.
+- `InputManager`
+  - operates independently and can be reused by tools or tests.
+- `StageManager` and `UIManager`
+  - depend on `GameManager` signals but are otherwise decoupled.
+- `SaveGameManager`
+  - independent of other managers; other systems invoke it when persistence is needed.
+
+## Initialization Sequence
+
+1. **SaveGameManager** begins loading persisted data in `Awake` and exposes an `Initialization` task for callers to await.
+2. **GameManager** validates required references in `Awake`, registers for input and stage events and sets baseline speed.
+3. **StageManager** subscribes to `GameManager.OnStageUnlocked` and applies the initial stage in `Start`.
+4. **UIManager** configures its singleton instance, loads optional mobile UI and locates the `ParallaxBackground`.
+5. When the player presses Start, `GameManager.StartGame` triggers the run and other managers react accordingly.
+
+This separation of concerns keeps the codebase modular and testable while making it clear where new features should integrate.

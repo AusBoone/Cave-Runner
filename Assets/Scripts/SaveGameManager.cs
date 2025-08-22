@@ -1,5 +1,6 @@
 // SaveGameManager.cs
 // -----------------------------------------------------------------------------
+// For an overview of how this manager fits into the wider system, see docs/ArchitectureOverview.md.
 // Provides persistent storage of player progress using a JSON file located
 // under Application.persistentDataPath. The design intentionally avoids
 // PlayerPrefs for large or structured data so saves can be inspected and

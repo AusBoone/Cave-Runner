@@ -1,5 +1,6 @@
 // UIManager.cs
 // -----------------------------------------------------------------------------
+// For a high-level system diagram see docs/ArchitectureOverview.md.
 // Centralizes control of the game's menus and heads-up-display elements. The
 // manager now includes a progress reporting API so loading screens can display
 // combined progress while assets stream asynchronously. This complements the

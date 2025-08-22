@@ -1,5 +1,6 @@
 // StageManager.cs
 // -----------------------------------------------------------------------------
+// For system architecture context see docs/ArchitectureOverview.md.
 // Handles stage progression events triggered by the GameManager. When a stage
 // is unlocked it swaps the active background sprite, adjusts obstacle and
 // hazard prefab lists and now applies stage-specific spawn probabilities and

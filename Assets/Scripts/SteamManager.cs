@@ -4,6 +4,11 @@
 // saves and leaderboard submissions. This revision funnels all Unity logging
 // through LoggingHelper to centralize output and simplify testing of failure
 // scenarios.
+//
+// The Steamworks.NET plugin must be installed for this script to function.
+// Refer to the "Steamworks Setup" section of docs/DeveloperSetup.md for
+// detailed installation steps, placement of the steam_appid.txt file and
+// troubleshooting guidance when initialization fails.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;

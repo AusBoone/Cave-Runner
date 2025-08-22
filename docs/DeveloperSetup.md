@@ -50,3 +50,27 @@ Consider installing the following to streamline development:
 2. Click **Add Open Scenes** and select your target platform.
 3. Press **Build** and choose an output directory. Unity exports the executable and required data files.
 
+## Steamworks Setup
+Follow these steps to enable Steam integration via the Steamworks.NET plugin:
+
+1. **Install the Plugin**
+   - Download and import the [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) Unity package.
+   - After import, confirm that the `Steamworks` folder exists under `Assets/Plugins`.
+   - The `SteamManager` script in `Assets/Scripts/SteamManager.cs` depends on this plugin for all Steam API calls.
+
+2. **Place `steam_appid.txt`**
+   - Create a file named `steam_appid.txt` containing your numeric Steam App ID.
+   - For editor or test runs, place the file in the Unity project root (next to the `Assets` folder).
+   - For standalone builds, ensure the file sits beside the compiled game executable.
+
+3. **Editor and Test Considerations**
+   - Steamworks only initializes if the Steam client is running and the App ID matches.
+   - Edit Mode tests referencing `SteamManager` require the Steamworks plugin; otherwise mock or disable those tests.
+   - When running the game outside Steam, ensure the `steam_appid.txt` is present or `SteamManager` will log an error and skip initialization.
+
+### Troubleshooting
+- **`Steamworks DLL not found`** – The plugin's native libraries are missing. Reimport the plugin and confirm files under `Assets/Plugins/Steamworks`.
+- **`SteamAPI.Init()` returns false** – The Steam client may not be running or the App ID in `steam_appid.txt` is incorrect.
+- **`steam_appid.txt` ignored** – Ensure the file resides next to the executable or project root; Steam ignores files in subdirectories.
+- **Tests failing due to Steam initialization** – Mock Steam interfaces or wrap calls in `#if UNITY_STANDALONE` to bypass Steamworks in non-standalone environments.
+

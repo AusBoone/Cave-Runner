@@ -3,10 +3,11 @@
 // Provides persistent storage of player progress using a JSON file located
 // under Application.persistentDataPath. The design intentionally avoids
 // PlayerPrefs for large or structured data so saves can be inspected and
-// manually edited if required. On first run existing PlayerPrefs values are
-// migrated to maintain backward compatibility. Saving writes to a temporary
-// file first to reduce the chance of corruption if the application quits
-// during a write operation.
+// manually edited if required. Save payloads are wrapped with a SHA-256
+// checksum and can optionally be AES encrypted before writing to disk. On
+// first run existing PlayerPrefs values are migrated to maintain backward
+// compatibility. Saving writes to a temporary file first to reduce the chance
+// of corruption if the application quits during a write operation.
 //
 // 2025 bug fix: loading no longer throws when the "upgrades" array is missing
 // from a legacy save file. The loader now checks for null before iterating so
@@ -38,6 +39,10 @@
 // persists even when the manager is destroyed without the quit path.
 // 2036 update: Failed save attempts mark data dirty and are retried a limited
 // number of times so autosave can recover from transient IO errors.
+// 2037 update: Save files now carry a SHA-256 checksum and optional AES
+// encryption. During load the checksum is verified and, if enabled, the
+// payload is decrypted. Any mismatch is treated as corruption and triggers a
+// safe reset to default values.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -48,6 +53,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Collections;
+using System.Security.Cryptography; // AES encryption and SHA-256 checksums
 using UnityEngine;
 
 /// <summary>
@@ -86,8 +92,33 @@ public class SaveGameManager : MonoBehaviour
         public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
 
+    /// <summary>
+    /// Wrapper stored on disk which prefixes the serialized save data with a
+    /// SHA-256 checksum and flag indicating whether the payload is AES
+    /// encrypted. When <see cref="encrypted"/> is false the <see cref="data"/>
+    /// field contains the raw <see cref="SaveData"/> object. When true, the
+    /// <see cref="payload"/> field holds the base64 encoded cipher text.
+    /// </summary>
+    [Serializable]
+    private class SaveFile
+    {
+        public string checksum;   // Hex-encoded SHA-256 digest of payload
+        public bool encrypted;    // True when payload is AES encrypted
+        public SaveData data;     // Plain save data when not encrypted
+        public string payload;    // Base64 encoded cipher text when encrypted
+    }
+
     // Version value written to disk alongside <see cref="SaveData"/>.
     private const int CurrentVersion = 4;
+
+    // Toggle controlling whether save payloads are AES encrypted before being
+    // written to disk. Disabled by default so files remain human-readable.
+    private const bool EncryptSaves = false;
+
+    // Project-specific AES key and IV. In a production game these would be
+    // stored more securely, but constants suffice for demonstration and tests.
+    private static readonly byte[] EncryptionKey = Encoding.UTF8.GetBytes("0123456789ABCDEF0123456789ABCDEF"); // 32 bytes
+    private static readonly byte[] EncryptionIV = Encoding.UTF8.GetBytes("ABCDEF0123456789");                   // 16 bytes
 
     private const string CoinsKey = "ShopCoins";       // legacy PlayerPrefs key
     private const string UpgradePrefix = "UpgradeLevel_"; // legacy PlayerPrefs prefix
@@ -127,6 +158,63 @@ public class SaveGameManager : MonoBehaviour
             Path = path;
             Attempts = attempts;
         }
+    }
+
+    /// <summary>
+    /// Generates a lowercase hexadecimal SHA-256 checksum for the provided
+    /// byte array. Used to detect tampering or corruption of persisted save
+    /// payloads.
+    /// </summary>
+    private static string ComputeChecksum(byte[] bytes)
+    {
+        using (var sha = SHA256.Create())
+        {
+            byte[] hash = sha.ComputeHash(bytes);
+            return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+        }
+    }
+
+    /// <summary>
+    /// Encrypts the supplied plain text bytes using AES with the project's
+    /// static key and IV.
+    /// </summary>
+    private static byte[] EncryptBytes(byte[] plain)
+    {
+        using (var aes = Aes.Create())
+        {
+            aes.Key = EncryptionKey;
+            aes.IV = EncryptionIV;
+            using var enc = aes.CreateEncryptor();
+            return PerformCryptography(plain, enc);
+        }
+    }
+
+    /// <summary>
+    /// Decrypts AES encrypted bytes using the project's static key and IV.
+    /// </summary>
+    private static byte[] DecryptBytes(byte[] cipher)
+    {
+        using (var aes = Aes.Create())
+        {
+            aes.Key = EncryptionKey;
+            aes.IV = EncryptionIV;
+            using var dec = aes.CreateDecryptor();
+            return PerformCryptography(cipher, dec);
+        }
+    }
+
+    /// <summary>
+    /// Performs the core cryptographic transformation using a CryptoStream so
+    /// both encryption and decryption share the same implementation.
+    /// </summary>
+    private static byte[] PerformCryptography(byte[] data, ICryptoTransform transform)
+    {
+        using var ms = new MemoryStream();
+        using (var cs = new CryptoStream(ms, transform, CryptoStreamMode.Write))
+        {
+            cs.Write(data, 0, data.Length);
+        }
+        return ms.ToArray();
     }
 
     // Maximum number of times a failed save request will be retried before
@@ -432,7 +520,33 @@ public class SaveGameManager : MonoBehaviour
                 // Asynchronously read the entire save file so disk IO does not
                 // stall the main thread during startup.
                 string json = await File.ReadAllTextAsync(savePath);
-                SaveData loaded = JsonUtility.FromJson<SaveData>(json);
+                SaveFile wrapper = JsonUtility.FromJson<SaveFile>(json);
+                SaveData loaded = null;
+                if (wrapper != null)
+                {
+                    if (wrapper.encrypted)
+                    {
+                        byte[] cipher = Convert.FromBase64String(wrapper.payload ?? string.Empty);
+                        string expected = wrapper.checksum ?? string.Empty;
+                        string actual = ComputeChecksum(cipher);
+                        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidDataException("Checksum mismatch");
+                        byte[] plain = DecryptBytes(cipher);
+                        string payloadJson = Encoding.UTF8.GetString(plain);
+                        loaded = JsonUtility.FromJson<SaveData>(payloadJson);
+                    }
+                    else
+                    {
+                        if (wrapper.data == null)
+                            throw new InvalidDataException("Missing payload");
+                        string payloadJson = JsonUtility.ToJson(wrapper.data);
+                        string actual = ComputeChecksum(Encoding.UTF8.GetBytes(payloadJson));
+                        if (!string.Equals(wrapper.checksum, actual, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidDataException("Checksum mismatch");
+                        loaded = wrapper.data;
+                    }
+                }
+
                 if (loaded != null)
                 {
                     // Handle missing fields by checking the save version.
@@ -558,7 +672,28 @@ public class SaveGameManager : MonoBehaviour
             data.upgrades.Add(new UpgradeEntry { type = kvp.Key.ToString(), level = kvp.Value });
         }
 
-        string json = JsonUtility.ToJson(data);
+        string payloadJson = JsonUtility.ToJson(data);
+
+        // Wrap the payload with a checksum and optional AES encryption so
+        // tampering can be detected during load. The checksum is calculated over
+        // the exact byte sequence written to disk (encrypted or plain).
+        SaveFile wrapper = new SaveFile();
+        if (EncryptSaves)
+        {
+            byte[] plain = Encoding.UTF8.GetBytes(payloadJson);
+            byte[] cipher = EncryptBytes(plain);
+            wrapper.encrypted = true;
+            wrapper.payload = Convert.ToBase64String(cipher);
+            wrapper.checksum = ComputeChecksum(cipher);
+        }
+        else
+        {
+            wrapper.encrypted = false;
+            wrapper.data = data; // store as object for human readability
+            wrapper.checksum = ComputeChecksum(Encoding.UTF8.GetBytes(payloadJson));
+        }
+
+        string json = JsonUtility.ToJson(wrapper);
 
         // Queue the JSON and its target path for asynchronous saving. Storing
         // the path with the payload ensures pending writes are not redirected if

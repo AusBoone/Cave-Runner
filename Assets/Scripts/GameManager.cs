@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
+using System.Collections.Generic; // Supports List<T> for filtering prefabs
 using TMPro; // TextMeshPro provides TMP_Text for UI labels
 
 // For a high-level overview of how GameManager collaborates with other systems, see docs/ArchitectureOverview.md.
@@ -101,6 +102,12 @@ using TMPro; // TextMeshPro provides TMP_Text for UI labels
 /// starting a run restores it to <c>1</c>. Centralizing time control here ensures
 /// all gameplay and physics-based systems halt uniformly when the game is
 /// paused and resume predictably.
+/// </remarks>
+/// <remarks>
+/// 2051 fix: <see cref="StartGame"/> now filters <see cref="startingPowerUps"/>
+/// for null entries before instantiation and logs a warning when invalid
+/// prefabs are encountered. This prevents runtime exceptions from
+/// misconfigured arrays and aids debugging during development.
 /// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
@@ -654,12 +661,41 @@ public class GameManager : MonoBehaviour
         }
         else if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
         {
-            // Spawn the configured power-up prefabs adjacent to the player.
-            Vector3 spawnPosition = playerObject.transform.position;
-            for (int i = 0; i < startingCount; i++)
+            // Filter out any null entries before selecting prefabs. Randomly
+            // choosing a null would cause Instantiate to throw, so we build a
+            // list of only valid prefabs first.
+            var validPrefabs = new List<GameObject>();
+            foreach (GameObject prefab in startingPowerUps)
             {
-                GameObject prefab = startingPowerUps[UnityEngine.Random.Range(0, startingPowerUps.Length)];
-                Instantiate(prefab, spawnPosition + Vector3.right * (i + 1), Quaternion.identity);
+                if (prefab != null)
+                {
+                    validPrefabs.Add(prefab);
+                }
+            }
+
+            // Warn developers when configuration errors are detected so they
+            // can fix missing references in the inspector.
+            if (validPrefabs.Count < startingPowerUps.Length)
+            {
+                LoggingHelper.LogWarning("StartGame: startingPowerUps contains null entries; skipping invalid prefabs.");
+            }
+
+            if (validPrefabs.Count > 0)
+            {
+                // Spawn the configured power-up prefabs adjacent to the player
+                // using only the validated list to avoid null reference errors.
+                Vector3 spawnPosition = playerObject.transform.position;
+                for (int i = 0; i < startingCount; i++)
+                {
+                    GameObject prefab = validPrefabs[UnityEngine.Random.Range(0, validPrefabs.Count)];
+                    Instantiate(prefab, spawnPosition + Vector3.right * (i + 1), Quaternion.identity);
+                }
+            }
+            else
+            {
+                // If every entry was invalid, nothing can be spawned. Logging a
+                // warning here provides clarity during debugging sessions.
+                LoggingHelper.LogWarning("StartGame: no valid starting power-up prefabs available; none spawned.");
             }
         }
 

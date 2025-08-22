@@ -37,6 +37,10 @@
 // Global time scaling is now controlled exclusively by GameManager. UIManager
 // no longer modifies Time.timeScale when pausing or resuming, preventing
 // redundant state changes.
+// 2051 update summary
+// Mobile UI prefabs now load via Resources.LoadAsync so initialization remains
+// non-blocking on slower devices. The asynchronous coroutine logs a warning if
+// the expected prefab cannot be found, preserving previous error reporting.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -131,23 +135,16 @@ public class UIManager : MonoBehaviour
         }
 
         // Instantiate the simplified mobile UI when running on a handheld
-        // device so players can easily tap the larger controls.
+        // device so players can easily tap the larger controls. The prefab is
+        // now loaded asynchronously so the main thread is never blocked while
+        // Unity retrieves assets from disk. Awake cannot yield directly, so a
+        // coroutine performs the asynchronous work and notifies us via
+        // callbacks once complete.
         if (Application.isMobilePlatform)
         {
-            GameObject prefab = Resources.Load<GameObject>("UI/MobileUI");
-            if (prefab != null)
-            {
-                mobileCanvas = Instantiate(prefab);
-                // Keep the mobile canvas alive when new scenes load so touch
-                // controls remain available during transitions.
-                DontDestroyOnLoad(mobileCanvas);
-            }
-            else
-            {
-                // Verbose logging alerts developers if the expected mobile
-                // prefab is missing but remains silent in production builds.
-                LoggingHelper.LogWarning("MobileUI prefab not found in Resources/UI");
-            }
+            // Kick off the coroutine that loads the prefab using
+            // Resources.LoadAsync and instantiates it when ready.
+            StartCoroutine(LoadMobileCanvasAsync());
         }
 
         // Resolve the parallax background once so subsequent lookups do not
@@ -155,6 +152,46 @@ public class UIManager : MonoBehaviour
         if (parallaxBackground == null)
         {
             parallaxBackground = FindObjectOfType<ParallaxBackground>();
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously loads the MobileUI prefab from the Resources folder and
+    /// instantiates it once the asset is available. The coroutine yields until
+    /// <see cref="Resources.LoadAsync"/> finishes so initialization does not
+    /// block the main thread. A warning is logged when the prefab cannot be
+    /// located, allowing developers to diagnose missing assets.
+    /// </summary>
+    /// <param name="resourcePath">
+    /// Optional Resources path used to locate the prefab. Tests pass a
+    /// non‑existent path to exercise the warning case. Defaults to
+    /// "UI/MobileUI" for production usage.
+    /// </param>
+    private IEnumerator LoadMobileCanvasAsync(string resourcePath = "UI/MobileUI")
+    {
+        // Begin loading the prefab without blocking. Unity will continue
+        // executing other startup logic while this request processes.
+        ResourceRequest request = Resources.LoadAsync<GameObject>(resourcePath);
+
+        // Yield control until the asynchronous request completes. This ensures
+        // the prefab is fully loaded before instantiation proceeds.
+        yield return request;
+
+        // Extract the loaded asset. Casting directly would throw if the load
+        // failed, so we perform a safe cast and validate the result.
+        GameObject prefab = request.asset as GameObject;
+        if (prefab != null)
+        {
+            // Create the mobile canvas and persist it across scene loads so the
+            // touch controls remain available during transitions.
+            mobileCanvas = Instantiate(prefab);
+            DontDestroyOnLoad(mobileCanvas);
+        }
+        else
+        {
+            // Verbose logging alerts developers to missing assets while release
+            // builds remain silent.
+            LoggingHelper.LogWarning($"{resourcePath} prefab not found in Resources");
         }
     }
 

@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Access Gamepad.current for rumble
+#endif
 
 /// <summary>
 /// Grants a temporary slow motion effect when collected. Time scale is
@@ -35,7 +38,12 @@ public class SlowMotionPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+#if ENABLE_INPUT_SYSTEM
+            // Pulse the controller of the current player to highlight activation.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Specify gamepad for rumble
+#endif
 
 /// <summary>
 /// Grants the player a temporary coin magnet effect when collected.
@@ -38,7 +41,12 @@ public class MagnetPowerUp : MonoBehaviour
                 AudioManager.Instance.PlaySound(collectClip);
             }
             // Light rumble to acknowledge the pickup.
+#if ENABLE_INPUT_SYSTEM
+            // Signal activation through the player's current controller.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Enable routing rumble to active gamepad
+#endif
 
 /// <summary>
 /// Grants the player an additional air jump for a limited time when collected.
@@ -47,7 +50,12 @@ public class DoubleJumpPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+#if ENABLE_INPUT_SYSTEM
+            // Rumble the player's current controller to acknowledge the pickup.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
 
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)

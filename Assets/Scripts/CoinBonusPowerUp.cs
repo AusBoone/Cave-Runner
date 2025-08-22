@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Allows specifying which gamepad to rumble
+#endif
 
 /// <summary>
 /// Grants a temporary multiplier to all coin pickups when collected. The
@@ -42,7 +45,12 @@ public class CoinBonusPowerUp : MonoBehaviour
         {
             AudioManager.Instance.PlaySound(collectClip);
         }
+#if ENABLE_INPUT_SYSTEM
+        // Provide immediate tactile feedback on the active controller.
+        InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
         InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
         // Return to pool if pooled, otherwise destroy.
         PooledObject po = GetComponent<PooledObject>();
         if (po != null && po.Pool != null)

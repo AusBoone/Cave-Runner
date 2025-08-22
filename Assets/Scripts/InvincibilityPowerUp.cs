@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Allow targeting the player's gamepad
+#endif
 
 /// <summary>
 /// Provides temporary invulnerability identical to <see cref="PlayerShield"/> but
@@ -46,7 +49,12 @@ public class InvincibilityPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+#if ENABLE_INPUT_SYSTEM
+            // Vibrate the active gamepad to reinforce invulnerability pickup.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
 
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)

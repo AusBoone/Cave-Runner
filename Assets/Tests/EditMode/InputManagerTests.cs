@@ -369,6 +369,42 @@ public class InputManagerTests
     }
 
     /// <summary>
+    /// Supplying a specific <see cref="Gamepad"/> to
+    /// <see cref="InputManager.TriggerRumble"/> should vibrate only that device,
+    /// leaving others untouched. This ensures multiplayer setups can direct
+    /// haptics to the appropriate player.
+    /// </summary>
+    [Test]
+    public void TriggerRumble_TargetsSpecifiedGamepad()
+    {
+        // Create two controllers to mimic multiple players.
+        var padOne = InputSystem.AddDevice<Gamepad>();
+        var padTwo = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Request rumble on the second pad only.
+        InputManager.TriggerRumble(0.1f, 0.01f, padTwo);
+
+        // First pad should remain idle because it was not targeted.
+        float low, high;
+        padOne.GetMotorSpeeds(out low, out high);
+        Assert.AreEqual(0f, low, 0.0001f,
+            "Pad one should not rumble when another pad is specified");
+
+        // Second pad should receive the vibration request.
+        padTwo.GetMotorSpeeds(out low, out high);
+        Assert.Greater(low, 0f,
+            "Pad two should rumble when passed to TriggerRumble");
+
+        // Clean up devices and reset InputManager for later tests.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(padOne);
+        InputSystem.RemoveDevice(padTwo);
+    }
+
+    /// <summary>
     /// The rumble host should be created only when rumble is actually requested,
     /// keeping the scene free of hidden objects in projects that never vibrate.
     /// </summary>

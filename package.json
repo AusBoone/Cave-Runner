@@ -1,8 +1,0 @@
-{
-  "name": "cave-runner",
-  "version": "1.0.0",
-  "description": "Unity game project",
-  "scripts": {
-    "test": "echo 'No tests specified'"
-  }
-}

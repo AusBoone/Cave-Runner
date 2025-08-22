@@ -13,6 +13,15 @@ Key files include:
 - **Whitepaper.md** – in-depth design paper analyzing the event-driven
   architecture, spawn algorithms, and proposed areas of future research.
 
+## Tooling
+
+This Unity project intentionally avoids Node.js and related npm tooling. The
+previous placeholder `package.json` has been removed so contributors can focus
+solely on the Unity editor and command-line interface.
+
+For contribution guidelines and testing instructions, see
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Getting Started
 1. Install **Unity 2022.3 LTS** or newer using Unity Hub.
 2. Clone this repository and open it with Unity.

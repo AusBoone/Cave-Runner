@@ -523,4 +523,49 @@ public class SaveGameManagerTests
 
         FlushAndDestroy(mgr2);
     }
+
+    /// <summary>
+    /// Modifying the payload without updating the stored checksum should be
+    /// detected and result in a reset to default values rather than loading the
+    /// tampered data.
+    /// </summary>
+    [Test]
+    public void LoadData_TamperedPayload_ResetsToDefaults()
+    {
+        var save = CreateManager<SaveGameManager>("save");
+        save.Coins = 5;
+        FlushAndDestroy(save);
+
+        // Alter the on-disk JSON so the coins value no longer matches the
+        // checksum. The manager should detect this during load and start fresh.
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        string json = File.ReadAllText(path);
+        File.WriteAllText(path, json.Replace("\"coins\":5", "\"coins\":999"));
+
+        var mgr = CreateManager<SaveGameManager>("check");
+        Assert.AreEqual(0, mgr.Coins, "Tampered file should trigger reset");
+        FlushAndDestroy(mgr);
+    }
+
+    /// <summary>
+    /// If the checksum itself is modified the mismatch should also be detected
+    /// and trigger a reset to defaults, protecting against manual tampering.
+    /// </summary>
+    [Test]
+    public void LoadData_TamperedChecksum_ResetsToDefaults()
+    {
+        var save = CreateManager<SaveGameManager>("save");
+        save.Coins = 7;
+        FlushAndDestroy(save);
+
+        string path = Path.Combine(Application.persistentDataPath, "savegame.json");
+        string json = File.ReadAllText(path);
+        // Replace the checksum with an invalid value while keeping payload intact.
+        json = Regex.Replace(json, "\"checksum\":\"[^\"]+\"", "\"checksum\":\"deadbeef\"");
+        File.WriteAllText(path, json);
+
+        var mgr = CreateManager<SaveGameManager>("check");
+        Assert.AreEqual(0, mgr.Coins, "Checksum mismatch should reset save");
+        FlushAndDestroy(mgr);
+    }
 }

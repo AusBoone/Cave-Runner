@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Needed for specifying target gamepad
+#endif
 
 /// <summary>
 /// Grants the player a temporary speed multiplier when collected.
@@ -39,7 +42,12 @@ public class SpeedBoostPowerUp : MonoBehaviour
                 AudioManager.Instance.PlaySound(collectClip);
             }
             // Provide subtle feedback on collection.
+#if ENABLE_INPUT_SYSTEM
+            // Notify the player via their current controller about the speed boost.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

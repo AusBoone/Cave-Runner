@@ -6,8 +6,13 @@
 // reference errors when the script is placed on new prefabs.
 // 2029 refactor: Physics forces and velocity changes now occur within
 // FixedUpdate using Time.fixedDeltaTime for frame-rate-independent behaviour.
+// 2040 update: Rumble requests now specify the active gamepad so haptic
+// feedback targets the correct controller in multi-device setups.
 
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Access Gamepad.current for rumble targeting
+#endif
 
 /// <summary>
 /// Handles all player movement including jumping, variable jump height, sliding
@@ -352,8 +357,14 @@ public class PlayerController : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(jumpClip);
             }
-            // Provide haptic feedback so jumps feel responsive.
+            // Provide haptic feedback so jumps feel responsive. When the new
+            // Input System is active we explicitly route rumble to the current
+            // gamepad; otherwise the legacy stub ignores this call.
+#if ENABLE_INPUT_SYSTEM
+            InputManager.TriggerRumble(0.5f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.5f, 0.1f);
+#endif
             if (!isGrounded && jumpsRemaining > 0)
             {
                 jumpsRemaining--;
@@ -464,8 +475,13 @@ public class PlayerController : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(hitClip);
             }
-            // Strong rumble feedback on taking damage.
+            // Strong rumble feedback on taking damage. Target the active
+            // controller when using the new Input System.
+#if ENABLE_INPUT_SYSTEM
+            InputManager.TriggerRumble(1f, 0.3f, Gamepad.current);
+#else
             InputManager.TriggerRumble(1f, 0.3f);
+#endif
             if (GameManager.Instance != null && !GameManager.Instance.IsGameOver())
             {
                 GameManager.Instance.GameOver();

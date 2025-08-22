@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Needed for specifying the target gamepad
+#endif
 
 /// <summary>
 /// Temporarily flips global gravity when collected.
@@ -28,7 +31,12 @@ public class GravityFlipPowerUp : MonoBehaviour
             {
                 AudioManager.Instance.PlaySound(collectClip);
             }
+#if ENABLE_INPUT_SYSTEM
+            // Route rumble to the active controller for tactile feedback.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

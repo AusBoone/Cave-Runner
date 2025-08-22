@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem; // Needed to pass the active gamepad
+#endif
 
 /// <summary>
 /// Grants the player temporary invulnerability when collected.
@@ -36,7 +39,12 @@ public class ShieldPowerUp : MonoBehaviour
                 AudioManager.Instance.PlaySound(collectClip);
             }
             // Brief vibration feedback on pickup.
+#if ENABLE_INPUT_SYSTEM
+            // Rumble only the current player's controller to confirm shielding.
+            InputManager.TriggerRumble(0.3f, 0.1f, Gamepad.current);
+#else
             InputManager.TriggerRumble(0.3f, 0.1f);
+#endif
             PooledObject po = GetComponent<PooledObject>();
             if (po != null && po.Pool != null)
             {

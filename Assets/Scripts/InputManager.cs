@@ -40,6 +40,9 @@ using TMPro; // TextMeshPro used for binding label updates
 /// 2036 update: rebinding UI labels now use <see cref="TMP_Text"/> to provide
 /// crisp, resolution-independent text and remove the dependency on legacy
 /// <c>UnityEngine.UI.Text</c> components.
+/// 2040 update: <c>TriggerRumble</c> accepts an optional
+/// <see cref="Gamepad"/> parameter so vibration can target specific devices,
+/// improving support for multi-controller setups.
 /// </summary>
 public static class InputManager
 {
@@ -775,24 +778,32 @@ public static class InputManager
 
 #if ENABLE_INPUT_SYSTEM
     /// <summary>
-    /// Triggers controller rumble using the current gamepad. The effect stops
-    /// automatically after the supplied duration.
+    /// Triggers controller rumble on a specific gamepad. When no device is
+    /// supplied the system falls back to <see cref="Gamepad.current"/>. The
+    /// vibration automatically stops after the supplied duration.
     /// </summary>
     /// <param name="strength">Strength from 0 to 1 for the vibration motors.</param>
     /// <param name="duration">Time in seconds the motors should run.</param>
-    public static void TriggerRumble(float strength, float duration)
+    /// <param name="pad">Optional target controller. <c>null</c> routes the
+    ///     rumble to <see cref="Gamepad.current"/>.</param>
+    public static void TriggerRumble(float strength, float duration, Gamepad pad = null)
     {
         // Respect the player's preference: skip rumble entirely when disabled.
         if (!RumbleEnabled)
             return;
 
+        // Resolve the target controller. When the caller passes null we default
+        // to the system's currently active gamepad so callers can rely on the
+        // original behaviour.
+        pad ??= Gamepad.current;
+
         // Lazily create the coroutine host so hidden GameObjects are only
         // spawned if vibration is actually requested.
-        EnsureRumbleHost();
+        EnsureRumbleHost(pad);
 
         // Abort if no compatible gamepad is connected or the host could not be
         // created (for example, in headless test environments).
-        if (Gamepad.current == null || rumbleHost == null)
+        if (pad == null || rumbleHost == null)
             return;
 
         // Clamp parameters to safe ranges to avoid unexpected behaviour from
@@ -814,7 +825,7 @@ public static class InputManager
 
         // Begin the rumble coroutine which automatically resets after the
         // specified realtime duration.
-        rumbleRoutine = rumbleHost.StartCoroutine(RumbleRoutine(strength, duration));
+        rumbleRoutine = rumbleHost.StartCoroutine(RumbleRoutine(pad, strength, duration));
     }
 
     /// <summary>
@@ -822,11 +833,13 @@ public static class InputManager
     /// coroutines. The host is created on demand when a gamepad is connected,
     /// preventing unused hidden objects in scenes that never request rumble.
     /// </summary>
+    /// <param name="pad">Controller that will receive rumble. A host is only
+    /// created when this parameter is non-null.</param>
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void EnsureRumbleHost()
+    private static void EnsureRumbleHost(Gamepad pad)
     {
-        // Skip if a host already exists or no controller is available.
-        if (rumbleHost != null || Gamepad.current == null)
+        // Skip if a host already exists or the supplied controller is missing.
+        if (rumbleHost != null || pad == null)
             return;
 
         // Reuse a surviving host from a previous play session when possible so
@@ -847,13 +860,14 @@ public static class InputManager
         rumbleHost = hostObj.AddComponent<RumbleHost>();
     }
 
-    // Coroutine that applies rumble then resets the motor speeds.
-    private static IEnumerator RumbleRoutine(float strength, float duration)
+    // Coroutine that applies rumble then resets the motor speeds on the
+    // specified controller.
+    private static IEnumerator RumbleRoutine(Gamepad pad, float strength, float duration)
     {
-        Gamepad.current.SetMotorSpeeds(strength, strength);
+        pad.SetMotorSpeeds(strength, strength);
         // Wait in realtime so pausing the game doesn't prolong vibration.
         yield return new WaitForSecondsRealtime(duration);
-        Gamepad.current.SetMotorSpeeds(0f, 0f);
+        pad.SetMotorSpeeds(0f, 0f);
         // Mark the routine as finished so another rumble can start.
         rumbleRoutine = null;
     }

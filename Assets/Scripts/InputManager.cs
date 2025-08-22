@@ -43,6 +43,10 @@ using TMPro; // TextMeshPro used for binding label updates
 /// 2040 update: <c>TriggerRumble</c> accepts an optional
 /// <see cref="Gamepad"/> parameter so vibration can target specific devices,
 /// improving support for multi-controller setups.
+/// 2042 fix: <c>LoadKey</c> now logs a warning through
+/// <see cref="LoggingHelper"/> when a saved key cannot be parsed, ensuring
+/// corrupted preferences visibly fall back to safe defaults instead of failing
+/// silently.
 /// </summary>
 public static class InputManager
 {
@@ -320,16 +324,41 @@ public static class InputManager
 #endif
 
     /// <summary>
-    /// Loads a key binding from PlayerPrefs and falls back to the provided
-    /// default when the stored value cannot be parsed.
+    /// Retrieves a key binding from <see cref="PlayerPrefs"/> and returns the
+    /// provided <paramref name="defaultKey"/> when the stored value is missing
+    /// or invalid.
     /// </summary>
+    /// <param name="pref">Preference key used to locate the saved binding.</param>
+    /// <param name="defaultKey">Fallback key to use when parsing fails.</param>
+    /// <returns>
+    /// The parsed <see cref="KeyCode"/> if the preference contains a valid
+    /// value; otherwise the supplied <paramref name="defaultKey"/>.
+    /// </returns>
+    /// <remarks>
+    /// If parsing fails, the method logs a warning via
+    /// <see cref="LoggingHelper.LogWarning"/> to aid in diagnosing corrupted or
+    /// tampered preference data.
+    /// </remarks>
     private static KeyCode LoadKey(string pref, KeyCode defaultKey)
     {
+        // Obtain the saved string, defaulting to the provided key when no entry
+        // exists. Using ToString here ensures consistency with how bindings are
+        // saved by Set*Key helpers elsewhere in this class.
         string saved = PlayerPrefs.GetString(pref, defaultKey.ToString());
+
+        // Attempt to convert the persisted string back into a KeyCode enum. The
+        // Enum.TryParse call returns false when the data is corrupt or has been
+        // manually edited to an unsupported value.
         if (System.Enum.TryParse(saved, out KeyCode key))
         {
-            return key;
+            return key; // Successfully parsed; use the stored binding.
         }
+
+        // Emit a warning so developers can spot the invalid preference during
+        // testing. The message includes the preference key and invalid value for
+        // easier debugging. The default key is returned to keep input usable.
+        LoggingHelper.LogWarning(
+            $"Invalid KeyCode '{saved}' for preference '{pref}'. Reverting to default '{defaultKey}'.");
         return defaultKey;
     }
 

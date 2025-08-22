@@ -4,6 +4,8 @@ using System;
 using System.Collections;
 using TMPro; // TextMeshPro provides TMP_Text for UI labels
 
+// For a high-level overview of how GameManager collaborates with other systems, see docs/ArchitectureOverview.md.
+
 /// <summary>
 /// Central controller for the endless runner. Tracks the player's
 /// progress, handles pausing and game over logic and communicates with

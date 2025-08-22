@@ -13,6 +13,7 @@ Key files include:
 - **AdaptiveDifficulty.md** – overview of the adaptive difficulty system.
 - **Whitepaper.md** – in-depth design paper analyzing the event-driven
   architecture, spawn algorithms, and proposed areas of future research.
+- **ArchitectureOverview.md** – summary of major systems and their relationships.
 
 ## Tooling
 

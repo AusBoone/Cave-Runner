@@ -196,6 +196,30 @@ public class LeaderboardClientTests
     }
 
     /// <summary>
+    /// UploadScore should surface a NetworkError when no valid HTTPS URL is
+    /// configured. This ensures misconfiguration is treated the same as other
+    /// connectivity issues so callers can present a consistent message.
+    /// </summary>
+    [Test]
+    public void UploadScore_InvalidUrlReportsNetworkError()
+    {
+        var go = new GameObject("lbInvalidUrl");
+        var client = go.AddComponent<LeaderboardClient>(); // Uses default empty serviceUrl
+
+        bool success = true;
+        LeaderboardClient.ErrorCode err = LeaderboardClient.ErrorCode.None;
+
+        var routine = client.UploadScore(10, (ok, code) => { success = ok; err = code; });
+        while (routine.MoveNext()) { }
+
+        Assert.IsFalse(success, "Upload should fail when serviceUrl is invalid");
+        Assert.AreEqual(LeaderboardClient.ErrorCode.NetworkError, err,
+            "Invalid URL should report a NetworkError");
+
+        Object.DestroyImmediate(go);
+    }
+
+    /// <summary>
     /// Upload operations should retry on failure and apply the configured
     /// timeout to each attempt.
     /// </summary>

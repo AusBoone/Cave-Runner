@@ -434,5 +434,41 @@ public class InputManagerTests
 
         InputSystem.RemoveDevice(pad);
     }
+
+    /// <summary>
+    /// When a gamepad is present at scene load time the attributed
+    /// <see cref="InputManager"/> initializer should automatically spawn the
+    /// rumble host so vibration is available without an explicit rumble request.
+    /// This test invokes the initializer via reflection to mimic Unity's
+    /// runtime behaviour and confirms the host object exists afterward.
+    /// </summary>
+    [Test]
+    public void RumbleHostCreated_AfterSceneLoad()
+    {
+        // Start from a clean slate: remove any lingering host and reset the
+        // InputManager state so the initializer runs as it would in a new
+        // session.
+        var existingHost = GameObject.Find("InputManagerRumbleHost");
+        if (existingHost != null)
+            Object.DestroyImmediate(existingHost);
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+
+        // Provide a controller so the initialization routine has a device to
+        // attach the host to.
+        var pad = InputSystem.AddDevice<Gamepad>();
+
+        // InitRumbleHost is private and normally invoked by Unity after scene
+        // load. Reflection allows the test to simulate that callback.
+        var method = typeof(InputManager).GetMethod(
+            "InitRumbleHost", BindingFlags.NonPublic | BindingFlags.Static);
+        method.Invoke(null, null);
+
+        Assert.IsNotNull(GameObject.Find("InputManagerRumbleHost"),
+            "Rumble host should exist after InitRumbleHost is invoked");
+
+        InputSystem.RemoveDevice(pad);
+    }
 }
 #endif

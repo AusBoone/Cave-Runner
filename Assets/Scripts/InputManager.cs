@@ -49,6 +49,10 @@ using TMPro; // TextMeshPro used for binding label updates
 /// <see cref="LoggingHelper"/> when a saved key cannot be parsed, ensuring
 /// corrupted preferences visibly fall back to safe defaults instead of failing
 /// silently.
+/// 2045 fix: rumble host initialization split into a parameterless
+/// <c>InitRumbleHost</c> wrapper so the runtime initialization attribute can be
+/// used while still allowing callers to specify a <see cref="Gamepad"/>
+/// explicitly.
 /// </summary>
 public static class InputManager
 {
@@ -829,7 +833,8 @@ public static class InputManager
         pad ??= Gamepad.current;
 
         // Lazily create the coroutine host so hidden GameObjects are only
-        // spawned if vibration is actually requested.
+        // spawned if vibration is actually requested. InitRumbleHost performs
+        // the same step at scene load for the current controller.
         EnsureRumbleHost(pad);
 
         // Abort if no compatible gamepad is connected or the host could not be
@@ -860,13 +865,28 @@ public static class InputManager
     }
 
     /// <summary>
+    /// Wrapper invoked automatically by Unity after each scene load. The
+    /// runtime initialization attribute requires a parameterless method, so this
+    /// helper simply forwards to <see cref="EnsureRumbleHost(Gamepad)"/> using
+    /// the currently active controller.
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void InitRumbleHost()
+    {
+        // Delegate to the core creation routine. If no controller is connected,
+        // the host is intentionally not created.
+        EnsureRumbleHost(Gamepad.current);
+    }
+
+    /// <summary>
     /// Ensures a persistent <see cref="RumbleHost"/> exists to run rumble
-    /// coroutines. The host is created on demand when a gamepad is connected,
-    /// preventing unused hidden objects in scenes that never request rumble.
+    /// coroutines. Called by <see cref="InitRumbleHost"/> after each scene load
+    /// and by <see cref="TriggerRumble"/> when rumble is requested. The host is
+    /// created on demand only when a gamepad is connected, preventing unused
+    /// hidden objects in scenes that never request rumble.
     /// </summary>
     /// <param name="pad">Controller that will receive rumble. A host is only
     /// created when this parameter is non-null.</param>
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void EnsureRumbleHost(Gamepad pad)
     {
         // Skip if a host already exists or the supplied controller is missing.

@@ -1,3 +1,11 @@
+// SteamManagerTests.cs
+// -----------------------------------------------------------------------------
+// Validates the behavior of SteamManager without requiring a live connection to
+// the Steam client. Leaderboard interactions, localization helpers, and startup
+// error handling are all exercised to ensure consistent behavior across builds.
+// Run via the Unity Test Runner in edit mode.
+// -----------------------------------------------------------------------------
+
 using NUnit.Framework;
 using UnityEngine;
 #if UNITY_STANDALONE
@@ -5,9 +13,9 @@ using Steamworks;
 #endif
 
 /// <summary>
-/// Tests for SteamManager verifying score submission and retrieval logic
-/// without relying on the real Steamworks API. Methods are overridden so
-/// calls can be inspected in isolation.
+/// Tests for SteamManager verifying score submission, leaderboard retrieval,
+/// achievement localization and initialization error logging. Methods are
+/// overridden where needed so interactions can be inspected in isolation.
 /// </summary>
 public class SteamManagerTests
 {
@@ -71,6 +79,24 @@ public class SteamManagerTests
         sm.DownloadTopScores(entries => called = true);
         Assert.IsTrue(sm.downloadRequested);
         Assert.IsTrue(called);
+        Object.DestroyImmediate(go);
+#else
+        Assert.Pass("Steamworks not available");
+#endif
+    }
+
+    /// <summary>
+    /// When the Steamworks native library is missing, the manager should route
+    /// the initialization failure through <see cref="LoggingHelper.LogError"/>.
+    /// </summary>
+    [Test]
+    public void Awake_LogsError_WhenSteamDllMissing()
+    {
+#if UNITY_STANDALONE
+        // Expect an error message about the missing DLL logged via LoggingHelper.
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("Steamworks DLL not found"));
+        var go = new GameObject("sm");
+        go.AddComponent<SteamManager>();
         Object.DestroyImmediate(go);
 #else
         Assert.Pass("Steamworks not available");

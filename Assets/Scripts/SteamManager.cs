@@ -1,3 +1,11 @@
+// SteamManager.cs
+// -----------------------------------------------------------------------------
+// Manages interactions with the Steamworks API including achievements, cloud
+// saves and leaderboard submissions. This revision funnels all Unity logging
+// through LoggingHelper to centralize output and simplify testing of failure
+// scenarios.
+// -----------------------------------------------------------------------------
+
 using UnityEngine;
 #if UNITY_STANDALONE
 using Steamworks;
@@ -69,7 +77,9 @@ public class SteamManager : MonoBehaviour
             }
             catch (System.DllNotFoundException e)
             {
-                Debug.LogError("Steamworks DLL not found: " + e);
+                // Route initialization failures through the centralized helper
+                // so test cases can assert on the emitted error message.
+                LoggingHelper.LogError("Steamworks DLL not found: " + e);
             }
             // Pre-load the leaderboard so score submissions succeed
             FindOrCreateLeaderboard(leaderboardId, null);

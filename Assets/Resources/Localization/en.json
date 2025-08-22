@@ -22,6 +22,11 @@
     {"key": "ach_daily_complete_desc", "value": "Complete a daily challenge."},
     {"key": "leaderboard_entry_format", "value": "{0}. {1} - {2}"},
     {"key": "leaderboard_local_player", "value": "Local"},
-    {"key": "achievement_unlocked", "value": " (Unlocked)"}
+    {"key": "achievement_unlocked", "value": " (Unlocked)"},
+    {"key": "leaderboard_error_network", "value": "Network unreachable."},
+    {"key": "leaderboard_error_http", "value": "Server returned an error."},
+    {"key": "leaderboard_error_certificate", "value": "Certificate validation failed."},
+    {"key": "leaderboard_error_timeout", "value": "Request timed out."},
+    {"key": "leaderboard_error_unknown", "value": "Failed to load leaderboard."}
   ]
 }

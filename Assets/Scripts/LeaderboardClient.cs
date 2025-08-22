@@ -13,7 +13,10 @@ using UnityEngine.Networking;
 // exponential backoff, and richer error reporting so callers can distinguish
 // between client and server failures. The latest update exposes explicit
 // success flags from upload and download operations so the UI can present
-// meaningful error messages when network communication fails.
+// meaningful error messages when network communication fails. In this revision
+// error handling has been expanded further with explicit error codes covering
+// network, HTTP, certificate and timeout issues so the UI can surface
+// localized explanations for each failure mode.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -84,6 +87,22 @@ public class LeaderboardClient : MonoBehaviour
     }
 
     /// <summary>
+    /// Enumerates specific error categories surfaced from HTTP requests. Using
+    /// explicit codes instead of booleans allows UI elements to present more
+    /// descriptive messages to the player and enables tests to verify that the
+    /// correct failure mode was detected.
+    /// </summary>
+    public enum ErrorCode
+    {
+        None = 0,
+        NetworkError,
+        HttpError,
+        CertificateError,
+        Timeout,
+        Unknown
+    }
+
+    /// <summary>
     /// Uploads <paramref name="score"/> associated with <see cref="playerName"/>.
     /// The request body is JSON of the form {"name":"Player","score":100}.
     /// A callback reports whether the upload ultimately succeeded so callers
@@ -91,7 +110,7 @@ public class LeaderboardClient : MonoBehaviour
     /// </summary>
     /// <param name="score">Score value to submit.</param>
     /// <param name="onComplete">Optional callback receiving a success flag.</param>
-    public IEnumerator UploadScore(int score, System.Action<bool> onComplete = null)
+    public IEnumerator UploadScore(int score, System.Action<bool, ErrorCode> onComplete = null)
     {
         // Ensure serviceUrl is configured and uses HTTPS before attempting
         // to communicate with the leaderboard. Failing to validate here would
@@ -113,6 +132,7 @@ public class LeaderboardClient : MonoBehaviour
         const int maxRetries = 3;
         int attempt = 0;
         bool success = false;
+        ErrorCode lastError = ErrorCode.None; // Tracks final error for UI reporting
         while (attempt < maxRetries && !success)
         {
             using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
@@ -123,7 +143,10 @@ public class LeaderboardClient : MonoBehaviour
                 req.SetRequestHeader("Content-Type", "application/json");
                 req.timeout = RequestTimeoutSeconds; // Seconds before the request automatically times out.
 
-                yield return SendWebRequest(req, (ok, _unused) => success = ok);
+                // Send the request and capture both the success flag and any
+                // associated error code so callers can surface a meaningful
+                // message to the player.
+                yield return SendWebRequest(req, (ok, _unused, code) => { success = ok; lastError = code; });
             }
 
             // Exponential backoff: 1s, 2s, 4s delays between attempts.
@@ -138,10 +161,14 @@ public class LeaderboardClient : MonoBehaviour
         if (!success)
         {
             Debug.LogWarning("Failed to upload score to leaderboard");
+            // Surface the specific error to the UI so a localized message can
+            // be displayed instead of silently failing.
+            UIManager.Instance?.ShowLeaderboardError(lastError);
         }
-        // Notify caller of the final outcome. This enables UI elements to
-        // display error messages or retry options.
-        onComplete?.Invoke(success);
+
+        // Notify caller of the final outcome along with the error code. This
+        // enables external UI to present retry prompts or other feedback.
+        onComplete?.Invoke(success, lastError);
 
         // Hide the network activity spinner now that the request has finished.
         UIManager.Instance?.HideNetworkSpinner();
@@ -155,10 +182,11 @@ public class LeaderboardClient : MonoBehaviour
     /// succeeded so callers can present error messages.
     /// </summary>
     /// <param name="callback">Invoked with the retrieved scores and a success flag.</param>
-    public virtual IEnumerator GetTopScores(System.Action<List<ScoreEntry>, bool> callback)
+    public virtual IEnumerator GetTopScores(System.Action<List<ScoreEntry>, bool, ErrorCode> callback)
     {
         List<ScoreEntry> result = null; // Final list of scores to return
         bool success = false;           // Tracks whether the remote request succeeded
+        ErrorCode error = ErrorCode.None; // Detailed error category surfaced to UI
 
         // Validate serviceUrl to enforce secure communication. If invalid,
         // immediately return the local high score without issuing any web
@@ -178,7 +206,8 @@ public class LeaderboardClient : MonoBehaviour
                 {
                     req.downloadHandler = new DownloadHandlerBuffer();
                     req.timeout = RequestTimeoutSeconds; // Seconds before the request automatically times out.
-                    yield return SendWebRequest(req, (ok, data) => { success = ok; text = data; });
+                    // Capture both success and any error code for the UI.
+                    yield return SendWebRequest(req, (ok, data, code) => { success = ok; text = data; error = code; });
                 }
 
                 if (!success && ++attempt < maxRetries)
@@ -207,39 +236,112 @@ public class LeaderboardClient : MonoBehaviour
             string name = LocalizationManager.Get("leaderboard_local_player");
             result = new List<ScoreEntry> { new ScoreEntry { name = name, score = local } };
             success = false;
+            if (error == ErrorCode.None)
+            {
+                // If no explicit error was recorded, categorize the fallback as
+                // a generic network issue so the UI can communicate that
+                // scores were not retrieved from the server.
+                error = ErrorCode.Unknown;
+            }
         }
 
         // Callback receives both the scores to display and whether they came
         // from the remote service (true) or a local fallback (false).
-        callback?.Invoke(result, success);
+        callback?.Invoke(result, success, error);
     }
 
     /// <summary>
     /// Issues the web request and invokes the callback with the outcome.
     /// Tests override this method to provide fake responses.
     /// </summary>
-    protected virtual IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string> callback)
+    protected virtual IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string, ErrorCode> callback)
     {
-        string text = null;
-        bool success = false;
+        string text = null;              // Response body when successful
+        bool success = false;            // True when the request completes without errors
+        ErrorCode code = ErrorCode.None; // Categorized error returned to the caller
+
         try
         {
             yield return req.SendWebRequest();
-            if (req.result == UnityWebRequest.Result.Success)
+
+#if UNITY_2020_2_OR_NEWER
+            // Modern Unity versions expose a consolidated result enum so we
+            // inspect it first. Older versions fall back to the legacy
+            // isNetworkError/isHttpError properties handled below.
+            switch (req.result)
+            {
+                case UnityWebRequest.Result.Success:
+                    text = req.downloadHandler.text;
+                    success = true;
+                    break;
+                case UnityWebRequest.Result.ConnectionError:
+                    // Distinguish timeouts and certificate problems where possible.
+                    if (req.error != null && req.error.ToLower().Contains("timed out"))
+                    {
+                        code = ErrorCode.Timeout;
+                    }
+                    else if (req.error != null && req.error.ToLower().Contains("certificate"))
+                    {
+                        code = ErrorCode.CertificateError;
+                    }
+                    else
+                    {
+                        code = ErrorCode.NetworkError;
+                    }
+                    break;
+                case UnityWebRequest.Result.ProtocolError:
+                    code = ErrorCode.HttpError;
+                    break;
+                default:
+                    code = ErrorCode.Unknown;
+                    break;
+            }
+#else
+            if (req.isNetworkError)
+            {
+                if (req.error != null && req.error.ToLower().Contains("timed out"))
+                {
+                    code = ErrorCode.Timeout;
+                }
+                else if (req.error != null && req.error.ToLower().Contains("certificate"))
+                {
+                    code = ErrorCode.CertificateError;
+                }
+                else
+                {
+                    code = ErrorCode.NetworkError;
+                }
+            }
+            else if (req.isHttpError)
+            {
+                code = ErrorCode.HttpError;
+            }
+            else
             {
                 text = req.downloadHandler.text;
                 success = true;
             }
-            else
+#endif
+
+            // Provide additional log context for HTTP failures so developers can
+            // differentiate client versus server-side issues during debugging.
+            if (!success)
             {
-                long code = req.responseCode;
-                if (code >= 400 && code < 500)
+                long status = req.responseCode;
+                if (code == ErrorCode.HttpError)
                 {
-                    Debug.LogWarning($"Client error {code} during leaderboard request: {req.error}");
-                }
-                else if (code >= 500)
-                {
-                    Debug.LogWarning($"Server error {code} during leaderboard request: {req.error}");
+                    if (status >= 400 && status < 500)
+                    {
+                        Debug.LogWarning($"Client error {status} during leaderboard request: {req.error}");
+                    }
+                    else if (status >= 500)
+                    {
+                        Debug.LogWarning($"Server error {status} during leaderboard request: {req.error}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("Leaderboard request failed: " + req.error);
+                    }
                 }
                 else
                 {
@@ -249,9 +351,11 @@ public class LeaderboardClient : MonoBehaviour
         }
         catch (System.Exception ex)
         {
+            code = ErrorCode.NetworkError;
             Debug.LogWarning("Leaderboard request failed: " + ex.Message);
         }
-        callback?.Invoke(success, text);
+
+        callback?.Invoke(success, text, code);
     }
 
     // Converts a raw JSON array into a list of score entries.

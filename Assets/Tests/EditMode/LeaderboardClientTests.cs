@@ -20,10 +20,11 @@ public class LeaderboardClientTests
         public bool succeed;
         public string payload;
 
-        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string> cb)
+        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string, LeaderboardClient.ErrorCode> cb)
         {
             sentRequest = req;
-            cb?.Invoke(succeed, payload);
+            var code = succeed ? LeaderboardClient.ErrorCode.None : LeaderboardClient.ErrorCode.NetworkError;
+            cb?.Invoke(succeed, payload, code);
             yield break;
         }
     }
@@ -34,7 +35,7 @@ public class LeaderboardClientTests
     /// </summary>
     private class PublicClient : LeaderboardClient
     {
-        public IEnumerator InvokeSend(UnityWebRequest req, System.Action<bool, string> cb)
+        public IEnumerator InvokeSend(UnityWebRequest req, System.Action<bool, string, LeaderboardClient.ErrorCode> cb)
         {
             return SendWebRequest(req, cb);
         }
@@ -50,12 +51,13 @@ public class LeaderboardClientTests
         public int succeedOn = int.MaxValue; // Attempt index (1-based) when request should succeed
         public int lastTimeout;
 
-        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string> cb)
+        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string, LeaderboardClient.ErrorCode> cb)
         {
             calls++;
             lastTimeout = req.timeout;
             bool ok = calls == succeedOn;
-            cb?.Invoke(ok, null);
+            var code = ok ? LeaderboardClient.ErrorCode.None : LeaderboardClient.ErrorCode.NetworkError;
+            cb?.Invoke(ok, null, code);
             yield break;
         }
     }
@@ -66,10 +68,10 @@ public class LeaderboardClientTests
     /// </summary>
     private class SpinnerClient : LeaderboardClient
     {
-        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string> cb)
+        protected override IEnumerator SendWebRequest(UnityWebRequest req, System.Action<bool, string, LeaderboardClient.ErrorCode> cb)
         {
             yield return null; // simulate an async web call
-            cb?.Invoke(true, "[]");
+            cb?.Invoke(true, "[]", LeaderboardClient.ErrorCode.None);
         }
     }
 
@@ -104,7 +106,7 @@ public class LeaderboardClientTests
 
         List<LeaderboardClient.ScoreEntry> result = null;
         bool success = true;
-        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
+        var routine = client.GetTopScores((list, ok, _err) => { result = list; success = ok; });
         while (routine.MoveNext()) { }
 
         Assert.IsNotNull(result);
@@ -135,7 +137,7 @@ public class LeaderboardClientTests
         LocalizationManager.SetLanguage("es");
         List<LeaderboardClient.ScoreEntry> result = null;
         bool success = true;
-        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
+        var routine = client.GetTopScores((list, ok, _err) => { result = list; success = ok; });
         while (routine.MoveNext()) { }
 
         Assert.AreEqual("Local ES", result[0].name);
@@ -159,7 +161,7 @@ public class LeaderboardClientTests
 
         List<LeaderboardClient.ScoreEntry> result = null;
         bool success = false;
-        var routine = client.GetTopScores((list, ok) => { result = list; success = ok; });
+        var routine = client.GetTopScores((list, ok, _err) => { result = list; success = ok; });
         while (routine.MoveNext()) { }
 
         Assert.IsTrue(success, "Callback should report success when request completes");
@@ -206,7 +208,7 @@ public class LeaderboardClientTests
         client.succeedOn = 2; // Fail first attempt, succeed on second
         bool result = false;
 
-        var routine = client.UploadScore(10, ok => result = ok);
+        var routine = client.UploadScore(10, (ok, _err) => result = ok);
         while (routine.MoveNext()) { }
 
         Assert.AreEqual(2, client.calls, "Upload should retry once before succeeding");
@@ -230,14 +232,14 @@ public class LeaderboardClientTests
         // Simulate successful upload
         client.succeed = true;
         bool success = false;
-        var routine = client.UploadScore(1, ok => success = ok);
+        var routine = client.UploadScore(1, (ok, _err) => success = ok);
         while (routine.MoveNext()) { }
         Assert.IsTrue(success, "Callback should report success when request succeeds");
 
         // Simulate failure
         client.succeed = false;
         success = true;
-        routine = client.UploadScore(1, ok => success = ok);
+        routine = client.UploadScore(1, (ok, _err) => success = ok);
         while (routine.MoveNext()) { }
         Assert.IsFalse(success, "Callback should report failure when request fails");
 
@@ -301,7 +303,11 @@ public class LeaderboardClientTests
         // Expect a log message mentioning a client error (4xx)
         LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("Client error 404"));
 
-        var routine = client.InvokeSend(req, (ok, _text) => Assert.IsFalse(ok));
+        var routine = client.InvokeSend(req, (ok, _text, err) =>
+        {
+            Assert.IsFalse(ok);
+            Assert.AreEqual(LeaderboardClient.ErrorCode.HttpError, err);
+        });
         while (routine.MoveNext()) { }
 
         Object.DestroyImmediate(go);
@@ -325,7 +331,11 @@ public class LeaderboardClientTests
 
         LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("Server error 500"));
 
-        routine = client.InvokeSend(req, (ok, _text) => Assert.IsFalse(ok));
+        routine = client.InvokeSend(req, (ok, _text, err) =>
+        {
+            Assert.IsFalse(ok);
+            Assert.AreEqual(LeaderboardClient.ErrorCode.HttpError, err);
+        });
         while (routine.MoveNext()) { }
 
         Object.DestroyImmediate(go);

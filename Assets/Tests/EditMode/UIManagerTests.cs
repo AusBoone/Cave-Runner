@@ -28,11 +28,11 @@ public class UIManagerTests
         var text = textObj.AddComponent<TextMeshProUGUI>();
         ui.leaderboardText = text;
 
-        // Simulate a failed leaderboard retrieval.
-        ui.DisplayScores(null, false);
+        // Simulate a failed leaderboard retrieval due to a network issue.
+        ui.DisplayScores(null, false, LeaderboardClient.ErrorCode.NetworkError);
 
         // The text should now contain the human readable error string.
-        Assert.AreEqual("Failed to load leaderboard.", text.text);
+        Assert.AreEqual("Network unreachable.", text.text);
 
         Object.DestroyImmediate(textObj);
         Object.DestroyImmediate(uiObj);

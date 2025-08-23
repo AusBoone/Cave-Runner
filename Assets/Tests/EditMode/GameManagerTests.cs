@@ -24,6 +24,11 @@ using System.Text.RegularExpressions;
 /// 2050 update: introduces tests confirming that pausing the game freezes
 /// object movement by setting <c>Time.timeScale</c> to zero.
 /// </remarks>
+/// <remarks>
+/// 2056 update: adds a regression test ensuring <see cref="GameManager.StartGame"/>
+/// refuses to run when the player reference is missing, preventing unintended
+/// power-up spawns.
+/// </remarks>
 
 // EditMode tests can be run through Unity's Test Runner window.
 // Create this file under Assets/Tests/EditMode and open Window > General > Test Runner.
@@ -243,6 +248,60 @@ public class GameManagerTests
         Object.DestroyImmediate(go);
         Object.DestroyImmediate(shopObj);
         Object.DestroyImmediate(saveObj);
+    }
+
+    /// <summary>
+    /// Ensures <see cref="GameManager.StartGame"/> exits immediately when the
+    /// player reference is missing so the game remains idle and configured
+    /// starting power-ups do not spawn.
+    /// </summary>
+    [Test]
+    public void StartGame_NoPlayer_DoesNotRunOrSpawnPowerUps()
+    {
+        // Create required singletons and grant one starting power-up upgrade.
+        // If StartGame proceeded normally, this upgrade would trigger a spawn.
+        var saveObj = new GameObject("save");
+        saveObj.AddComponent<SaveGameManager>();
+        var shopObj = new GameObject("shop");
+        var shop = shopObj.AddComponent<ShopManager>();
+        shop.availableUpgrades = new[]
+        {
+            new ShopManager.UpgradeData
+            {
+                type = UpgradeType.StartingPowerUp,
+                cost = 1,
+                effect = 1f
+            }
+        };
+        typeof(ShopManager).GetMethod("LoadState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(shop, null);
+        var dictField = typeof(ShopManager).GetField("upgradeLevels", BindingFlags.NonPublic | BindingFlags.Instance);
+        var levels = (System.Collections.Generic.Dictionary<UpgradeType, int>)dictField.GetValue(shop);
+        levels[UpgradeType.StartingPowerUp] = 1;
+        dictField.SetValue(shop, levels);
+
+        // Configure the GameManager with a power-up prefab but intentionally omit the player assignment.
+        var gm = CreateGameManagerWithUI();
+        var go = gm.gameObject;
+        gm.startingPowerUps = new[] { new GameObject("PowerUp") };
+
+        // Expect an error about the missing player and ensure StartGame returns without running.
+        LogAssert.Expect(LogType.Error, new Regex("Player object reference not set"));
+        gm.StartGame();
+
+        // Check the private isRunning flag to confirm no run was initiated.
+        var runningField = typeof(GameManager).GetField("isRunning", BindingFlags.NonPublic | BindingFlags.Instance);
+        bool running = (bool)runningField.GetValue(gm);
+        Assert.IsFalse(running);
+
+        // Verify that the starting power-up prefab was not instantiated.
+        Assert.IsNull(GameObject.Find("PowerUp(Clone)"));
+
+        // Cleanup all temporary objects to keep later tests isolated.
+        Object.DestroyImmediate(gm.startingPowerUps[0]);
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(shopObj);
+        Object.DestroyImmediate(saveObj);
+        LogAssert.NoUnexpectedReceived();
     }
 
     /// <summary>

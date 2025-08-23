@@ -1,3 +1,13 @@
+<!--
+  DeveloperSetup.md
+  ------------------
+  Comprehensive instructions for setting up a local Cave Runner development
+  environment. This guide covers required packages, optional tooling, save
+  encryption variables, and platform-specific configuration steps. Maintainers
+  updated this file to document save file encryption keys so new contributors
+  can easily secure local builds.
+-->
+
 # Developer Setup
 
 A step-by-step guide for configuring the Cave-Runner Unity project for local development.
@@ -35,6 +45,30 @@ Consider installing the following to streamline development:
 2. Go to **Window > Asset Management > Addressables > Groups**.
 3. If prompted, create Addressables settings. Mark assets as addressable from the inspector and organize them into groups.
 4. Build the addressable content via **Build > New Build > Default Build Script** to generate runtime data.
+
+## Save Encryption
+The game encrypts serialized save data using AES when both of the following
+environment variables are present:
+
+- `CR_AES_KEY` – Base64 string representing **32 bytes** (256‑bit key).
+- `CR_AES_IV` – Base64 string representing **16 bytes** (initialization vector).
+
+Example commands generate random values and export them for the current shell:
+
+```bash
+export CR_AES_KEY="$(openssl rand -base64 32)"
+export CR_AES_IV="$(openssl rand -base64 16)"
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:CR_AES_KEY = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+$env:CR_AES_IV  = [Convert]::ToBase64String((1..16 | ForEach-Object { Get-Random -Maximum 256 }))
+```
+
+If either variable is missing or cannot be decoded, the game logs a warning and
+falls back to plaintext save files.
 
 ## Running Edit Mode Tests
 1. Open **Window > General > Test Runner**.

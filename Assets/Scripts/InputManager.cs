@@ -59,6 +59,9 @@ using TMPro; // TextMeshPro used for binding label updates
 /// starting and stopping vibration, exiting early if the pad becomes
 /// <c>null</c> to avoid null reference errors when a device disconnects mid
 /// rumble.
+/// 2049 docs: expanded rumble host documentation to clarify its lifecycle,
+/// covering creation, reuse across scenes and cleanup on application exit so
+/// integrators know when hidden helper objects are spawned and destroyed.
 /// </summary>
 public static class InputManager
 {
@@ -890,6 +893,14 @@ public static class InputManager
     /// and by <see cref="TriggerRumble"/> when rumble is requested. The host is
     /// created on demand only when a gamepad is connected, preventing unused
     /// hidden objects in scenes that never request rumble.
+    ///
+    /// The host's lifecycle is intentionally lightweight: if a previous
+    /// <see cref="RumbleHost"/> instance survives a domain reload it will be
+    /// reused, avoiding duplicated hidden objects. The component persists across
+    /// scene loads via <see cref="Object.DontDestroyOnLoad"/> and cleans itself
+    /// up when <c>Application.quitting</c> fires, destroying the underlying game
+    /// object and clearing the static reference so fresh hosts can be spawned in
+    /// subsequent sessions.
     /// </summary>
     /// <param name="pad">Controller that will receive rumble. A host is only
     /// created when this parameter is non-null.</param>
@@ -910,7 +921,8 @@ public static class InputManager
 
         // Otherwise create a new hidden object dedicated to running rumble
         // coroutines. HideAndDontSave ensures the object persists across scenes
-        // but remains invisible in the hierarchy.
+        // but remains invisible in the hierarchy until <c>Application.quitting</c>
+        // destroys it.
         var hostObj = new GameObject("InputManagerRumbleHost");
         hostObj.hideFlags = HideFlags.HideAndDontSave;
         Object.DontDestroyOnLoad(hostObj);

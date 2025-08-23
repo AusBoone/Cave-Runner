@@ -26,6 +26,9 @@ using System.Collections;
 /// 2035 addition: verifies rumble coroutines terminate cleanly when the
 /// controlling gamepad disconnects mid-execution, preventing lingering
 /// vibration or null reference errors.
+/// 2036 addition: confirms the hidden rumble host is reused between rumble
+/// requests and that it clears itself when the application quits, avoiding
+/// accumulation of orphaned helper objects across play sessions.
 /// </summary>
 public class InputManagerTests
 {
@@ -510,6 +513,86 @@ public class InputManagerTests
         Assert.IsNotNull(GameObject.Find("InputManagerRumbleHost"),
             "Rumble host should exist after InitRumbleHost is invoked");
 
+        InputSystem.RemoveDevice(pad);
+    }
+
+    /// <summary>
+    /// Repeated rumble requests should reuse the same hidden host rather than
+    /// spawning additional GameObjects, keeping the scene clean even if rumble is
+    /// triggered many times during play.
+    /// </summary>
+    [Test]
+    public void RumbleHost_ReusedBetweenRequests()
+    {
+        // Ensure no host lingers from previous tests so creation logic runs.
+        var existingHost = GameObject.Find("InputManagerRumbleHost");
+        if (existingHost != null)
+            Object.DestroyImmediate(existingHost);
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+
+        var pad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // First rumble spawns the host. Capture the reference via reflection so
+        // we can compare it after a second request.
+        InputManager.TriggerRumble(0.1f, 0.01f);
+        FieldInfo hostField = typeof(InputManager).GetField(
+            "rumbleHost", BindingFlags.NonPublic | BindingFlags.Static);
+        var firstHost = (Object)hostField.GetValue(null);
+
+        // A second rumble should not create a new host; the reference should be
+        // unchanged.
+        InputManager.TriggerRumble(0.1f, 0.01f);
+        var secondHost = (Object)hostField.GetValue(null);
+        Assert.AreSame(firstHost, secondHost, "Rumble host should be reused");
+
+        // Clean up so later tests start from a known state.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+        InputSystem.RemoveDevice(pad);
+    }
+
+    /// <summary>
+    /// When the application is quitting the <see cref="RumbleHost"/> should
+    /// destroy itself and clear the static reference so future rumble requests
+    /// can recreate a fresh host without referencing a destroyed component.
+    /// </summary>
+    [Test]
+    public void RumbleHostCleared_OnApplicationQuit()
+    {
+        // Start with a clean environment and spawn a host via a rumble request.
+        var lingering = GameObject.Find("InputManagerRumbleHost");
+        if (lingering != null)
+            Object.DestroyImmediate(lingering);
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
+
+        var pad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+        InputManager.TriggerRumble(0.1f, 0.01f);
+
+        // Obtain the host component and invoke its private OnApplicationQuit
+        // method to simulate the application closing.
+        FieldInfo hostField = typeof(InputManager).GetField(
+            "rumbleHost", BindingFlags.NonPublic | BindingFlags.Static);
+        var host = hostField.GetValue(null);
+        Assert.IsNotNull(host, "Host should exist before quitting");
+        var onQuit = host.GetType().GetMethod(
+            "OnApplicationQuit", BindingFlags.NonPublic | BindingFlags.Instance);
+        onQuit.Invoke(host, null);
+
+        // The invocation should clear the static reference so subsequent rumble
+        // requests know the host was destroyed.
+        Assert.IsNull(hostField.GetValue(null),
+            "Rumble host should clear its static reference on quit");
+
+        // Reset InputManager and remove the test device for later tests.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
         InputSystem.RemoveDevice(pad);
     }
 }

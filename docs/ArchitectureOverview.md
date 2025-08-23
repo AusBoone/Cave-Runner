@@ -1,3 +1,10 @@
+<!--
+  ArchitectureOverview.md
+  -----------------------
+  High-level description of the major systems composing Cave-Runner.
+  2025-02-14: expanded with sections covering achievements and leaderboard services.
+-->
+
 # Architecture Overview
 
 This document summarizes the major systems that power **Cave-Runner** and how they interact. Each manager encapsulates a specific responsibility so gameplay, persistence, and the user interface remain decoupled.
@@ -79,3 +86,74 @@ Player Controller
 5. When the player presses Start, `GameManager.StartGame` triggers the run and other managers react accordingly.
 
 This separation of concerns keeps the codebase modular and testable while making it clear where new features should integrate.
+
+## Steam Achievements
+
+Cave-Runner integrates with Steamworks.NET to grant achievements for notable
+milestones. Achievements are identified by string IDs defined in
+`GameManager` and mapped to localized names and descriptions in
+`SteamManager`.
+
+```csharp
+// GameManager.cs – unique identifiers for each achievement
+private const string AchDistance1000 = "ACH_DISTANCE_1000";
+private const string AchCoins200   = "ACH_COINS_200";
+```
+
+```csharp
+// SteamManager.cs – localization key mapping
+private static readonly Dictionary<string, string> achievementNameKeys = new()
+{
+    { "ACH_DISTANCE_1000", "ach_distance_1000_name" },
+    { "ACH_COINS_200",    "ach_coins_200_name" }
+};
+```
+
+To add a new achievement:
+
+1. Create the achievement in the Steamworks dashboard and record its ID.
+2. Add a constant for the ID in `GameManager`.
+3. Register the ID with appropriate localization keys in `SteamManager`'s
+   `achievementNameKeys` and `achievementDescKeys` dictionaries.
+4. Invoke `SteamManager.Instance.UnlockAchievement(id)` when gameplay logic
+   requires it.
+
+## Leaderboard Services
+
+### Invocation points
+
+End-of-run score uploads occur in `GameManager`. If Steam is unavailable, the
+fallback `LeaderboardClient` posts to a REST service. `UIManager` retrieves the
+current leaderboard for display.
+
+```csharp
+// GameManager.cs – upload final score
+if (LeaderboardClient.Instance != null)
+{
+    StartCoroutine(LeaderboardClient.Instance.UploadScore(finalScore));
+}
+
+// UIManager.cs – download and present scores
+StartCoroutine(leaderboardClient.GetTopScores(DisplayScores));
+```
+
+### Swapping or extending services
+
+`LeaderboardClient` centralizes REST calls and exposes a virtual
+`SendWebRequest` method. Subclass it to integrate alternate backends or
+network stacks.
+
+```csharp
+public class CustomLeaderboardClient : LeaderboardClient
+{
+    protected override IEnumerator SendWebRequest(UnityWebRequest req,
+        System.Action<bool, string, ErrorCode> cb)
+    {
+        // Replace this with calls to another service
+        yield return base.SendWebRequest(req, cb);
+    }
+}
+```
+
+Attach the subclass in place of the default component or implement an entirely
+new client exposing the same public API to swap out services.

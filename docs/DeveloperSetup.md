@@ -50,6 +50,56 @@ Consider installing the following to streamline development:
 2. Click **Add Open Scenes** and select your target platform.
 3. Press **Build** and choose an output directory. Unity exports the executable and required data files.
 
+## Mobile Platform Setup
+
+### Android Platform
+
+#### Prerequisites
+- Install **Android Build Support** (SDK, NDK, and OpenJDK) through Unity Hub when installing the Unity editor so all required toolchains are available.
+- Ensure **ADB** is on your system path if deploying directly to a device. Android Studio is optional but supplies emulators and extra debugging tools.
+- Test on hardware via USB with developer mode enabled or use Android Virtual Device images for emulator-based testing.
+
+#### Build Steps
+1. Open **File > Build Settings...**, choose **Android**, and click **Switch Platform**. Unity will reimport assets for the platform, which may take several minutes.
+2. Under **Player Settings > Other Settings**:
+   - Assign a unique **Package Name** such as `com.yourcompany.caverunner`.
+   - Choose **IL2CPP** as the scripting backend and **ARM64** as the target architecture for 64‑bit devices.
+3. In **Publishing Settings**, configure a **Keystore** to sign release packages; a debug keystore suffices for internal builds.
+4. Press **Build** or **Build and Run** to generate an `.apk` or `.aab` file.
+
+### iOS Platform
+
+#### Prerequisites
+- Use **macOS** with the latest **Xcode** installed to access Apple's build tools and simulators.
+- Add **iOS Build Support** via Unity Hub when installing Unity 2022.3 LTS.
+- An **Apple Developer** account is required for device provisioning; the free tier supports simulator builds only.
+
+#### Build Steps
+1. Open **File > Build Settings...**, select **iOS**, and click **Switch Platform** to create iOS-specific assets.
+2. Under **Player Settings > Other Settings**:
+   - Provide a unique **Bundle Identifier**.
+   - Set **Architecture** to **ARM64** and **Scripting Backend** to **IL2CPP**.
+3. Press **Build** to export an Xcode project and open it in Xcode.
+4. In Xcode, choose a team and provisioning profile, then build and deploy to device or submit to TestFlight.
+
+### Touch Input Configuration
+- The project uses Unity's **Input System**; touch is exposed via the `Touchscreen` device.
+- In your input actions, add bindings targeting `Primary Touch` or use a `Pointer` action map to support gestures.
+- For gameplay scripts, enable enhanced touch support with:
+  ```csharp
+  using UnityEngine.InputSystem.EnhancedTouch;
+  TouchSimulation.Enable();
+  EnhancedTouchSupport.Enable();
+  ```
+- In the scene, ensure an **Event System** with **Input System UI Input Module** is present for UI touch handling.
+
+### Mobile Troubleshooting
+- **Android build fails with SDK/NDK errors** – Reinstall Android Build Support via Unity Hub and verify paths under **Preferences > External Tools**.
+- **iOS project fails to compile** – Update Xcode and confirm your provisioning profile and signing certificate are valid.
+- **Touches not detected** – Confirm **Active Input Handling** is set to **Input System Package** and that `EnhancedTouchSupport` is enabled before reading touches.
+- **Device orientation or resolution incorrect** – Adjust **Player Settings > Resolution and Presentation** for the target device.
+- **Gradle build timeouts** – Use a stable network connection and increase the `Gradle Daemon` timeout via `gradle.properties` if needed.
+
 ## Steamworks Setup
 Follow these steps to enable Steam integration via the Steamworks.NET plugin:
 

@@ -547,11 +547,11 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
-    /// Destroying the manager should block briefly to flush pending saves so a
-    /// subsequent instance immediately observes the persisted data.
+    /// Destroying the manager should trigger an asynchronous flush and return
+    /// immediately, even when disk writes are slow.
     /// </summary>
     [Test]
-    public void OnDestroy_FlushesPendingSaves()
+    public void OnDestroy_DoesNotBlockOnSlowFlush()
     {
         var mgr = CreateManager<SlowSaveGameManager>("save");
         mgr.Coins = 5; // queue save
@@ -559,8 +559,11 @@ public class SaveGameManagerTests
         var timer = Stopwatch.StartNew();
         Object.DestroyImmediate(mgr.gameObject); // invokes OnDestroy synchronously
         timer.Stop();
-        Assert.GreaterOrEqual(timer.ElapsedMilliseconds, 190,
-            "OnDestroy should wait for the slow flush to finish");
+        Assert.Less(timer.ElapsedMilliseconds, 100,
+            "OnDestroy should return promptly without waiting for slow flush");
+
+        // Allow the asynchronous flush to complete before verifying the result.
+        Task.Delay(300).Wait();
 
         var mgr2 = CreateManager<SaveGameManager>("check");
         Assert.AreEqual(5, mgr2.Coins, "Data should persist after OnDestroy");

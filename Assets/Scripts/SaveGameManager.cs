@@ -36,8 +36,8 @@
 // 2034 update: Queue processing now reports failures when temporary save files
 // cannot be deleted, aiding diagnosis of cleanup issues that previously went
 // unnoticed.
-// 2035 update: OnDestroy now waits briefly for queued saves to flush so data
-// persists even when the manager is destroyed without the quit path.
+// 2035 update: OnDestroy began waiting briefly for queued saves to flush so data
+// persisted even when the manager was destroyed without the quit path.
 // 2036 update: Failed save attempts mark data dirty and are retried a limited
 // number of times so autosave can recover from transient IO errors.
 // 2037 update: Save files now carry a SHA-256 checksum and optional AES
@@ -52,6 +52,9 @@
 // 2048 compatibility: replaced Task.WaitAsync with a Task.WhenAny-based
 // timeout to support .NET Standard 2.1 while preserving asynchronous flush
 // semantics.
+// 2050 refactor: OnDestroy triggers an asynchronous flush and warns when the
+// shutdown timeout elapses, ensuring destruction never blocks the main
+// thread.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -962,23 +965,34 @@ public class SaveGameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Flushes pending save operations with a short timeout before
-    /// unsubscribing from global events and executing any remaining completion
-    /// callbacks. A synchronous wait ensures queued data reaches disk even if
-    /// the manager is destroyed without the application quitting.
+    /// Initiates an asynchronous flush of pending save operations before the
+    /// manager is destroyed. The flush runs in the background so destruction
+    /// returns immediately. A warning is logged if the flush fails to complete
+    /// within <see cref="ShutdownFlushTimeout"/>.
     /// </summary>
     void OnDestroy()
     {
-        // Block briefly to flush any queued saves. Using GetAwaiter().GetResult
-        // ensures that asynchronous file writes complete before the manager is
-        // destroyed, avoiding data loss when destruction occurs without a quit
-        // event.
-        FlushPendingSavesAsync(ShutdownFlushTimeout).GetAwaiter().GetResult();
+        // Begin the flush without awaiting so this method returns promptly and
+        // does not stall the Unity shutdown sequence.
+        var flushTask = FlushPendingSavesAsync(Timeout.InfiniteTimeSpan);
+
+        // Monitor the flush task on a background thread. If it fails to finish
+        // within the allotted timeout, surface a warning so potential data loss
+        // is visible to developers and testers.
+        _ = Task.Run(async () =>
+        {
+            Task completed = await Task.WhenAny(flushTask, Task.Delay(ShutdownFlushTimeout));
+            if (completed != flushTask)
+            {
+                LoggingHelper.LogWarning(
+                    $"SaveGameManager flush during OnDestroy exceeded {ShutdownFlushTimeout.TotalSeconds:F1}s; data may be lost.");
+            }
+        });
 
         // Remove event subscription to avoid callbacks to a destroyed instance.
         Application.quitting -= HandleApplicationQuitting;
 
-        // Execute remaining completion actions so any warnings are surfaced even
+        // Execute remaining completion actions so queued warnings surface even
         // if the manager is torn down without going through the quit path.
         while (completionActions.TryDequeue(out var action))
         {

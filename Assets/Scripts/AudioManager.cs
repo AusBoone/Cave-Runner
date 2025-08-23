@@ -18,6 +18,9 @@
  *     load asynchronously and their underlying handles are cached and released
  *     automatically, reducing memory usage in larger projects.
  *     Call <see cref="ClearClipCache"/> for an explicit cleanup.
+ * 2047 refactor:
+ *   - Replaced direct Debug logging with LoggingHelper so missing clip warnings
+ *     honour the project's global verbosity toggle.
 */
 #endregion
 using UnityEngine;
@@ -197,10 +200,10 @@ public class AudioManager : MonoBehaviour
         Addressables.Release(handle);
     }
 
-    /// <summary>
-    /// Plays a one-shot sound effect through the effects AudioSource.
-    /// </summary>
-    public void PlaySound(AudioClip clip, float pitch = 1f)
+/// <summary>
+/// Plays a one-shot sound effect through the effects AudioSource.
+/// </summary>
+public void PlaySound(AudioClip clip, float pitch = 1f)
     {
         if (clip != null && effectsSource != null)
         {
@@ -237,7 +240,7 @@ public class AudioManager : MonoBehaviour
             handle.WaitForCompletion();
             if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
             {
-                Debug.LogWarning($"Sound clip '{clipName}' failed to load");
+                LoggingHelper.LogWarning($"Sound clip '{clipName}' failed to load"); // Use helper so missing clips obey verbose gating.
                 return;
             }
 

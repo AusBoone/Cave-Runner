@@ -6,6 +6,8 @@ using UnityEngine;
 /// will move toward the player for the given duration.
 /// 2026 update: Awake now validates the collider buffer size to avoid
 /// zero-length arrays when the value is misconfigured in the inspector.
+/// 2047 refactor: direct Debug logging replaced with LoggingHelper to respect
+/// global verbose settings.
 /// </summary>
 public class CoinMagnet : MonoBehaviour
 {
@@ -43,7 +45,7 @@ public class CoinMagnet : MonoBehaviour
     {
         if (colliderBufferSize <= 0)
         {
-            Debug.LogWarning("colliderBufferSize must be positive. Defaulting to 1.", this);
+            LoggingHelper.LogWarning("colliderBufferSize must be positive. Defaulting to 1."); // Central helper respects verbose flag.
             colliderBufferSize = 1;
         }
         _colliderBuffer = new Collider2D[colliderBufferSize];

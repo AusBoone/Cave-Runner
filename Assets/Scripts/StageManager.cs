@@ -22,6 +22,8 @@
 // 2031 fix: ApplyStage now resets its coroutine reference immediately after
 // stopping a previous load to ensure callers can detect when no asynchronous
 // stage loading is in progress.
+// 2047 refactor: replaced direct Debug logging with LoggingHelper to unify log
+// gating across builds.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -420,9 +422,9 @@ public class StageManager : MonoBehaviour
                 // status enum so failures are visible during development and
                 // automated tests. This makes diagnosis of missing assets
                 // considerably easier.
-                Debug.LogError(handle.OperationException != null
-                    ? handle.OperationException
-                    : (object)handle.Status);
+                LoggingHelper.LogError(handle.OperationException != null
+                    ? handle.OperationException.ToString()
+                    : handle.Status.ToString()); // Use helper so errors always surface while supporting log gating.
             }
             progressCallback?.Invoke();
         }
@@ -464,9 +466,9 @@ public class StageManager : MonoBehaviour
         {
             // Surface the exception or status so developers notice missing or
             // misconfigured audio assets during testing and development.
-            Debug.LogError(handle.OperationException != null
-                ? handle.OperationException
-                : (object)handle.Status);
+            LoggingHelper.LogError(handle.OperationException != null
+                ? handle.OperationException.ToString()
+                : handle.Status.ToString()); // Route through helper for consistent error reporting.
             onLoaded?.Invoke(null);
         }
         progressCallback?.Invoke();
@@ -499,9 +501,9 @@ public class StageManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError(handle.OperationException != null
-                ? handle.OperationException
-                : (object)handle.Status);
+            LoggingHelper.LogError(handle.OperationException != null
+                ? handle.OperationException.ToString()
+                : handle.Status.ToString()); // Ensure all errors flow through LoggingHelper.
             setter?.Invoke(null);
         }
         progressCallback?.Invoke();

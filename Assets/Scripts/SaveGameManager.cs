@@ -47,6 +47,8 @@
 // 2038 update: AES key and IV are sourced from environment variables rather
 // than hard-coded constants. When unavailable, saves transparently fall back to
 // plaintext with a logged warning so progress is preserved.
+// 2047 refactor: replaced direct Debug logging with LoggingHelper to ensure
+// uniform log gating and thread-safe message routing.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -222,11 +224,11 @@ public class SaveGameManager : MonoBehaviour
                     return;
                 }
             }
-            Debug.LogWarning("AES key/IV not found or invalid; save encryption disabled.");
+            LoggingHelper.LogWarning("AES key/IV not found or invalid; save encryption disabled."); // Ensures warning obeys global verbosity.
         }
         catch (Exception ex)
         {
-            Debug.LogWarning("Failed to load AES key/IV; save encryption disabled. " + ex.Message);
+            LoggingHelper.LogWarning("Failed to load AES key/IV; save encryption disabled. " + ex.Message); // Use helper for consistent warning delivery.
         }
     }
 
@@ -658,7 +660,7 @@ public class SaveGameManager : MonoBehaviour
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("Failed to parse save file, starting fresh: " + ex.Message);
+                LoggingHelper.LogWarning("Failed to parse save file, starting fresh: " + ex.Message); // Parse errors routed through helper.
             }
             // Parsing failed or produced null; fall back to a clean slate.
             ResetToDefaultSave();
@@ -755,7 +757,7 @@ public class SaveGameManager : MonoBehaviour
                 // written in plaintext so progress is not lost. Developers can
                 // configure the required environment variables to enable
                 // encryption in their builds.
-                Debug.LogWarning("Save encryption requested but AES key/IV are unavailable; writing plaintext save.");
+                LoggingHelper.LogWarning("Save encryption requested but AES key/IV are unavailable; writing plaintext save."); // Warning respects verbosity settings.
             }
             wrapper.encrypted = false;
             wrapper.data = data; // store as object for human readability
@@ -823,7 +825,7 @@ public class SaveGameManager : MonoBehaviour
                 // <see cref="MaxSaveAttempts"/> times so transient IO issues
                 // have additional chances to succeed.
                 dataDirty = true;
-                completionActions.Enqueue(() => Debug.LogWarning($"Failed to write save file: {ex.Message}"));
+                completionActions.Enqueue(() => LoggingHelper.LogWarning($"Failed to write save file: {ex.Message}")); // Enqueued warning uses helper on main thread.
 
                 if (request.Attempts + 1 < MaxSaveAttempts)
                 {
@@ -845,7 +847,7 @@ public class SaveGameManager : MonoBehaviour
                     {
                         // Surface cleanup problems on the main thread so they
                         // are not silently ignored when running off-thread.
-                        completionActions.Enqueue(() => Debug.LogWarning($"Failed to delete temporary save file '{tempPath}': {ex.Message}"));
+                        completionActions.Enqueue(() => LoggingHelper.LogWarning($"Failed to delete temporary save file '{tempPath}': {ex.Message}")); // Logged via helper when cleanup fails.
                     }
                 }
             }
@@ -904,7 +906,7 @@ public class SaveGameManager : MonoBehaviour
             }
             catch (TimeoutException)
             {
-                Debug.LogWarning($"SaveGameManager flush timed out after {timeout.TotalSeconds:F1}s; data may be lost.");
+                LoggingHelper.LogWarning($"SaveGameManager flush timed out after {timeout.TotalSeconds:F1}s; data may be lost."); // Timeout surfaced through helper.
             }
         }
 
@@ -930,7 +932,7 @@ public class SaveGameManager : MonoBehaviour
     /// <summary>
     /// Executes any completion callbacks that were queued by background save
     /// operations. This method runs on the Unity main thread and therefore may
-    /// safely interact with Unity APIs such as <see cref="Debug.Log"/>.
+    /// safely interact with Unity APIs such as <see cref="LoggingHelper.Log"/>.
     /// </summary>
     void Update()
     {

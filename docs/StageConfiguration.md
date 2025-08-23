@@ -55,7 +55,7 @@ You can subscribe to `GameManager.OnStageUnlocked` from other scripts if additio
 ```csharp
 void Start()
 {
-    GameManager.Instance.OnStageUnlocked += index => Debug.Log($"Stage {index} unlocked");
+    GameManager.Instance.OnStageUnlocked += index => LoggingHelper.Log($"Stage {index} unlocked");
 }
 ```
 

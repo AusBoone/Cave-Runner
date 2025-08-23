@@ -49,6 +49,9 @@
 // plaintext with a logged warning so progress is preserved.
 // 2047 refactor: replaced direct Debug logging with LoggingHelper to ensure
 // uniform log gating and thread-safe message routing.
+// 2048 compatibility: replaced Task.WaitAsync with a Task.WhenAny-based
+// timeout to support .NET Standard 2.1 while preserving asynchronous flush
+// semantics.
 // -----------------------------------------------------------------------------
 
 using System;
@@ -902,11 +905,27 @@ public class SaveGameManager : MonoBehaviour
         {
             try
             {
-                await toWait.WaitAsync(timeout);
+                // Task.WaitAsync is unavailable on .NET Standard 2.1, so we
+                // replicate its timeout behaviour using Task.WhenAny. The
+                // delay task serves as the timeout; whichever completes first
+                // determines whether we succeeded or timed out.
+                Task completed = await Task.WhenAny(toWait, Task.Delay(timeout));
+
+                if (completed != toWait)
+                {
+                    // The save did not finish within the allotted time.
+                    throw new TimeoutException();
+                }
+
+                // If we reach this point the save task completed before the
+                // timeout. Await again to propagate any exceptions.
+                await toWait;
             }
             catch (TimeoutException)
             {
-                LoggingHelper.LogWarning($"SaveGameManager flush timed out after {timeout.TotalSeconds:F1}s; data may be lost."); // Timeout surfaced through helper.
+                // Surface the timeout via LoggingHelper so callers are aware
+                // that data may not have been persisted.
+                LoggingHelper.LogWarning($"SaveGameManager flush timed out after {timeout.TotalSeconds:F1}s; data may be lost.");
             }
         }
 

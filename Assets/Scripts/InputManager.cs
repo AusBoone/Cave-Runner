@@ -55,6 +55,10 @@ using TMPro; // TextMeshPro used for binding label updates
 /// explicitly.
 /// 2047 refactor: replaced direct Debug logging with <see cref="LoggingHelper"/>
 /// to centralise log gating across builds.
+/// 2048 fix: <c>RumbleRoutine</c> now validates the controller reference before
+/// starting and stopping vibration, exiting early if the pad becomes
+/// <c>null</c> to avoid null reference errors when a device disconnects mid
+/// rumble.
 /// </summary>
 public static class InputManager
 {
@@ -914,12 +918,32 @@ public static class InputManager
     }
 
     // Coroutine that applies rumble then resets the motor speeds on the
-    // specified controller.
+    // specified controller. The routine verifies the pad remains valid before
+    // each motor adjustment, allowing it to abort safely if the device
+    // disconnects mid-rumble.
     private static IEnumerator RumbleRoutine(Gamepad pad, float strength, float duration)
     {
+        // Guard against missing controllers. If the pad reference is null at the
+        // start, exit immediately so SetMotorSpeeds is never invoked on a
+        // destroyed device, preventing a NullReferenceException.
+        if (pad == null)
+        {
+            rumbleRoutine = null;
+            yield break;
+        }
+
         pad.SetMotorSpeeds(strength, strength);
         // Wait in realtime so pausing the game doesn't prolong vibration.
         yield return new WaitForSecondsRealtime(duration);
+
+        // The controller may have been disconnected while waiting. Verify the
+        // reference is still valid before attempting to stop rumble.
+        if (pad == null)
+        {
+            rumbleRoutine = null;
+            yield break;
+        }
+
         pad.SetMotorSpeeds(0f, 0f);
         // Mark the routine as finished so another rumble can start.
         rumbleRoutine = null;

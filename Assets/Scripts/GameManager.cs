@@ -109,6 +109,11 @@ using TMPro; // TextMeshPro provides TMP_Text for UI labels
 /// prefabs are encountered. This prevents runtime exceptions from
 /// misconfigured arrays and aids debugging during development.
 /// </remarks>
+/// <remarks>
+/// 2056 fix: aborts <see cref="StartGame"/> when the serialized player
+/// reference is missing. Exiting early prevents runs from starting and stops
+/// power-up spawns in misconfigured scenes.
+/// </remarks>
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -605,6 +610,16 @@ public class GameManager : MonoBehaviour
     /// </remarks>
     public void StartGame()
     {
+        // Validate the serialized player reference before any initialization.
+        // Without a player object there is no run to manage, so we log an error
+        // and exit to keep the game in its idle state. This early return also
+        // prevents power-up spawns that depend on the player's position.
+        if (playerObject == null)
+        {
+            LoggingHelper.LogError("StartGame: Player object reference not set. Aborting run.");
+            return; // Skip initialization entirely when misconfigured.
+        }
+
         // Always restore gravity before a new run in case the previous game
         // ended while flipped.
         if (gravityFlipped)
@@ -651,15 +666,7 @@ public class GameManager : MonoBehaviour
             LoggingHelper.LogError("StartGame: ShopManager missing; starting power-ups unavailable.");
         }
 
-        // Ensure the player reference exists so dependent logic operates safely.
-        if (playerObject == null)
-        {
-            // Without this reference, we cannot spawn power-ups or perform player-based logic.
-            // Even when verbose logging is disabled this critical error is
-            // surfaced so misconfigured scenes can be diagnosed.
-            LoggingHelper.LogError("StartGame: Player object reference not set. Skipping starting power-up spawn.");
-        }
-        else if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
+        if (startingCount > 0 && startingPowerUps != null && startingPowerUps.Length > 0)
         {
             // Filter out any null entries before selecting prefabs. Randomly
             // choosing a null would cause Instantiate to throw, so we build a

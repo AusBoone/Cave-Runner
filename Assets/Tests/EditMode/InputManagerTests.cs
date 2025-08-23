@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
+using System.Collections;
 
 /// <summary>
 /// Tests related to InputManager's controller bindings. Ensures that both
@@ -22,6 +23,9 @@ using UnityEngine.TestTools;
 /// connected gamepad, not just the current device.
 /// 2034 addition: validates that non-positive duration rumble requests are
 /// ignored, preventing redundant coroutine scheduling.
+/// 2035 addition: verifies rumble coroutines terminate cleanly when the
+/// controlling gamepad disconnects mid-execution, preventing lingering
+/// vibration or null reference errors.
 /// </summary>
 public class InputManagerTests
 {
@@ -288,6 +292,44 @@ public class InputManagerTests
         Assert.IsNull(field.GetValue(null), "Coroutine should complete even when paused");
         Time.timeScale = 1f;
         InputSystem.RemoveDevice(gamepad);
+    }
+
+    /// <summary>
+    /// If the gamepad disconnects while a rumble coroutine is waiting, the
+    /// routine should terminate without throwing and clear its reference so
+    /// subsequent rumbles can start safely.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator RumbleRoutine_StopsOnGamepadDisconnect()
+    {
+        var pad = InputSystem.AddDevice<Gamepad>();
+        InputManager.SetRumbleEnabled(true);
+
+        // Start a rumble long enough that we can simulate a disconnect before it
+        // completes naturally.
+        InputManager.TriggerRumble(0.5f, 0.1f);
+
+        FieldInfo field = typeof(InputManager).GetField(
+            "rumbleRoutine", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field.GetValue(null),
+            "Rumble routine should be active before disconnect");
+
+        // Remove the device to mimic an unexpected unplug.
+        InputSystem.RemoveDevice(pad);
+
+        // Wait a few frames for the coroutine to observe the missing pad and
+        // exit. The loop guards against an infinite wait if the routine fails to
+        // terminate.
+        for (int i = 0; i < 10 && field.GetValue(null) != null; i++)
+            yield return null;
+
+        Assert.IsNull(field.GetValue(null),
+            "Rumble routine should stop when the gamepad disconnects");
+
+        // Reset InputManager so later tests start with a clean environment.
+        InputManager.Shutdown();
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+            typeof(InputManager).TypeHandle);
     }
 
     /// <summary>

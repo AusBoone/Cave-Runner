@@ -19,6 +19,8 @@ using UnityEngine.Networking;
 // localized explanations for each failure mode. Missing or insecure service
 // URLs now trigger a NetworkError so callers can uniformly handle configuration
 // problems as connectivity failures.
+// 2047 refactor: all Debug logging replaced with LoggingHelper to honour
+// project-wide verbosity settings.
 
 /// <summary>
 /// Client for a simple REST-based leaderboard service used when Steamworks
@@ -157,14 +159,14 @@ public class LeaderboardClient : MonoBehaviour
             if (!success && ++attempt < maxRetries)
             {
                 float delay = Mathf.Pow(2, attempt);
-                Debug.LogWarning($"Retrying score upload in {delay:F0}s (attempt {attempt + 1}/{maxRetries})");
+                LoggingHelper.LogWarning($"Retrying score upload in {delay:F0}s (attempt {attempt + 1}/{maxRetries})"); // Use helper so retry info respects verbose gating.
                 yield return new WaitForSeconds(delay);
             }
         }
 
         if (!success)
         {
-            Debug.LogWarning("Failed to upload score to leaderboard");
+            LoggingHelper.LogWarning("Failed to upload score to leaderboard"); // Central helper ensures message gating.
             // Surface the specific error to the UI so a localized message can
             // be displayed instead of silently failing.
             UIManager.Instance?.ShowLeaderboardError(lastError);
@@ -217,7 +219,7 @@ public class LeaderboardClient : MonoBehaviour
                 if (!success && ++attempt < maxRetries)
                 {
                     float delay = Mathf.Pow(2, attempt);
-                    Debug.LogWarning($"Retrying score download in {delay:F0}s (attempt {attempt + 1}/{maxRetries})");
+                    LoggingHelper.LogWarning($"Retrying score download in {delay:F0}s (attempt {attempt + 1}/{maxRetries})"); // Consistent logging for retries.
                     yield return new WaitForSeconds(delay);
                 }
             }
@@ -336,27 +338,27 @@ public class LeaderboardClient : MonoBehaviour
                 {
                     if (status >= 400 && status < 500)
                     {
-                        Debug.LogWarning($"Client error {status} during leaderboard request: {req.error}");
+                        LoggingHelper.LogWarning($"Client error {status} during leaderboard request: {req.error}"); // Client-side HTTP issue surfaced.
                     }
                     else if (status >= 500)
                     {
-                        Debug.LogWarning($"Server error {status} during leaderboard request: {req.error}");
+                        LoggingHelper.LogWarning($"Server error {status} during leaderboard request: {req.error}"); // Server responded with error status.
                     }
                     else
                     {
-                        Debug.LogWarning("Leaderboard request failed: " + req.error);
+                        LoggingHelper.LogWarning("Leaderboard request failed: " + req.error); // Network failure logged via helper.
                     }
                 }
                 else
                 {
-                    Debug.LogWarning("Leaderboard request failed: " + req.error);
+                    LoggingHelper.LogWarning("Leaderboard request failed: " + req.error); // Fallback when response code unavailable.
                 }
             }
         }
         catch (System.Exception ex)
         {
             code = ErrorCode.NetworkError;
-            Debug.LogWarning("Leaderboard request failed: " + ex.Message);
+            LoggingHelper.LogWarning("Leaderboard request failed: " + ex.Message); // Exception from request pipeline.
         }
 
         callback?.Invoke(success, text, code);
@@ -381,7 +383,7 @@ public class LeaderboardClient : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            Debug.LogWarning("Failed to parse leaderboard JSON: " + ex.Message);
+            LoggingHelper.LogWarning("Failed to parse leaderboard JSON: " + ex.Message); // Parsing error surfaced.
         }
         return new List<ScoreEntry>();
     }
@@ -399,14 +401,14 @@ public class LeaderboardClient : MonoBehaviour
         // an undefined service endpoint.
         if (string.IsNullOrWhiteSpace(serviceUrl))
         {
-            Debug.LogError("Leaderboard serviceUrl must be a HTTPS URL but is empty.");
+            LoggingHelper.LogError("Leaderboard serviceUrl must be a HTTPS URL but is empty."); // Use helper for critical misconfiguration.
             return false;
         }
 
         // Only allow HTTPS to avoid insecure HTTP traffic.
         if (!serviceUrl.TrimStart().StartsWith("https://"))
         {
-            Debug.LogError("Leaderboard serviceUrl must use HTTPS: " + serviceUrl);
+            LoggingHelper.LogError("Leaderboard serviceUrl must use HTTPS: " + serviceUrl); // Force secure connections.
             return false;
         }
 

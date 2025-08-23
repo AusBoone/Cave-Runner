@@ -8,6 +8,8 @@ using System.Collections.Generic;
 /// increases a gameplay value such as power-up duration. Supported upgrades
 /// include extending magnet, speed boost, and shield times, modifying the base
 /// scroll speed, granting starting power-ups and adding a coin value bonus.
+/// 2047 refactor: direct Debug logging swapped for LoggingHelper to centralise
+/// verbose control.
 /// </summary>
 public class ShopManager : MonoBehaviour
 {
@@ -113,7 +115,7 @@ public class ShopManager : MonoBehaviour
                 return up;
             }
         }
-        Debug.LogWarning("Upgrade not configured: " + type);
+        LoggingHelper.LogWarning("Upgrade not configured: " + type); // Helper enforces global log gating.
         return new UpgradeData { type = type, cost = 0, effect = 0f };
     }
 

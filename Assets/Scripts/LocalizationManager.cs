@@ -6,6 +6,8 @@
 // translations. The manager exposes methods to change the active language and
 // retrieve strings by key. Missing keys return the key itself so callers can
 // detect untranslated values.
+// 2047 refactor: moved direct Debug logging to LoggingHelper for unified
+// verbosity control.
 // -----------------------------------------------------------------------------
 
 using System.Collections.Generic;
@@ -82,7 +84,7 @@ public static class LocalizationManager
         TextAsset asset = Resources.Load<TextAsset>($"{ResourcesPath}/{language}");
         if (asset == null)
         {
-            Debug.LogWarning($"Localization file not found for language '{language}'.");
+            LoggingHelper.LogWarning($"Localization file not found for language '{language}'."); // Use helper so missing files respect verbose flag.
             return;
         }
         try
@@ -101,7 +103,7 @@ public static class LocalizationManager
         }
         catch (System.Exception ex)
         {
-            Debug.LogError("Failed to parse localization JSON: " + ex.Message);
+            LoggingHelper.LogError("Failed to parse localization JSON: " + ex.Message); // Route errors through helper for consistency.
         }
     }
 

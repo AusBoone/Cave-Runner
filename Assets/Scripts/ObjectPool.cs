@@ -23,6 +23,9 @@ using System.Collections.Generic;
  *   counter replaces reliance on <c>transform.childCount</c> so only objects
  *   created by this pool contribute toward <see cref="maxSize"/> and is
  *   decremented when an instance is destroyed.
+ * 2047 refactor:
+ *   - Replaced Debug warnings with LoggingHelper so messages honour global
+ *     verbosity settings.
  */
 
 /// <summary>
@@ -102,7 +105,7 @@ public class ObjectPool : MonoBehaviour
         // remains empty until fixed.
         if (prefab == null)
         {
-            Debug.LogWarning($"{nameof(ObjectPool)} on {name} has no prefab assigned; no objects were preloaded.");
+            LoggingHelper.LogWarning($"{nameof(ObjectPool)} on {name} has no prefab assigned; no objects were preloaded."); // Warn through helper so gating applies.
             return;
         }
 
@@ -158,7 +161,7 @@ public class ObjectPool : MonoBehaviour
         // otherwise block expansion.
         if (maxSize > 0 && pooledInstanceCount >= maxSize)
         {
-            Debug.LogWarning($"{nameof(ObjectPool)} on {name} cannot expand beyond max size of {maxSize}.");
+            LoggingHelper.LogWarning($"{nameof(ObjectPool)} on {name} cannot expand beyond max size of {maxSize}."); // Helper maintains consistent warning policy.
             return null;
         }
 
@@ -201,7 +204,7 @@ public class ObjectPool : MonoBehaviour
         // a potential null reference exception in callers.
         if (prefab == null)
         {
-            Debug.LogWarning($"{nameof(ObjectPool)} on {name} cannot spawn because prefab is not assigned.");
+            LoggingHelper.LogWarning($"{nameof(ObjectPool)} on {name} cannot spawn because prefab is not assigned."); // Uses helper to respect verbosity flag.
             return null;
         }
 
@@ -257,7 +260,7 @@ public class ObjectPool : MonoBehaviour
         {
             // Warn developers about the misuse and destroy the object to keep
             // the pool's internal state consistent and free of foreign entries.
-            Debug.LogWarning($"{nameof(ObjectPool)} on {name} received an object that does not belong to this pool; destroying to maintain integrity.");
+            LoggingHelper.LogWarning($"{nameof(ObjectPool)} on {name} received an object that does not belong to this pool; destroying to maintain integrity."); // Central logging for integrity warnings.
             Destroy(obj);
         }
     }

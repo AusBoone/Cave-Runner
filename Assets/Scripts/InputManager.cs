@@ -53,6 +53,8 @@ using TMPro; // TextMeshPro used for binding label updates
 /// <c>InitRumbleHost</c> wrapper so the runtime initialization attribute can be
 /// used while still allowing callers to specify a <see cref="Gamepad"/>
 /// explicitly.
+/// 2047 refactor: replaced direct Debug logging with <see cref="LoggingHelper"/>
+/// to centralise log gating across builds.
 /// </summary>
 public static class InputManager
 {
@@ -157,7 +159,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {JumpBindingPref}. Falling back to default '<Keyboard>/space'.");
+            LoggingHelper.LogWarning($"Invalid binding for {JumpBindingPref}. Falling back to default '<Keyboard>/space'."); // Use central helper so warnings respect verbose flag.
             jumpAction.AddBinding("<Keyboard>/space");
         }
         // Generic path covers any gamepad type.
@@ -178,7 +180,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {SlideBindingPref}. Falling back to default '<Keyboard>/leftCtrl'.");
+            LoggingHelper.LogWarning($"Invalid binding for {SlideBindingPref}. Falling back to default '<Keyboard>/leftCtrl'."); // LoggingHelper ensures build-time gating.
             slideAction.AddBinding("<Keyboard>/leftCtrl");
         }
         slideAction.AddBinding("<Gamepad>/buttonEast");
@@ -196,7 +198,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {DownBindingPref}. Falling back to default '<Keyboard>/s'.");
+            LoggingHelper.LogWarning($"Invalid binding for {DownBindingPref}. Falling back to default '<Keyboard>/s'."); // Centralised logging keeps warnings consistent.
             downAction.AddBinding("<Keyboard>/s");
         }
         downAction.AddBinding("<Gamepad>/leftStick/down");
@@ -215,7 +217,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {PauseBindingPref}. Falling back to default '<Keyboard>/escape'.");
+            LoggingHelper.LogWarning($"Invalid binding for {PauseBindingPref}. Falling back to default '<Keyboard>/escape'."); // Use helper so logs honour verbose setting.
             pauseAction.AddBinding("<Keyboard>/escape");
         }
         pauseAction.AddBinding("<Gamepad>/start");
@@ -235,7 +237,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {MoveLeftBindingPref}. Falling back to default '<Keyboard>/a'.");
+            LoggingHelper.LogWarning($"Invalid binding for {MoveLeftBindingPref}. Falling back to default '<Keyboard>/a'."); // Maintains unified logging pipeline.
             wasd.With("Negative", "<Keyboard>/a");
         }
         try
@@ -245,7 +247,7 @@ public static class InputManager
         }
         catch (System.Exception)
         {
-            Debug.LogWarning($"Invalid binding for {MoveRightBindingPref}. Falling back to default '<Keyboard>/d'.");
+            LoggingHelper.LogWarning($"Invalid binding for {MoveRightBindingPref}. Falling back to default '<Keyboard>/d'."); // Ensures gating is applied to warnings.
             wasd.With("Positive", "<Keyboard>/d");
         }
         var arrows = moveAction.AddCompositeBinding("1DAxis");

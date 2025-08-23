@@ -5,7 +5,9 @@
   environment. This guide covers required packages, optional tooling, save
   encryption variables, and platform-specific configuration steps. Maintainers
   updated this file to document save file encryption keys so new contributors
-  can easily secure local builds.
+  can easily secure local builds. This revision also highlights persistence
+  directory permissions and common I/O troubleshooting tips so developers avoid
+  save failures.
 -->
 
 # Developer Setup
@@ -46,9 +48,27 @@ Consider installing the following to streamline development:
 3. If prompted, create Addressables settings. Mark assets as addressable from the inspector and organize them into groups.
 4. Build the addressable content via **Build > New Build > Default Build Script** to generate runtime data.
 
+## Persistent Data Path Permissions
+Unity stores save files in [`Application.persistentDataPath`](https://docs.unity3d.com/ScriptReference/Application-persistentDataPath.html).
+Verify that the editor or built game can write to this location; otherwise,
+serialization and optional encryption will fail. If you require secure storage,
+configure the AES keys described in [Save Encryption](#save-encryption).
+
+### I/O Permission Troubleshooting
+- **`UnauthorizedAccessException`** – On Windows, the path may point inside
+  **Program Files** or another protected directory. Move the project to a
+  user-writable folder or run Unity with administrative privileges.
+- **Read-only file system** – On macOS or Linux, inspect permissions with
+  `ls -ld <path>` and adjust via `chmod` or relocate the project from
+  read-only volumes.
+- **Editor cannot write to path** – Avoid opening the project directly from a
+  compressed archive or network share that enforces read-only mode.
+
 ## Save Encryption
-The game encrypts serialized save data using AES when both of the following
-environment variables are present:
+When `CR_AES_KEY` and `CR_AES_IV` are provided, the game encrypts serialized
+save data written to `Application.persistentDataPath`. Omit these variables if
+plaintext saves suffice. Both of the following environment variables must be
+present:
 
 - `CR_AES_KEY` – Base64 string representing **32 bytes** (256‑bit key).
 - `CR_AES_IV` – Base64 string representing **16 bytes** (initialization vector).

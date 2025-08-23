@@ -569,6 +569,81 @@ public class SaveGameManagerTests
     }
 
     /// <summary>
+    /// Verifies that <see cref="SaveGameManager.FlushPendingSavesAsync"/>
+    /// respects the provided timeout by returning promptly and logging a
+    /// warning when pending writes exceed the allotted duration.
+    /// </summary>
+    [Test]
+    public void FlushPendingSavesAsync_TimesOut()
+    {
+        var mgr = CreateManager<SaveGameManager>("save");
+
+        // Set up a long-running processing task to simulate a save that stalls.
+        var delayTask = Task.Delay(TimeSpan.FromSeconds(5));
+        FieldInfo lockField = typeof(SaveGameManager).GetField("queueLock", BindingFlags.NonPublic | BindingFlags.Instance);
+        FieldInfo procField = typeof(SaveGameManager).GetField("processingTask", BindingFlags.NonPublic | BindingFlags.Instance);
+        object qLock = lockField.GetValue(mgr);
+        lock (qLock)
+        {
+            procField.SetValue(mgr, delayTask);
+        }
+
+        // Expect a warning indicating the timeout occurred.
+        LogAssert.Expect(LogType.Warning, new Regex("SaveGameManager flush timed out"));
+
+        // Invoke the flush with a very short timeout and ensure it returns
+        // quickly rather than waiting the full delay duration.
+        MethodInfo flush = typeof(SaveGameManager).GetMethod("FlushPendingSavesAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        var timer = Stopwatch.StartNew();
+        var task = (Task)flush.Invoke(mgr, new object[] { TimeSpan.FromMilliseconds(100) });
+        task.GetAwaiter().GetResult();
+        timer.Stop();
+        Assert.Less(timer.ElapsedMilliseconds, 500, "Flush should respect timeout and return promptly.");
+
+        // The simulated save should still be running because the flush timed out.
+        Assert.IsFalse(delayTask.IsCompleted, "Stalled save task should continue running after timeout.");
+
+        Object.DestroyImmediate(mgr.gameObject);
+    }
+
+    /// <summary>
+    /// Ensures <see cref="SaveGameManager.FlushPendingSavesAsync"/> waits for the
+    /// processing task when it completes within the timeout and that no warning
+    /// is emitted in this success case.
+    /// </summary>
+    [Test]
+    public void FlushPendingSavesAsync_CompletesBeforeTimeout()
+    {
+        var mgr = CreateManager<SaveGameManager>("save");
+
+        // Simulate a short pending save operation.
+        var delayTask = Task.Delay(50);
+        FieldInfo lockField = typeof(SaveGameManager).GetField("queueLock", BindingFlags.NonPublic | BindingFlags.Instance);
+        FieldInfo procField = typeof(SaveGameManager).GetField("processingTask", BindingFlags.NonPublic | BindingFlags.Instance);
+        object qLock = lockField.GetValue(mgr);
+        lock (qLock)
+        {
+            procField.SetValue(mgr, delayTask);
+        }
+
+        MethodInfo flush = typeof(SaveGameManager).GetMethod("FlushPendingSavesAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        var timer = Stopwatch.StartNew();
+        var task = (Task)flush.Invoke(mgr, new object[] { TimeSpan.FromSeconds(2) });
+        task.GetAwaiter().GetResult();
+        timer.Stop();
+
+        // The call should wait at least as long as the delay to ensure the
+        // processing task completed rather than timing out.
+        Assert.GreaterOrEqual(timer.ElapsedMilliseconds, 50, "Flush should wait for the save task to finish.");
+        Assert.IsTrue(delayTask.IsCompleted, "Processing task should complete within timeout.");
+
+        // No warning should be produced in the successful path.
+        LogAssert.NoUnexpectedReceived();
+
+        Object.DestroyImmediate(mgr.gameObject);
+    }
+
+    /// <summary>
     /// Modifying the payload without updating the stored checksum should be
     /// detected and result in a reset to default values rather than loading the
     /// tampered data.

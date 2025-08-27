@@ -1,0 +1,13 @@
+{
+    "name": "CaveRunner.EditModeTests",
+    "references": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "defineConstraints": [
+        "ENABLE_INPUT_SYSTEM"
+    ]
+}

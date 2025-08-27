@@ -1,0 +1,32 @@
+{
+  "entries": [
+    {"key": "settings_language", "value": "Language"},
+    {"key": "settings_music_volume", "value": "Music Volume"},
+    {"key": "settings_effects_volume", "value": "Effects Volume"},
+    {"key": "settings_jump_key", "value": "Jump"},
+    {"key": "settings_slide_key", "value": "Slide"},
+    {"key": "settings_pause_key", "value": "Pause"},
+    {"key": "final_score_format", "value": "Score: {0}"},
+    {"key": "high_score_format", "value": "High Score: {0}"},
+    {"key": "coins_format", "value": "Coins: {0}"},
+    {"key": "percentage_format", "value": "{0}%"},
+    {"key": "ach_distance_1000_name", "value": "Traveler"},
+    {"key": "ach_distance_1000_desc", "value": "Travel 1000m in a single run."},
+    {"key": "ach_distance_5000_name", "value": "Marathon"},
+    {"key": "ach_distance_5000_desc", "value": "Travel 5000m in a single run."},
+    {"key": "ach_coins_50_name", "value": "Treasure Hunter"},
+    {"key": "ach_coins_50_desc", "value": "Collect 50 coins."},
+    {"key": "ach_coins_200_name", "value": "Gold Hoarder"},
+    {"key": "ach_coins_200_desc", "value": "Collect 200 coins."},
+    {"key": "ach_daily_complete_name", "value": "Daily Warrior"},
+    {"key": "ach_daily_complete_desc", "value": "Complete a daily challenge."},
+    {"key": "leaderboard_entry_format", "value": "{0}. {1} - {2}"},
+    {"key": "leaderboard_local_player", "value": "Local"},
+    {"key": "achievement_unlocked", "value": " (Unlocked)"},
+    {"key": "leaderboard_error_network", "value": "Network unreachable."},
+    {"key": "leaderboard_error_http", "value": "Server returned an error."},
+    {"key": "leaderboard_error_certificate", "value": "Certificate validation failed."},
+    {"key": "leaderboard_error_timeout", "value": "Request timed out."},
+    {"key": "leaderboard_error_unknown", "value": "Failed to load leaderboard."}
+  ]
+}

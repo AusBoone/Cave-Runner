@@ -1,0 +1,32 @@
+{
+  "entries": [
+    {"key": "settings_language", "value": "Idioma"},
+    {"key": "settings_music_volume", "value": "Volumen de Música"},
+    {"key": "settings_effects_volume", "value": "Volumen de Efectos"},
+    {"key": "settings_jump_key", "value": "Saltar"},
+    {"key": "settings_slide_key", "value": "Deslizar"},
+    {"key": "settings_pause_key", "value": "Pausa"},
+    {"key": "final_score_format", "value": "Puntuación: {0}"},
+    {"key": "high_score_format", "value": "Récord: {0}"},
+    {"key": "coins_format", "value": "Monedas: {0}"},
+    {"key": "percentage_format", "value": "{0}%"},
+    {"key": "ach_distance_1000_name", "value": "Viajero"},
+    {"key": "ach_distance_1000_desc", "value": "Recorre 1000 m en una sola partida."},
+    {"key": "ach_distance_5000_name", "value": "Maratón"},
+    {"key": "ach_distance_5000_desc", "value": "Recorre 5000 m en una sola partida."},
+    {"key": "ach_coins_50_name", "value": "Cazador de Tesoros"},
+    {"key": "ach_coins_50_desc", "value": "Consigue 50 monedas."},
+    {"key": "ach_coins_200_name", "value": "Acaparador de Oro"},
+    {"key": "ach_coins_200_desc", "value": "Consigue 200 monedas."},
+    {"key": "ach_daily_complete_name", "value": "Guerrero Diario"},
+    {"key": "ach_daily_complete_desc", "value": "Completa un desafío diario."},
+    {"key": "leaderboard_entry_format", "value": "{0}. {1} - {2}"},
+    {"key": "leaderboard_local_player", "value": "Local ES"},
+    {"key": "achievement_unlocked", "value": " (Desbloqueado)"},
+    {"key": "leaderboard_error_network", "value": "Red inaccesible."},
+    {"key": "leaderboard_error_http", "value": "El servidor devolvió un error."},
+    {"key": "leaderboard_error_certificate", "value": "Falló la validación del certificado."},
+    {"key": "leaderboard_error_timeout", "value": "La solicitud excedió el tiempo."},
+    {"key": "leaderboard_error_unknown", "value": "No se pudo cargar la tabla de clasificación."}
+  ]
+}
